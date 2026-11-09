@@ -27,7 +27,7 @@ A locally verified slice does not imply parity with every Jellyfin behavior.
 | Hardware SDR decode/scale/encode | Implemented | QSV/VAAPI/NVENC runtime smoke selection and CPU retry; physical GPU tests pending |
 | Hardware HDR tone mapping | Missing | Separate N100 driver/codec/quality acceptance required |
 | Personal collections and ordered playlists | Verified slice | API ordering/ownership/conflicts plus browser persistence; shared/smart collections missing |
-| Persistent playback queues | Verified slice | Ordering/cursor API, browser auto-next and reload passed; multi-client coordination missing |
+| Persistent playback queues | Verified slice | Atomic cursor conflicts, offline/revoked-entry preservation and restart tested on N100; nine desktop browser cases passed; broader session coordination missing |
 | Backup/restore and rollback | Verified slice | Live WAL snapshot preserves list expansion and revokes restored sessions; deployment drill pending |
 | Desktop web | Partial | Automated browser results recorded separately; accessibility and larger codec/device matrix pending |
 | Mobile web | Partial | Responsive UI exists; real iOS/Android acceptance pending |

@@ -33,16 +33,24 @@ function clientCapabilities():ClientCapabilities {
 async function loadLists(){savedLists=await api('lists');}
 async function selectList(id:number){activeList=await api('lists/'+id);section='lists';}
 async function writeList(list:MediaList,entries:MediaListEntry[],cursor=list.cursor){
+ if(list.entries.length!==list.entry_count)throw Error('Some saved titles are unavailable. Restore access before editing this list.');
  const result=await api('lists/'+list.id,'PUT',{Kind:list.kind,Name:list.name,ItemIDs:entries.map(e=>e.item.id),Revision:list.revision,Cursor:cursor});
- const updated={...list,revision:result.revision,cursor,entries:entries.map((e,position)=>({...e,position}))};
+ const updated={...list,revision:result.revision,cursor,entry_count:entries.length,entries:entries.map((e,position)=>({...e,position}))};
  if(activeList?.id===list.id)activeList=updated;if(playingQueue?.id===list.id)playingQueue=updated;await loadLists();return updated;
 }
 async function createList(){const result=await api('lists','POST',{Kind:newListKind,Name:newListName,ItemIDs:[]});newListName='';await loadLists();await selectList(result.id);}
 async function addToList(){if(!selected||!targetListID)return;const list:MediaList=await api('lists/'+targetListID);if(list.kind==='collection'&&list.entries.some(e=>e.item.id===selected?.id)){notice='Already in this collection.';return;}await writeList(list,[...list.entries,{position:list.entries.length,item:selected}]);notice='Added to '+list.name+'.';}
 async function moveEntry(index:number,direction:number){if(!activeList)return;const entries=[...activeList.entries],other=index+direction;if(other<0||other>=entries.length)return;[entries[index],entries[other]]=[entries[other],entries[index]];await writeList(activeList,entries,0);}
 async function removeEntry(index:number){if(activeList)await writeList(activeList,activeList.entries.filter((_,i)=>i!==index),0);}
-async function playEntry(list:MediaList,entry:MediaListEntry){if(list.kind==='queue'){const index=list.entries.findIndex(e=>e.position===entry.position);playingQueue=await writeList(list,list.entries,index);}else playingQueue=null;await open(entry.item,list.kind==='queue');}
-async function ended(){await save();if(!playingQueue)return;const queue=playingQueue;const next=queue.entries.find(e=>e.position>queue.cursor);playingQueue=await writeList(queue,queue.entries,next?.position??queue.entries.length);if(next)await open(next.item,true);else notice='Queue finished.';}
+async function moveCursor(list:MediaList,cursor:number){
+ const result=await api('lists/'+list.id+'/cursor','PUT',{Revision:list.revision,Cursor:cursor});
+ const updated:MediaList=await api('lists/'+list.id);
+ if(updated.revision!==result.revision)throw Error('Queue changed in another client. Resume the queue to continue.');
+ if(activeList?.id===list.id)activeList=updated;
+ await loadLists();return updated;
+}
+async function playEntry(list:MediaList,entry:MediaListEntry){if(list.kind==='queue')playingQueue=await moveCursor(list,entry.position);else playingQueue=null;await open(entry.item,list.kind==='queue');}
+async function ended(){await save();if(!playingQueue)return;const queue:MediaList=await api('lists/'+playingQueue.id);if(queue.revision!==playingQueue.revision)throw Error('Queue changed in another client. Resume the queue to continue.');const next=queue.entries.find(e=>e.position>queue.cursor);playingQueue=await moveCursor(queue,next?.position??queue.cursor+1);if(next)await open(next.item,true);else notice='Queue finished.';}
 function textSubtitle(codec:string){return ['subrip','ass','ssa','webvtt','mov_text','text'].includes(codec);}
 async function browseShow(show:Series){section='library';seriesFilter=show.name;library=String(show.library_id);season='';offset=0;await load();}
 async function mark(item:Item){await api('items/'+item.id+'/progress','PUT',{Position:item.position,Watched:!item.watched});item.watched=!item.watched;await load();}

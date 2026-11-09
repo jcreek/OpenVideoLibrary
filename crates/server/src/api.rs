@@ -44,6 +44,7 @@ pub fn routes(app: Arc<App>) -> Router {
         .route("/playback/{session}", axum::routing::delete(playback::stop))
         .route("/capabilities", get(media::capabilities))
         .route("/lists", get(lists::all).post(lists::create))
+        .route("/lists/{id}/cursor", put(lists::cursor))
         .route(
             "/lists/{id}",
             get(lists::one).put(lists::update).delete(lists::delete),

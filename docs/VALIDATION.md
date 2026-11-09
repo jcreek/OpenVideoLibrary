@@ -56,3 +56,25 @@ and packaging definitions exist; GitHub CI has not run on this unpublished branc
 The web build retains lazy HLS loading; its HLS chunk produces Vite's >500 kB
 warning. npm reports three low-severity development dependency findings. No
 zero-finding audit, full parity or stable-release certification is claimed.
+
+## Migration continuation audit
+
+The supplied preview was imported on `rust-migration`; the remote had no branches.
+The initial audit re-ran formatting and the normal Rust suite (12 passed, two media
+tests ignored). The cursor regression adds simultaneous-write, offline-file,
+revoked-grant and restart coverage: 13 non-media tests pass on the Intel N100 over
+SSH. Both explicitly enabled software-media tests also pass there with FFmpeg
+6.1.1, and locally using the existing FFmpeg 6.0 tool installation. These are CPU
+checks, separate from physical acceleration acceptance.
+
+The queue client now uses a revision-checked cursor endpoint, retains hidden
+entries, uses persisted positions and refuses replacement edits of a filtered
+list. Nine browser cases passed (the original two plus offline-entry preservation
+in each of Chrome, Firefox and Playwright WebKit). Python regressions: three
+passed. Web check/build and normal Clippy passed; the lazy HLS chunk warning and
+three low-severity npm findings remain.
+
+The N100 workspace is isolated from the historical application. Its SMB mount is
+host-mounted read/write; the Rust tests do not write media, and deployment must
+still expose it read-only. No host remount, shared cache eviction, unrelated
+Docker cleanup, or household service restart was performed.

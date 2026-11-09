@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {spawn,execFileSync,type ChildProcess} from 'node:child_process';
-import {mkdtempSync,mkdirSync,rmSync,writeFileSync,copyFileSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,rmSync,writeFileSync,copyFileSync,renameSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 let server:ChildProcess,root:string,media:string;
@@ -55,4 +55,27 @@ test('persistent queue ordering and automatic next episode',async({page})=>{
  await page.locator('video').evaluate((v:HTMLVideoElement)=>{v.currentTime=v.duration-.2;v.play();});await expect(page.locator('.player h2')).toHaveText(titles[1]);
  const saved=await (await page.request.get('/api/v1/lists/'+queue.id)).json();expect(saved.cursor).toBe(1);expect(saved.entries).toHaveLength(2);
  await page.reload();await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();await page.getByRole('button',{name:'Evening queue · queue',exact:true}).click();await expect(page.locator('ol li')).toHaveCount(2);await expect(page.getByRole('button',{name:'Resume queue',exact:true})).toBeVisible();
+});
+
+
+test('queue preserves offline entries and saved positions',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length){
+  expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Queue TV',Path:media,Kind:'tv'}})).status()).toBe(201);await page.request.post('/api/v1/scan',{headers});
+  await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ }
+ const titles=(await (await page.request.get('/api/v1/items')).json()).sort((a:{episode:number},b:{episode:number})=>a.episode-b.episode);
+ const created=await page.request.post('/api/v1/lists',{headers,data:{Kind:'queue',Name:'Offline queue',ItemIDs:titles.map((i:{id:number})=>i.id)}});expect(created.status()).toBe(201);const {id}=await created.json();
+ const original=join(media,'Example.S01E01.mp4'),offline=original+'.offline';renameSync(original,offline);
+ try{
+  await page.goto('/');await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();await page.getByRole('button',{name:'Offline queue · queue',exact:true}).click();
+  await expect(page.locator('ol li')).toHaveCount(1);
+  await page.getByRole('button',{name:'Remove',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Some saved titles are unavailable');
+  await page.getByRole('button',{name:'Play queue from here',exact:true}).click();await expect(page.locator('.player h2')).toHaveText(titles[1].title);
+  const saved=await (await page.request.get('/api/v1/lists/'+id)).json();expect(saved.cursor).toBe(1);expect(saved.entry_count).toBe(2);expect(saved.entries[0].position).toBe(1);
+  await page.getByRole('button',{name:'Close player',exact:true}).click();
+ }finally{renameSync(offline,original);}
+ const recovered=await (await page.request.get('/api/v1/lists/'+id)).json();expect(recovered.entries).toHaveLength(2);expect(recovered.cursor).toBe(1);
 });

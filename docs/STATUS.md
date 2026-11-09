@@ -27,7 +27,7 @@ Svelte client; it is not full Jellyfin parity or a stable release. See
 - Bounded process output, deadlines, kill/reap on cancellation, storage reservations,
   sampled workspace quotas and idle cleanup. Shutdown waits for tracked work.
 - Personal collections, ordered playlists, persistent queue cursors, revision
-  conflicts, account ownership and current-access filtering; Svelte create/add/
+  conflicts, atomic cursor-only updates, account ownership and current-access filtering; Svelte create/add/
   remove/reorder/resume controls and automatic next-item queue playback.
 - Additive list tables preserve the v2 schema and existing backup format. Live WAL
   backup/verified fresh-directory restore preserve list data and revoke sessions.
@@ -69,3 +69,9 @@ Rust Linux image, multi-architecture build or deployment is certified from that 
 No full-parity, Jellyfin speedup, certified stream-capacity or stable-release claim
 has been established. Plugin selection and all later-stage acceptance are explicit
 follow-up work, tracked in the parity matrix rather than silently dropped.
+
+The continuation audit fixed filtered-queue entry loss and positional cursor
+errors. Queue cursor updates preserve offline/revoked entries and survive restart;
+concurrent updates are covered by a Linux N100 regression over SSH. See the
+continuation evidence in `VALIDATION.md`; this does not complete the later parity
+stages or production performance gates.

@@ -968,3 +968,153 @@ async fn login_rate_limit_and_unknown_fields_are_enforced() {
     );
     app.shutdown().await;
 }
+
+#[tokio::test]
+async fn queue_cursor_is_atomic_and_preserves_hidden_entries_across_restart() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let id = add_media(&app, root.path()).await;
+    let (_, viewer) = request(
+        &router,
+        "POST",
+        "/api/v1/users",
+        Some(&token),
+        Some(json!({"Name":"queue-viewer","Password":"test-password-123","Libraries":[1]})),
+    )
+    .await;
+    let viewer_id = viewer["id"].as_i64().unwrap();
+    let viewer_token = account(&router, "queue-viewer").await;
+    let (status, created) = request(
+        &router,
+        "POST",
+        "/api/v1/lists",
+        Some(&viewer_token),
+        Some(json!({"Kind":"queue","Name":"Persistent","ItemIDs":[id,id,id]})),
+    )
+    .await;
+    assert_eq!(status, 201);
+    let url = format!("/api/v1/lists/{}", created["id"]);
+    let cursor_url = format!("{url}/cursor");
+    let write = json!({"Revision":1,"Cursor":1});
+    let (first, second) = tokio::join!(
+        request(
+            &router,
+            "PUT",
+            &cursor_url,
+            Some(&viewer_token),
+            Some(write.clone())
+        ),
+        request(
+            &router,
+            "PUT",
+            &cursor_url,
+            Some(&viewer_token),
+            Some(write)
+        )
+    );
+    let mut statuses = [first.0.as_u16(), second.0.as_u16()];
+    statuses.sort();
+    assert_eq!(statuses, [200, 409]);
+    let file = root.path().join("media/Example.S01E01.mp4");
+    std::fs::rename(&file, file.with_extension("offline")).unwrap();
+    let (_, hidden) = request(&router, "GET", &url, Some(&viewer_token), None).await;
+    assert_eq!(hidden["entry_count"], 3);
+    assert_eq!(hidden["cursor"], 1);
+    assert!(hidden["entries"].as_array().unwrap().is_empty());
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &cursor_url,
+            Some(&viewer_token),
+            Some(json!({"Revision":2,"Cursor":2}))
+        )
+        .await
+        .0,
+        200
+    );
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &cursor_url,
+            Some(&token),
+            Some(json!({"Revision":3,"Cursor":0}))
+        )
+        .await
+        .0,
+        404
+    );
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &cursor_url,
+            Some(&viewer_token),
+            Some(json!({"Revision":3,"Cursor":4}))
+        )
+        .await
+        .0,
+        400
+    );
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &cursor_url,
+            Some(&viewer_token),
+            Some(json!({"Cursor":0}))
+        )
+        .await
+        .0,
+        400
+    );
+    request(
+        &router,
+        "PUT",
+        &format!("/api/v1/users/{viewer_id}/access"),
+        Some(&token),
+        Some(json!({"Libraries":[]})),
+    )
+    .await;
+    // Ownership authorizes a cursor change, but no hidden media information leaks.
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &cursor_url,
+            Some(&viewer_token),
+            Some(json!({"Revision":3,"Cursor":0}))
+        )
+        .await
+        .0,
+        200
+    );
+    app.shutdown().await;
+    drop(router);
+    drop(app);
+    let app = App::open(config(root.path())).unwrap();
+    let router = app.router();
+    let (_, hidden) = request(&router, "GET", &url, Some(&viewer_token), None).await;
+    assert_eq!(hidden["revision"], 4);
+    assert_eq!(hidden["cursor"], 0);
+    assert_eq!(hidden["entry_count"], 3);
+    assert!(hidden["entries"].as_array().unwrap().is_empty());
+    std::fs::rename(file.with_extension("offline"), &file).unwrap();
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &format!("/api/v1/users/{viewer_id}/access"),
+            Some(&token),
+            Some(json!({"Libraries":[1]}))
+        )
+        .await
+        .0,
+        200
+    );
+    let (_, saved) = request(&router, "GET", &url, Some(&viewer_token), None).await;
+    assert_eq!(saved["entries"].as_array().unwrap().len(), 3);
+    assert_eq!(saved["entries"][2]["position"], 2);
+    app.shutdown().await;
+}
