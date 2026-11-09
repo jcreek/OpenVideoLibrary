@@ -2204,6 +2204,27 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "color_primaries": {
+            "type": "string"
+          },
+          "color_space": {
+            "type": "string"
+          },
+          "pix_fmt": {
+            "type": "string"
+          },
+          "codec_tag_string": {
+            "type": "string"
+          },
+          "side_data_list": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaSideData"
+            }
+          },
+          "color_range": {
+            "type": "string"
           }
         },
         "required": [
@@ -2506,6 +2527,18 @@
         "required": [
           "Revision",
           "Cursor"
+        ],
+        "additionalProperties": false
+      },
+      "MediaSideData": {
+        "type": "object",
+        "properties": {
+          "side_data_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "side_data_type"
         ],
         "additionalProperties": false
       }

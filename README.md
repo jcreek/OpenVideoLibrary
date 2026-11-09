@@ -37,6 +37,7 @@ audio/subtitles, playback settings, personal collections/playlists and queues.
 | `OVL_MAX_STREAMS` | `2` | Maximum FFmpeg sessions, clamped to 64 |
 | `OVL_SECURE_COOKIES` | `false` | Set true behind HTTPS |
 | `OVL_ACCELERATOR` | `auto` | `auto`, `qsv`, `vaapi`, `nvenc`, `cpu` |
+| `OVL_HDR_ACCELERATOR` | unset (CPU) | Opt-in `vaapi` for guarded HDR10; CPU override wins |
 | `OVL_TRANSCODE_BYTES` | `4294967296` | Per-session workspace reservation/budget |
 | `OVL_MIN_FREE_BYTES` | `1073741824` | Free-space reserve |
 | `OVL_SCAN_INTERVAL` | `6h` | Reconciliation interval, minimum one minute |
@@ -45,8 +46,11 @@ audio/subtitles, playback settings, personal collections/playlists and queues.
 
 Hardware availability is established by bounded runtime encoder smoke tests,
 not capacity certification. SDR hardware attempts can retry software before HLS
-publication. HDR tone mapping and subtitle burn-in use bounded software pipelines;
-N100 GPU and hardware HDR acceptance remain pending for Rust.
+publication. HDR uses software by default; opt-in VAAPI HDR10 requires explicit
+color/frame metadata and a decoded-picture runtime probe. A synthetic N100 slice
+passes with an isolated full Intel driver; the installed free driver outputs black
+and is rejected. See [HDR acceptance and driver requirements](docs/HDR.md).
+Subtitle burn-in remains software.
 
 ## Docker and Nginx
 
@@ -61,7 +65,8 @@ Adjust the media bind mount in `compose.yaml`; it must retain `:ro`. The supplie
 Compose configuration requires HTTPS cookies and is intended for the existing
 TLS reverse proxy. For isolated local HTTP development set
 `OVL_SECURE_COOKIES=false`. See `docs/nginx.conf`. No image was published and the
-new multi-architecture Docker build has not yet been certified.
+native amd64/ARM64 image smoke checks pass for their recorded source snapshots.
+Production-host deployment and GPU-in-container acceptance remain open.
 
 ## Development and validation
 

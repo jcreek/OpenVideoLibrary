@@ -23,7 +23,11 @@ Svelte client; it is not full Jellyfin parity or a stable release. See
   subtitle burn-in, seek restart and explainable playback negotiation using client
   capability reports. HDR detection and bounded software tone mapping to BT.709.
 - QSV/VAAPI/NVENC runtime encoder smoke selection, SDR hardware decode/scale/encode
-  arguments and CPU retry before master publication. A short N100 VAAPI SDR graph passes synthetic frame/audio checks; other hardware paths remain unverified.
+  arguments and CPU retry before master publication. N100 VAAPI SDR has synthetic
+  frame/audio checks. Opt-in limited-range HDR10 tone mapping has calibrated
+  picture/seek/audio/API evidence with an isolated full Intel driver, and a runtime
+  picture probe rejects the installed silent-black driver. See `HDR.md`; other
+  hardware/HDR paths remain unverified.
 - Bounded process output, deadlines, kill/reap on cancellation, storage reservations,
   sampled workspace quotas and idle cleanup. Shutdown waits for tracked work.
 - Personal collections, ordered playlists, persistent queue cursors, revision
@@ -59,7 +63,8 @@ pending; these smoke checks do not certify full deployment or GPU behavior.
 - Real N100/SMB cold-cache, mixed/sustained load, LAN first-frame/seek/stall and
   concurrency measurements against the pinned Jellyfin baseline. Initial gates:
   browse/search p95 <150 ms and LAN direct first decoded frame <2 s.
-- Broader Intel and physical AMD/NVIDIA validation, hardware HDR pipelines, Dolby Vision and broader audio/subtitle/font/container/visual-quality coverage;
+- Broader Intel and physical AMD/NVIDIA validation, additional hardware HDR
+  pipelines, Dolby Vision and broader audio/subtitle/font/container/visual-quality coverage;
   synthetic PQ/HLG and a six-container software slice now pass.
 - Real mobile devices, additional desktop/browser codec coverage, accessibility,
   multi-client queue/session coordination and broader security/provider review.

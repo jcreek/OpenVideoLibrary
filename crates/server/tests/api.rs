@@ -815,6 +815,10 @@ async fn real_hdr_software_tone_mapping() {
         )
         .await;
         assert_eq!(probe["streams"][0]["color_transfer"], transfer);
+        assert_eq!(probe["streams"][0]["color_primaries"], "bt2020");
+        assert_eq!(probe["streams"][0]["color_space"], "bt2020nc");
+        assert_eq!(probe["streams"][0]["pix_fmt"], "yuv420p10le");
+        assert!(probe["streams"][0]["side_data_list"].is_array());
         let (status, session) = request(
             &router,
             "POST",
@@ -1463,6 +1467,7 @@ async fn stopping_an_owned_unavailable_stream_still_cleans_up() {
         touched: AtomicI64::new(auth::now()),
         finished: AtomicBool::new(false),
         error: tokio::sync::Mutex::new(None),
+        accelerator: tokio::sync::Mutex::new(None),
     });
     app.streams.lock().await.insert(stream_id.clone(), stream);
     app.tasks.spawn({
@@ -1833,4 +1838,66 @@ async fn broad_search_above_cache_cap_preserves_tail_results() {
         .await
         .unwrap();
     app.shutdown().await;
+}
+
+#[test]
+fn hdr_hardware_selection_requires_verified_color_metadata_and_opt_in() {
+    let mut info: media::Info = serde_json::from_value(json!({"streams":[{
+        "codec_type":"video","codec_name":"hevc","color_transfer":"smpte2084",
+        "color_primaries":"bt2020","color_space":"bt2020nc","color_range":"tv","pix_fmt":"yuv420p10le",
+        "side_data_list":[{"side_data_type":"Mastering display metadata"},{"side_data_type":"Content light level metadata"}]
+    }]})).unwrap();
+    let b = Playback {
+        mode: "transcode".into(),
+        ..Default::default()
+    };
+    assert!(
+        !playback::vaapi_hdr_eligible(&info, &b),
+        "unchecked frame metadata must not admit hardware"
+    );
+    info.streams[0].hdr_frame_metadata_checked = true;
+    assert!(playback::vaapi_hdr_eligible(&info, &b));
+    for changes in [
+        json!({"color_transfer":"arib-std-b67"}),
+        json!({"color_primaries":""}),
+        json!({"color_space":"bt709"}),
+        json!({"color_range":"pc"}),
+        json!({"color_range":""}),
+        json!({"pix_fmt":"yuv420p"}),
+        json!({"codec_name":"av1"}),
+        json!({"codec_tag_string":"dvh1"}),
+        json!({"side_data_list":[]}),
+        json!({"side_data_list":[{"side_data_type":"DOVI configuration record"},{"side_data_type":"Mastering display metadata"},{"side_data_type":"Content light level metadata"}]}),
+    ] {
+        let mut changed = serde_json::to_value(&info).unwrap();
+        for (key, value) in changes.as_object().unwrap() {
+            changed["streams"][0][key] = value.clone();
+        }
+        let mut changed: media::Info = serde_json::from_value(changed).unwrap();
+        changed.streams[0].hdr_frame_metadata_checked = true;
+        assert!(!playback::vaapi_hdr_eligible(&changed, &b));
+    }
+    assert!(!playback::vaapi_hdr_eligible(
+        &info,
+        &Playback {
+            subtitle: Some(0),
+            ..b.clone()
+        }
+    ));
+    assert!(!playback::vaapi_hdr_eligible(
+        &info,
+        &Playback {
+            mode: "remux".into(),
+            ..b
+        }
+    ));
+    for accelerator in ["auto", "vaapi"] {
+        assert!(ovl_server::hardware::wants_vaapi_hdr(accelerator, "vaapi"));
+    }
+    for accelerator in ["cpu", "qsv", "nvenc", ""] {
+        assert!(!ovl_server::hardware::wants_vaapi_hdr(accelerator, "vaapi"));
+    }
+    for hdr in ["", "auto", "cpu", "qsv", "nvenc"] {
+        assert!(!ovl_server::hardware::wants_vaapi_hdr("auto", hdr));
+    }
 }

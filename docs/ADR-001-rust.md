@@ -29,8 +29,12 @@ A tracked owner task kills and reaps on timeout, cancellation or dropped HTTP
 requests. Graceful shutdown waits for tracked work. FFmpeg uses two software
 encoder/filter threads per rendition. SDR hardware candidates are smoke-tested;
 failed hardware attempts retry software only before the master playlist exists.
-HDR tone mapping and subtitle burn-in use software. Hardware HDR requires a
-separate tested pipeline before it can be enabled.
+HDR tone mapping defaults to software; subtitle burn-in remains software. Opt-in
+VAAPI HDR10 admits only explicitly described limited-range PQ/BT.2020 HEVC with
+successful frame metadata inspection. A bounded decoded-picture probe rejects
+silent-black drivers before choosing hardware. The calibrated N100 slice passes
+with an isolated full driver; the system free driver is rejected. See `HDR.md`.
+This does not establish full HDR visual quality or GPU-in-container acceptance.
 
 Performance targets remain N100/SMB browse/search p95 <150 ms and LAN direct first
 frame <2 s. Additional playback budgets follow real measurements, without reducing

@@ -54,6 +54,7 @@ pub struct Stream {
     pub touched: AtomicI64,
     pub finished: AtomicBool,
     pub error: Mutex<Option<String>>,
+    pub accelerator: Mutex<Option<String>>,
 }
 #[derive(Clone, Debug)]
 pub struct Rendition {
@@ -245,6 +246,7 @@ pub async fn start(
         touched: AtomicI64::new(auth::now()),
         finished: AtomicBool::new(false),
         error: Mutex::new(None),
+        accelerator: Mutex::new(None),
     });
     streams.insert(id.clone(), stream.clone());
     drop(streams);
@@ -380,6 +382,46 @@ pub fn hardware_args(mut args: Vec<String>, name: &str, variants: &[Rendition]) 
     }
     args
 }
+/// Only this explicitly described HDR10 slice has a physical acceptance graph.
+/// Unknown color metadata, HLG, Dolby Vision and subtitle burn-in stay in software.
+pub fn vaapi_hdr_eligible(info: &Info, b: &Playback) -> bool {
+    b.mode == "transcode"
+        && b.subtitle.is_none()
+        && info.video().is_some_and(|v| {
+            v.codec_name == "hevc"
+                && v.color_transfer == "smpte2084"
+                && v.color_primaries == "bt2020"
+                && v.color_space == "bt2020nc"
+                && v.color_range == "tv"
+                && v.hdr_frame_metadata_checked
+                && v.pix_fmt == "yuv420p10le"
+                && !["dvhe", "dvh1"].contains(&v.codec_tag_string.as_str())
+                && !v.side_data_list.iter().any(|d| {
+                    let kind = d.side_data_type.to_ascii_lowercase();
+                    kind.contains("dovi") || kind.contains("dolby vision")
+                })
+                && v.side_data_list
+                    .iter()
+                    .any(|d| d.side_data_type == "Mastering display metadata")
+                && v.side_data_list
+                    .iter()
+                    .any(|d| d.side_data_type == "Content light level metadata")
+        })
+}
+/// Uses hardware decoding, tone mapping and scaling on VAAPI surfaces. The
+/// existing per-session limits, process ownership and pre-master fallback apply.
+pub fn vaapi_hdr_args(args: Vec<String>, variants: &[Rendition]) -> Vec<String> {
+    let mut args = hardware_args(args, "vaapi", variants);
+    for i in 0..args.len().saturating_sub(1) {
+        if args[i] == "-vf" {
+            args[i + 1] = format!(
+                "tonemap_vaapi=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709,{}",
+                args[i + 1]
+            );
+        }
+    }
+    args
+}
 async fn publish(dir: &std::path::Path, variants: &[Rendition]) -> bool {
     if tokio::fs::metadata(dir.join("index.m3u8")).await.is_ok() {
         return true;
@@ -422,13 +464,15 @@ async fn encode(
     b: Playback,
     info: Info,
 ) -> Result<()> {
-    // HDR and subtitle filters use the software pipeline until GPU equivalents
-    // pass corpus acceptance. SDR may use a smoke-tested hardware candidate.
-    let accelerator = if b.mode == "transcode" && !info.hdr() && b.subtitle.is_none() {
+    let accelerator = if vaapi_hdr_eligible(&info, &b) {
+        crate::hardware::select_hdr(app, &st.dir, &st.cancel).await?
+    } else if b.mode == "transcode" && !info.hdr() && b.subtitle.is_none() {
         crate::hardware::select(app).await?
     } else {
         None
     };
+    *st.accelerator.lock().await = accelerator.clone();
+    tracing::info!(accelerator=?accelerator,hdr=info.hdr(),"playback conversion path");
     let result = encode_attempt(
         app,
         st,
@@ -451,6 +495,7 @@ async fn encode(
                 tokio::fs::remove_file(entry.path()).await?;
             }
         }
+        *st.accelerator.lock().await = None;
         tracing::warn!(accelerator=?accelerator,"hardware conversion failed before publication; retrying CPU");
         return encode_attempt(app, st, path, b, info, None).await;
     }
@@ -485,7 +530,11 @@ async fn encode_attempt(
     }
     let mut args = encoding_args(&path, &b, &info, &variants);
     if let Some(name) = accelerator {
-        args = hardware_args(args, name, &variants);
+        args = if info.hdr() {
+            vaapi_hdr_args(args, &variants)
+        } else {
+            hardware_args(args, name, &variants)
+        };
     }
     let conversion = media::process(
         app,

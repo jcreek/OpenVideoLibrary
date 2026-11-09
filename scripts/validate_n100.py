@@ -31,10 +31,13 @@ def main():
     parser.add_argument('--key', required=True)
     parser.add_argument('--workspace', default='/home/ovlbench/ovl-rust-acceptance')
     parser.add_argument('--accelerator', choices=['vaapi', 'qsv', 'nvenc'], default='vaapi')
+    parser.add_argument('--vaapi-driver-path', help='Process-only isolated VAAPI driver override; does not install or replace system drivers')
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     if args.host.startswith('-') or not args.workspace.startswith('/') or args.workspace == '/':
         parser.error('host and absolute isolated workspace required')
+    if args.vaapi_driver_path and (args.accelerator != 'vaapi' or not args.vaapi_driver_path.startswith('/') or args.vaapi_driver_path == '/'):
+        parser.error('driver override requires VAAPI and an absolute isolated directory')
     key = str(Path(args.key).expanduser())
     ssh = ['ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
            '-o', 'IdentitiesOnly=yes', '-o', 'ConnectTimeout=5', '-i', key]
@@ -49,7 +52,7 @@ def main():
                    check=True, timeout=120)
     report = {'recorded_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'source_sha256': source_hash(), 'scope': 'SSH N100 Linux tests; no benchmark certification',
-              'checks': [], 'complete': False}
+              'driver_override': args.vaapi_driver_path, 'checks': [], 'complete': False}
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     checks = [
@@ -58,8 +61,15 @@ def main():
         ('clippy', 'cargo clippy --locked --workspace --all-targets --all-features -- -D warnings'),
         ('integration', 'cargo test --locked --workspace'),
         ('software-media', 'OVL_ACCELERATOR=cpu cargo test --locked --workspace -- --ignored'),
-        ('physical-sdr', 'OVL_ACCELERATOR=' + args.accelerator + ' cargo test --locked --features gpu-tests --test hardware -- --ignored --nocapture'),
+        ('physical-sdr', 'OVL_ACCELERATOR=' + args.accelerator + ' cargo test --locked --features gpu-tests --test hardware physical_sdr -- --ignored --nocapture'),
     ]
+    if args.accelerator == 'vaapi':
+        checks.append(('physical-hdr', 'OVL_ACCELERATOR=vaapi OVL_HDR_ACCELERATOR=vaapi cargo test --locked --features gpu-tests --test hardware physical_vaapi_hdr -- --ignored --nocapture'))
+    if args.vaapi_driver_path:
+        driver = args.vaapi_driver_path.rstrip('/') + '/iHD_drv_video.so'
+        checks.insert(1, ('driver-override', 'sha256sum ' + shlex.quote(driver)))
+        prefix = 'LIBVA_DRIVER_NAME=iHD LIBVA_DRIVERS_PATH=' + shlex.quote(args.vaapi_driver_path) + ' '
+        checks = [(name, prefix + command if name.startswith('physical-') else command) for name, command in checks]
     failed = False
     for name, command in checks:
         start = time.monotonic()

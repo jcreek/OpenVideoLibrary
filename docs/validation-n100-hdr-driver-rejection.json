@@ -1,0 +1,11 @@
+{
+  "recorded_utc": "2026-11-09T16:38:00.018773+00:00",
+  "scope": "Negative physical HDR check: reject installed free Intel media driver that encodes black output",
+  "source_sha256": "578d68c1ca1483ac4116b3890227b0a6eeeb9957f3e562e29ba01fc350eefb1f",
+  "driver": "system intel-media-va-driver 24.1.0+dfsg1-1ubuntu0.2, no process driver override",
+  "command": "cd /home/ovlbench/ovl-rust-acceptance/source && export PATH=\"$HOME/.cargo/bin:$PATH\" && env -u LIBVA_DRIVER_NAME -u LIBVA_DRIVERS_PATH OVL_EXPECT_HDR_REJECTION=true cargo test --locked --features gpu-tests --test hdr_driver_rejection -- --ignored --nocapture",
+  "exit_code": 0,
+  "stdout": "\nrunning 1 test\ntest physical_rejects_black_hdr_driver ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s\n\n",
+  "stderr": "   Compiling ovl-server v0.1.0 (/home/ovlbench/ovl-rust-acceptance/source/crates/server)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.73s\n     Running tests/hdr_driver_rejection.rs (target/debug/deps/hdr_driver_rejection-7b5763b0d2cc837b)\n",
+  "complete": true
+}

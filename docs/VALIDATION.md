@@ -1,6 +1,6 @@
 # Rust preview validation — 9 November 2026
 
-Current evidence is summarized in **Bounded search cache increment** below.
+Current evidence is summarized in **Guarded VAAPI HDR10 increment** below.
 Source hashes and platform scope belong to each captured artifact; historical
 application/prototype reports do not certify this implementation. The migration
 is published as draft PR #1; no registry image or stable release is published.
@@ -249,3 +249,52 @@ behavior inside those images. The separate verification job also passed,
 including Linux browser/software-media checks and the disposable Nginx/TLS
 backup/restore drill; `validation-nginx-linux.json` retains its artifact with
 source provenance. It remains an isolated CI drill, not the N100 deployment.
+
+## Guarded VAAPI HDR10 increment
+
+The current source passes local web install/check/build, format, all-target/all-
+feature Clippy, 24 normal API tests plus the real-socket shutdown test, three
+original CPU-media tests and the new CPU-only simulated-HDR-fault test, three
+Python regressions, contract regeneration, benchmark-crate check/format, nine
+Chrome/Firefox/WebKit cases and the disposable real Nginx/TLS restore drill.
+The latter records its binary hash in `validation-nginx.json`. The existing
+three low-severity development dependency findings and HLS bundle-size warning
+remain; no clean dependency audit is claimed.
+
+`validation-n100-hdr-full-driver.json` records the final-source SSH N100 run:
+format, Clippy, 24 normal API tests, socket shutdown, all four explicit CPU-media
+checks, physical SDR and physical HDR pass. Physical checks explicitly select the
+isolated full Intel driver; its path and SHA-256 are recorded. The HDR test checks
+actual PQ luminance/color tiles, first/middle/final frames, two output sizes,
+seeking, alternate audio, BT.709 tags, the runtime picture guard and authenticated
+playback. The API session records VAAPI rather than CPU fallback.
+
+`validation-n100-hdr-driver-rejection.json` separately passes the negative physical
+check against the installed free Intel media driver. `validation-n100-hdr-graphs.json`
+records seven successful encodes with black decoded output under that driver;
+`validation-n100-hdr-full-driver-graphs.json` records the same graphs with distinct
+luminance values using the isolated full driver. The initial metadata-guard failure
+is retained in `validation-n100-hdr-first.json`. An earlier exit/decode-only HDR
+feasibility probe is insufficient acceptance and is superseded by these picture
+checks. No system driver, service, namespace policy or shared mount was changed.
+
+Runtime HDR remains opt-in, requires successful frame-side metadata inspection
+and known color/range properties, and rejects silent-black drivers. CPU override
+and subtitle software conversion remain intact. New real HTTP fault coverage
+checks forced CPU, probe rejection, hardware failure before master publication,
+no CPU replacement after publication, and cancellation during probe initialization.
+DELETE must reap the child/remove the workspace within the test deadline while
+the server is still alive; a separate SIGTERM case verifies shutdown cleanup.
+
+Independent adversarial review identified missing range/frame-probe guards,
+first-frame-only checks and fallback/cancellation coverage gaps. The implementation
+and regressions address them, including a follow-up correction preventing SIGTERM
+from masking ineffective DELETE cancellation. This scoped review is not a complete
+external product security audit.
+
+See `HDR.md` for exact admission rules, driver provenance and reproducible commands.
+The calibrated synthetic slice does not establish real-film perceptual quality,
+HLG hardware, Dolby Vision, other physical GPUs, real displays, sustained HDR
+performance or GPU-in-container deployment. Existing native Linux image and Linux
+Nginx artifacts still apply to their recorded earlier source; current-source CI
+has not yet run at this checkpoint. The full parity roadmap remains incomplete.

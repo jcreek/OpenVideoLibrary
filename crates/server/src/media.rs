@@ -76,7 +76,20 @@ pub struct Track {
     pub width: u32,
     pub height: u32,
     pub color_transfer: String,
+    pub color_primaries: String,
+    pub color_space: String,
+    pub color_range: String,
+    pub pix_fmt: String,
+    pub codec_tag_string: String,
+    pub side_data_list: Vec<SideData>,
+    #[serde(skip)]
+    pub hdr_frame_metadata_checked: bool,
     pub tags: HashMap<String, String>,
+}
+#[derive(Clone, Default, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct SideData {
+    pub side_data_type: String,
 }
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
 #[serde(default)]
@@ -176,6 +189,19 @@ pub async fn process(
         .map_err(|_| Error::new(503, "media worker unavailable"))?
 }
 pub async fn inspect(app: &Arc<App>, path: &FsPath) -> Result<Info> {
+    let enrich = crate::hardware::wants_vaapi_hdr(
+        &std::env::var("OVL_ACCELERATOR").unwrap_or("auto".into()),
+        &std::env::var("OVL_HDR_ACCELERATOR").unwrap_or_default(),
+    );
+    inspect_with_hdr_metadata(app, path, enrich).await
+}
+/// Explicit enrichment is also used by physical acceptance tools; ordinary CPU
+/// playback avoids the additional bounded frame decode.
+pub async fn inspect_with_hdr_metadata(
+    app: &Arc<App>,
+    path: &FsPath,
+    enrich: bool,
+) -> Result<Info> {
     let _slot = app
         .inspection
         .clone()
@@ -201,6 +227,61 @@ pub async fn inspect(app: &Arc<App>, path: &FsPath) -> Result<Info> {
     .await?;
     let mut info: Info = serde_json::from_slice(&out)
         .map_err(|_| Error::new(503, "invalid media probe response"))?;
+    // HEVC mastering/CLL (and some Dolby Vision signals) can be frame side data
+    // rather than stream metadata. Decode at most eight packets, with bounded
+    // output/time/threads. Failure leaves the conservative software path intact.
+    if enrich && info.hdr() {
+        let frames = process(
+            app,
+            "ffprobe",
+            vec![
+                "-v".into(),
+                "error".into(),
+                "-threads".into(),
+                "2".into(),
+                "-select_streams".into(),
+                "v:0".into(),
+                "-read_intervals".into(),
+                "%+#8".into(),
+                "-show_frames".into(),
+                "-show_entries".into(),
+                "frame=side_data_list".into(),
+                "-of".into(),
+                "json".into(),
+                path.to_string_lossy().into_owned(),
+            ],
+            None,
+            Duration::from_secs(10),
+            512 << 10,
+            app.cancel.child_token(),
+        )
+        .await;
+        if let Ok(bytes) = frames {
+            #[derive(Deserialize)]
+            struct Frame {
+                #[serde(default)]
+                side_data_list: Vec<SideData>,
+            }
+            #[derive(Deserialize)]
+            struct Frames {
+                frames: Vec<Frame>,
+            }
+            if let Ok(frames) = serde_json::from_slice::<Frames>(&bytes)
+                && let Some(video) = info.streams.iter_mut().find(|v| v.codec_type == "video")
+            {
+                video.hdr_frame_metadata_checked = !frames.frames.is_empty();
+                for side in frames.frames.into_iter().flat_map(|f| f.side_data_list) {
+                    if !video
+                        .side_data_list
+                        .iter()
+                        .any(|v| v.side_data_type == side.side_data_type)
+                    {
+                        video.side_data_list.push(side);
+                    }
+                }
+            }
+        }
+    }
     // FFprobe reports shared demuxer aliases, not the actual browser container.
     // A Matroska input must not be advertised as WebM merely because FFmpeg
     // reports "matroska,webm". Ambiguous/unknown extensions remain conservative.
@@ -426,6 +507,6 @@ pub async fn capabilities(
     auth::admin(u)?;
     let accelerators = crate::hardware::detect(&app).await?;
     Ok(Json(
-        json!({"accelerators":accelerators,"validated_hardware":[],"note":"Runtime encoder smoke tests are not GPU certification. HDR tone mapping uses bounded software conversion; hardware HDR paths remain pending."}),
+        json!({"accelerators":accelerators,"validated_hardware":[],"note":"Runtime encoder smoke tests are not GPU certification. HDR uses bounded software conversion by default. OVL_HDR_ACCELERATOR=vaapi opts eligible HDR10 into VAAPI with pre-publication CPU fallback; runtime smoke tests do not certify HDR quality or capacity."}),
     ))
 }
