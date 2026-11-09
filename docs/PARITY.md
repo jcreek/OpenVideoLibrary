@@ -24,7 +24,7 @@ A locally verified slice does not imply parity with every Jellyfin behavior.
 | Single/adaptive SDR HLS and seeking | Verified slice | Real-media master/variants and browser transcoding; long playback/stalls/seek matrix pending |
 | Text and burned-in subtitles | Verified slice | Embedded text, external SRT and burn-in tests; bitmap, styling/font and language corpus pending |
 | HDR detection and software tone mapping | Verified slice | Tagged synthetic PQ HEVC converted to BT.709; HLG/Dolby Vision/visual quality corpus pending |
-| Hardware SDR decode/scale/encode | Implemented | QSV/VAAPI/NVENC runtime smoke selection and CPU retry; physical GPU tests pending |
+| Hardware SDR decode/scale/encode | Verified slice | N100 VAAPI H.264 synthetic graph: decoded SSIM and alternate audio tested; QSV/NVENC, HEVC, broader quality and sustained acceptance pending |
 | Hardware HDR tone mapping | Missing | Separate N100 driver/codec/quality acceptance required |
 | Personal collections and ordered playlists | Verified slice | API ordering/ownership/conflicts plus browser persistence; shared/smart collections missing |
 | Persistent playback queues | Verified slice | Atomic cursor conflicts, offline/revoked-entry preservation and restart tested on N100; nine desktop browser cases passed; broader session coordination missing |

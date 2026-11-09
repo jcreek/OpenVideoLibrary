@@ -122,13 +122,15 @@ pub async fn create(app: Arc<App>, b: Credentials, is_admin: bool) -> Result<Val
         .clone()
         .try_acquire_owned()
         .map_err(|_| Error::new(429, "password hashing busy"))?;
-    let hash = tokio::task::spawn_blocking(move || {
-        let _permit = permit;
-        bcrypt::hash(b.password, bcrypt::DEFAULT_COST)
-    })
-    .await
-    .map_err(|_| Error::new(500, "password hashing failed"))?
-    .map_err(|_| Error::new(500, "password hashing failed"))?;
+    let hash = app
+        .tasks
+        .spawn_blocking(move || {
+            let _permit = permit;
+            bcrypt::hash(b.password, bcrypt::DEFAULT_COST)
+        })
+        .await
+        .map_err(|_| Error::new(500, "password hashing failed"))?
+        .map_err(|_| Error::new(500, "password hashing failed"))?;
     app.db
         .call(move |c| {
             let tx = c.transaction()?;
@@ -217,12 +219,14 @@ pub async fn login(
         })
         .await?;
     let (id, hash) = account.ok_or_else(|| Error::new(401, "invalid credentials"))?;
-    let valid = tokio::task::spawn_blocking(move || {
-        let _permit = permit;
-        bcrypt::verify(b.password, &String::from_utf8_lossy(&hash)).unwrap_or(false)
-    })
-    .await
-    .map_err(|_| Error::new(500, "authentication failed"))?;
+    let valid = app
+        .tasks
+        .spawn_blocking(move || {
+            let _permit = permit;
+            bcrypt::verify(b.password, &String::from_utf8_lossy(&hash)).unwrap_or(false)
+        })
+        .await
+        .map_err(|_| Error::new(500, "authentication failed"))?;
     if !valid {
         return Err(Error::new(401, "invalid credentials"));
     }

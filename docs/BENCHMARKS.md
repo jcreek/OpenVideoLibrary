@@ -79,3 +79,14 @@ authentication/playback. The retained `bench_suite.py`, `remote_bench.py` and
 `reference-bench.sh` now run Rust only and must not be mistaken for a current
 cross-language comparison. Prior response hashes refer to the earlier protocol.
 Do not silently rewrite or relabel old measurement files.
+
+## Production query profiling
+
+`cargo run --locked --release --example profile_queries -- 100000` runs the actual
+production SQL builder against disposable in-memory data with bundled SQLite. It
+records seven per-query timings, query plans and result IDs for browse, broad,
+selective and no-match searches. This isolates SQL behavior; it is not HTTP/LAN,
+SMB or release acceptance. The initial macOS ARM64 profile is retained separately
+in `benchmarks/rust-sql-local-initial.json`. Unfiltered browse now uses the existing
+title index to avoid sorting the whole library; filtered/search plans remain
+selective. N100 end-to-end measurements must be repeated after this change.

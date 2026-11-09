@@ -110,7 +110,7 @@ pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
             .format
             .format_name
             .split(',')
-            .any(|f| c.containers.iter().any(|v| v == f));
+            .all(|f| c.containers.iter().any(|v| v == f));
         if video_ok && audio_ok && container_ok && b.audio == 0 {
             return (
                 "direct".into(),
@@ -355,7 +355,7 @@ pub fn encoding_args(
     }
     a
 }
-fn hardware_args(mut args: Vec<String>, name: &str, variants: &[Rendition]) -> Vec<String> {
+pub fn hardware_args(mut args: Vec<String>, name: &str, variants: &[Rendition]) -> Vec<String> {
     let input = args
         .iter()
         .position(|v| v == "-ss")

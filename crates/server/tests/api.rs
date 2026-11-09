@@ -911,7 +911,13 @@ async fn future_schema_is_rejected_without_rewriting_database() {
     let c = rusqlite::Connection::open(cfg.data.join("library.db")).unwrap();
     c.execute_batch("PRAGMA user_version=99;CREATE TABLE sentinel(value TEXT);INSERT INTO sentinel VALUES('preserved');").unwrap();
     drop(c);
+    let original = std::fs::read(cfg.data.join("library.db")).unwrap();
     assert!(App::open(cfg.clone()).is_err());
+    assert_eq!(
+        std::fs::read(cfg.data.join("library.db")).unwrap(),
+        original
+    );
+    assert!(!cfg.data.join("library.db-wal").exists());
     let c = rusqlite::Connection::open(cfg.data.join("library.db")).unwrap();
     assert_eq!(
         c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
@@ -1116,5 +1122,144 @@ async fn queue_cursor_is_atomic_and_preserves_hidden_entries_across_restart() {
     let (_, saved) = request(&router, "GET", &url, Some(&viewer_token), None).await;
     assert_eq!(saved["entries"].as_array().unwrap().len(), 3);
     assert_eq!(saved["entries"][2]["position"], 2);
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn database_shutdown_drains_admitted_work_and_rejects_clones() {
+    let root = TempDir::new().unwrap();
+    let app = App::open(config(root.path())).unwrap();
+    let clone = app.db.clone();
+    let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let pending = tokio::spawn({
+        let db = clone.clone();
+        async move {
+            db.call(move |c| {
+                entered_tx.send(()).unwrap();
+                release_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                c.execute(
+                    "INSERT INTO users(name,password,admin) VALUES('drained',x'00',0)",
+                    [],
+                )?;
+                Ok(())
+            })
+            .await
+        }
+    });
+    entered_rx.await.unwrap();
+    let stopping = tokio::spawn({
+        let app = app.clone();
+        async move { app.shutdown().await }
+    });
+    tokio::task::yield_now().await;
+    assert!(!stopping.is_finished());
+    release_tx.send(()).unwrap();
+    pending.await.unwrap().unwrap();
+    stopping.await.unwrap();
+    assert_eq!(clone.call(|_| Ok(())).await.unwrap_err().0, 503);
+    // Idempotent shutdown, even with retained Db clones.
+    app.shutdown().await;
+    drop(app);
+    let reopened = App::open(config(root.path())).unwrap();
+    assert_eq!(
+        reopened
+            .db
+            .call(|c| Ok(c.query_row(
+                "SELECT count(*) FROM users WHERE name='drained'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )?))
+            .await
+            .unwrap(),
+        1
+    );
+    reopened.shutdown().await;
+}
+
+#[test]
+fn demuxer_aliases_do_not_claim_webm_compatibility_for_matroska() {
+    let info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"vp9"},{"codec_type":"audio","codec_name":"opus"}],"format":{"format_name":"matroska,webm"}})).unwrap();
+    let request = Playback {
+        capabilities: Some(ClientCapabilities {
+            containers: vec!["webm".into()],
+            video_codecs: vec!["vp9".into()],
+            audio_codecs: vec!["opus".into()],
+            hdr: false,
+        }),
+        ..Default::default()
+    };
+    assert_eq!(playback::negotiate(&info, &request).0, "transcode");
+    let mut webm = info;
+    webm.format.format_name = "webm".into();
+    assert_eq!(playback::negotiate(&webm, &request).0, "direct");
+}
+
+#[tokio::test]
+async fn browse_pagination_preserves_order_search_and_current_grants() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    app.db.call(|c|{
+        let tx=c.transaction()?;
+        tx.execute("INSERT INTO libraries(id,name,path,kind) VALUES(1,'Synthetic','/synthetic','movie')",[])?;
+        for id in 1..=1000 {
+            tx.execute("INSERT INTO items(id,title) VALUES(?,?)",rusqlite::params![id,format!("Movie {:04}",1001-id)])?;
+            tx.execute("INSERT INTO media_files(item_id,library_id,path,mtime,size) VALUES(?,1,?,0,0)",rusqlite::params![id,format!("/synthetic/{id}.mp4")])?;
+        }
+        tx.commit()?;Ok(())
+    }).await.unwrap();
+    for path in [
+        "/api/v1/items?offset=900",
+        "/api/v1/items?offset=900&q=Movie",
+        "/api/v1/items?offset=900&library=1",
+    ] {
+        let (status, items) = request(&router, "GET", path, Some(&token), None).await;
+        assert_eq!(status, 200, "{items}");
+        let ids: Vec<i64> = items
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["id"].as_i64().unwrap())
+            .collect();
+        assert_eq!(ids, (1..=100).rev().collect::<Vec<_>>());
+    }
+    assert!(
+        request(
+            &router,
+            "GET",
+            "/api/v1/items?q=NoMatches",
+            Some(&token),
+            None
+        )
+        .await
+        .1
+        .as_array()
+        .unwrap()
+        .is_empty()
+    );
+    let (status, _) = request(
+        &router,
+        "POST",
+        "/api/v1/users",
+        Some(&token),
+        Some(json!({"Name":"no-grants","Password":"test-password-123"})),
+    )
+    .await;
+    assert_eq!(status, 201);
+    let viewer = account(&router, "no-grants").await;
+    assert!(
+        request(
+            &router,
+            "GET",
+            "/api/v1/items?offset=900",
+            Some(&viewer),
+            None
+        )
+        .await
+        .1
+        .as_array()
+        .unwrap()
+        .is_empty()
+    );
     app.shutdown().await;
 }

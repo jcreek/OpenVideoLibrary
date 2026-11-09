@@ -63,8 +63,11 @@ def load(port, token, query, count, concurrency):
             path = '/api/v1/items?' + urllib.parse.urlencode({'q': query, 'limit': 100, 'offset': (index % 10) * 100})
             local.conn.request('GET', path, headers={'Authorization': 'Bearer ' + token})
             response = local.conn.getresponse()
-            data = json.loads(response.read())
-            if response.status != 200 or not isinstance(data, list) or len(data) != 100:
+            payload = response.read()
+            if response.status != 200:
+                return (time.perf_counter() - start) * 1000, 'HTTP' + str(response.status)
+            data = json.loads(payload)
+            if not isinstance(data, list) or len(data) != 100:
                 raise ValueError('invalid response')
             expected = (index % 10) * 100 + 1
             if [v['id'] for v in data] != list(range(expected, expected + 100)):

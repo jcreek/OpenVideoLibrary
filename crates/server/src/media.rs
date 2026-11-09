@@ -192,7 +192,35 @@ pub async fn inspect(app: &Arc<App>, path: &FsPath) -> Result<Info> {
         app.cancel.child_token(),
     )
     .await?;
-    serde_json::from_slice(&out).map_err(|_| Error::new(503, "invalid media probe response"))
+    let mut info: Info = serde_json::from_slice(&out)
+        .map_err(|_| Error::new(503, "invalid media probe response"))?;
+    // FFprobe reports shared demuxer aliases, not the actual browser container.
+    // A Matroska input must not be advertised as WebM merely because FFmpeg
+    // reports "matroska,webm". Ambiguous/unknown extensions remain conservative.
+    let extension = path
+        .extension()
+        .and_then(|v| v.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if info.format.format_name == "matroska,webm" {
+        info.format.format_name = if extension == "webm" {
+            "webm"
+        } else {
+            "matroska"
+        }
+        .into();
+    } else if info.format.format_name == "mov,mp4,m4a,3gp,3g2,mj2" {
+        info.format.format_name = match extension.as_str() {
+            "mp4" | "m4v" => "mp4",
+            "m4a" => "m4a",
+            "3gp" => "3gp",
+            "3g2" => "3g2",
+            "mj2" => "mj2",
+            _ => "mov",
+        }
+        .into();
+    }
+    Ok(info)
 }
 pub async fn probe(
     State(app): State<Arc<App>>,

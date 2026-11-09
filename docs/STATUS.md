@@ -23,7 +23,7 @@ Svelte client; it is not full Jellyfin parity or a stable release. See
   subtitle burn-in, seek restart and explainable playback negotiation using client
   capability reports. HDR detection and bounded software tone mapping to BT.709.
 - QSV/VAAPI/NVENC runtime encoder smoke selection, SDR hardware decode/scale/encode
-  arguments and CPU retry before master publication. Physical GPU tests remain unrun.
+  arguments and CPU retry before master publication. A short N100 VAAPI SDR graph passes synthetic frame/audio checks; other hardware paths remain unverified.
 - Bounded process output, deadlines, kill/reap on cancellation, storage reservations,
   sampled workspace quotas and idle cleanup. Shutdown waits for tracked work.
 - Personal collections, ordered playlists, persistent queue cursors, revision
@@ -56,7 +56,7 @@ Rust Linux image, multi-architecture build or deployment is certified from that 
 - Real N100/SMB cold-cache, mixed/sustained load, LAN first-frame/seek/stall and
   concurrency measurements against the pinned Jellyfin baseline. Initial gates:
   browse/search p95 <150 ms and LAN direct first decoded frame <2 s.
-- Physical Intel/AMD/NVIDIA hardware validation, hardware HDR pipelines, HLG/
+- Broader Intel and physical AMD/NVIDIA validation, hardware HDR pipelines, HLG/
   Dolby Vision and broader audio/subtitle/font/container/visual-quality coverage.
 - Real mobile devices, additional desktop/browser codec coverage, accessibility,
   multi-client queue/session coordination and broader security/provider review.

@@ -243,13 +243,15 @@ async fn password(
         .clone()
         .try_acquire_owned()
         .map_err(|_| Error::new(429, "password hashing busy"))?;
-    let hash = tokio::task::spawn_blocking(move || {
-        let _permit = permit;
-        bcrypt::hash(b.password, bcrypt::DEFAULT_COST)
-    })
-    .await
-    .map_err(|_| Error::new(500, "password hashing failed"))?
-    .map_err(|_| Error::new(500, "password hashing failed"))?;
+    let hash = app
+        .tasks
+        .spawn_blocking(move || {
+            let _permit = permit;
+            bcrypt::hash(b.password, bcrypt::DEFAULT_COST)
+        })
+        .await
+        .map_err(|_| Error::new(500, "password hashing failed"))?
+        .map_err(|_| Error::new(500, "password hashing failed"))?;
     app.db
         .call(move |c| {
             let tx = c.transaction()?;
@@ -277,19 +279,79 @@ async fn items(
     Extension(u): Extension<User>,
     Query(q): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>> {
-    Ok(Json(app.db.call(move|c|{
-        let mut sql=String::from("SELECT i.id,f.library_id,i.title,i.series,i.season,i.episode,i.overview,coalesce(p.position,0),coalesce(p.watched,0) FROM items i JOIN media_files f ON f.item_id=i.id LEFT JOIN progress p ON p.item_id=i.id AND p.user_id=? WHERE (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=f.library_id AND a.user_id=?))");
-        let mut args:Vec<Sql>=vec![u.id.into(),(u.admin as i64).into(),u.id.into()];
-        if let Some(q)=q.get("q").filter(|s|!s.is_empty()){sql.push_str(" AND i.id IN(SELECT rowid FROM search WHERE search MATCH ?)");args.push(format!("\"{}\"*",q.replace('"',"\"\"")).into());}
-        for (param,col) in [("library","f.library_id"),("series","i.series"),("season","i.season")] {if let Some(v)=q.get(param).filter(|s|!s.is_empty()){sql.push_str(&format!(" AND {col}=?"));args.push(v.clone().into());}}
-        let continuing=q.get("continue").is_some_and(|v|v=="true");
-        if continuing {sql.push_str(" AND p.position>0 AND p.watched=0");}
-        sql.push_str(if q.get("series").is_some_and(|s|!s.is_empty()){" ORDER BY i.season,i.episode,i.id"}else if continuing{" ORDER BY p.updated DESC,i.id"}else{" ORDER BY i.title,i.id"});
-        sql.push_str(" LIMIT ? OFFSET ?");
-        args.push(q.get("limit").and_then(|v|v.parse::<i64>().ok()).filter(|v|*v>0&&*v<=200).unwrap_or(100).into());
-        args.push(q.get("offset").and_then(|v|v.parse::<i64>().ok()).unwrap_or(0).max(0).into());
-        let mut s=c.prepare(&sql)?;let rows=s.query_map(params_from_iter(args),item_row)?.collect::<std::result::Result<Vec<_>,_>>()?;Ok(Value::Array(rows))
-    }).await?))
+    Ok(Json(
+        app.db
+            .call(move |c| {
+                let (sql, args) = item_query(u, &q);
+                let mut s = c.prepare(&sql)?;
+                let rows = s
+                    .query_map(params_from_iter(args), item_row)?
+                    .collect::<std::result::Result<Vec<_>, _>>()?;
+                Ok(Value::Array(rows))
+            })
+            .await?,
+    ))
+}
+/// Shared production query builder, also used by the reproducible SQL profiler.
+pub fn item_query(u: User, q: &HashMap<String, String>) -> (String, Vec<Sql>) {
+    let mut sql = String::from(
+        "SELECT i.id,f.library_id,i.title,i.series,i.season,i.episode,i.overview,coalesce(p.position,0),coalesce(p.watched,0) FROM items i JOIN media_files f ON f.item_id=i.id LEFT JOIN progress p ON p.item_id=i.id AND p.user_id=? WHERE (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=f.library_id AND a.user_id=?))",
+    );
+    let mut args: Vec<Sql> = vec![u.id.into(), (u.admin as i64).into(), u.id.into()];
+    if let Some(q) = q.get("q").filter(|s| !s.is_empty()) {
+        sql.push_str(" AND i.id IN(SELECT rowid FROM search WHERE search MATCH ?)");
+        args.push(format!("\"{}\"*", q.replace('"', "\"\"")).into());
+    }
+    for (param, col) in [
+        ("library", "f.library_id"),
+        ("series", "i.series"),
+        ("season", "i.season"),
+    ] {
+        if let Some(v) = q.get(param).filter(|s| !s.is_empty()) {
+            sql.push_str(&format!(" AND {col}=?"));
+            args.push(v.clone().into());
+        }
+    }
+    let continuing = q.get("continue").is_some_and(|v| v == "true");
+    if continuing {
+        sql.push_str(" AND p.position>0 AND p.watched=0");
+    }
+    sql.push_str(if q.get("series").is_some_and(|s| !s.is_empty()) {
+        " ORDER BY i.season,i.episode,i.id"
+    } else if continuing {
+        " ORDER BY p.updated DESC,i.id"
+    } else {
+        " ORDER BY i.title,i.id"
+    });
+    sql.push_str(" LIMIT ? OFFSET ?");
+    args.push(
+        q.get("limit")
+            .and_then(|v| v.parse::<i64>().ok())
+            .filter(|v| *v > 0 && *v <= 200)
+            .unwrap_or(100)
+            .into(),
+    );
+    args.push(
+        q.get("offset")
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(0)
+            .max(0)
+            .into(),
+    );
+    // The measured unfiltered browse plan otherwise scans every media file and
+    // sorts the whole library. The title index can stop after offset + limit.
+    // Keep SQLite's selective plans for search, library and progress filters.
+    if ["q", "library", "series", "season"]
+        .iter()
+        .all(|key| q.get(*key).is_none_or(|v| v.is_empty()))
+        && !q.get("continue").is_some_and(|v| v == "true")
+    {
+        sql = sql.replace(
+            "FROM items i JOIN",
+            "FROM items i INDEXED BY items_title JOIN",
+        );
+    }
+    (sql, args)
 }
 async fn series(State(app): State<Arc<App>>, Extension(u): Extension<User>) -> Result<Json<Value>> {
     Ok(Json(app.db.call(move|c|{let mut s=c.prepare("SELECT f.library_id,i.series,count(*),count(DISTINCT i.season),sum(coalesce(p.watched,0)) FROM items i JOIN media_files f ON f.item_id=i.id LEFT JOIN progress p ON p.item_id=i.id AND p.user_id=? WHERE i.series<>'' AND (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=f.library_id AND a.user_id=?)) GROUP BY f.library_id,i.series ORDER BY i.series,f.library_id LIMIT 1000")?;

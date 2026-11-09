@@ -29,7 +29,8 @@ host. Historical application/prototype reports do not certify this implementatio
 | Production authenticated API smoke benchmark | 12 trials / 3,600 requests; zero errors; warm loopback, 10k items, concurrency 1/10 |
 | Rust native ARM64 Docker image build | Attempted; failed on Docker storage: `no space left on device` |
 | Rust amd64 image / multi-architecture deployment / real Nginx | Unrun |
-| Physical GPU / hardware HDR / sustained N100 playback | Unrun for Rust |
+| N100 physical VAAPI SDR graph | Short synthetic quality/audio slice passed; see continuation evidence |
+| Hardware HDR / sustained N100 playback / other GPUs | Unrun for Rust |
 | N100 cold-cache / sustained mixed workload / pinned Jellyfin comparison | Unrun for production Rust |
 | Real iOS/Android/TV devices and external security review | Pending |
 | Registry or GitHub publication | Not performed |
@@ -46,7 +47,7 @@ and repeated-run latency variation. A shared warm development-host smoke run is
 not a benchmark of Jellyfin or a stream-capacity guarantee.
 
 Runtime GPU smoke detection and pre-publication software fallback are implemented,
-but no physical GPU path was exercised here. Hardware HDR tone mapping remains
+and the N100 VAAPI SDR graph has a short physical test. Hardware HDR tone mapping remains
 missing. Software HDR has not passed a visual-quality corpus.
 
 The container build was stopped by the existing Docker storage limit before the
@@ -78,3 +79,42 @@ The N100 workspace is isolated from the historical application. Its SMB mount is
 host-mounted read/write; the Rust tests do not write media, and deployment must
 still expose it read-only. No host remount, shared cache eviction, unrelated
 Docker cleanup, or household service restart was performed.
+
+Physical acceptance is deliberately separate:
+
+```sh
+python3 scripts/validate_n100.py --host USER@HOST --key KEY --output results/n100-validation.json
+OVL_ACCELERATOR=vaapi cargo test --locked --features gpu-tests --test hardware -- --ignored --nocapture
+```
+
+The short N100 VAAPI H.264 SDR decode/scale/encode fixture measured mean SSIM
+0.973485 across 84 decoded frames and selected 880 Hz alternate audio. It executes
+the application's graph without CPU fallback. This is synthetic SDR evidence,
+not HEVC/HDR quality, sustained capacity, AMD/NVIDIA or a visual review. The first
+run's zero-crossing audio assertion failed because AAC ringing distorted that
+measurement; the accepted test uses dominant spectral frequency and signal RMS.
+`docs/validation-n100.json` records commands, source identity, environment and
+individual exit codes. Vainfo is not installed; kernel driver and package metadata
+are recorded alongside the actual graph execution.
+
+Current-source SSH validation records 16 passing non-media integration tests, two
+passing CPU-media tests, a passing physical VAAPI graph, formatting and all-feature
+Clippy. The nine browser workflows were rerun successfully after the playback
+negotiation change.
+
+The shutdown audit now drains and joins the SQLite owner, rejects retained Db
+clones after shutdown and tracks password hashing. Future schema refusal preserves
+database bytes and does not switch its journal mode. Browser container negotiation
+no longer treats FFprobe's Matroska/WebM demuxer aliases as interchangeable.
+
+The initial N100 warm API diagnostic is still running. It has recorded high-load
+errors and latency gate failures. Some trials overlap acceptance builds/tests;
+it must not be used as clean production acceptance. The bundled-SQLite local
+profile `benchmarks/rust-sql-local-initial.json` identifies a full-library sort in
+unfiltered browse, motivating an order-preserving title-index change. Search
+remains unchanged because forcing that index regresses selective queries.
+
+Docker's existing VM filesystem was inspected through a read-only container:
+16 GiB total, 100% used, zero free. No pruning was performed. CI now builds and
+runs disposable image acceptance for both Linux architectures, retaining result
+artifacts. Those jobs are not yet evidence of passing builds or deployment.

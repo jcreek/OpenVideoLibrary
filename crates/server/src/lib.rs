@@ -148,5 +148,16 @@ impl App {
         self.cancel.cancel();
         self.tasks.close();
         self.tasks.wait().await;
+        if let Err(error) = self.db.shutdown().await {
+            tracing::error!(%error,"database shutdown failed");
+        }
+    }
+}
+
+impl Drop for App {
+    fn drop(&mut self) {
+        // Release the flock explicitly: a concurrent fork may briefly inherit
+        // the open description before exec closes it, delaying close-only unlock.
+        let _ = FileExt::unlock(&self._lock);
     }
 }
