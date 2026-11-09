@@ -49,9 +49,10 @@ application/prototypes and must not be attributed to this Rust implementation.
 
 The local Rust image build failed because Docker storage is full (`no space
 left on device`); no unrelated images or volumes were deleted. GitHub CI later
-built and smoke-tested the Linux amd64 image at source `e76268b` (see
-`validation-linux-amd64.json`). ARM64 and production-host deployment acceptance
-remain pending; that CI result does not certify newer source.
+built and smoke-tested both Linux amd64 and ARM64 images on native runners at
+source `97bc011` (see `validation-linux-amd64.json` and
+`validation-linux-arm64.json`). Production-host deployment acceptance remains
+pending; these smoke checks do not certify full deployment or GPU behavior.
 
 ## Remaining acceptance and parity
 
@@ -62,9 +63,9 @@ remain pending; that CI result does not certify newer source.
   synthetic PQ/HLG and a six-container software slice now pass.
 - Real mobile devices, additional desktop/browser codec coverage, accessibility,
   multi-client queue/session coordination and broader security/provider review.
-- Linux ARM64 image acceptance and production-host Nginx deployment/rollback;
-  amd64 CI image smoke and a disposable real Nginx/TLS backup/restore drill pass
-  for their recorded source snapshots. No registry publication occurred.
+- Production-host Nginx deployment and rollback; native amd64/ARM64 CI image
+  smoke and a disposable real Nginx/TLS backup/restore drill pass for their
+  recorded source snapshots. No registry publication occurred.
 - Music/other media, richer discovery and user controls, live TV/DVR, DLNA/casting,
   selected plugin-equivalent integrations and own native clients remain subsequent
   stages. Recording output will require a dedicated writable destination.
@@ -84,8 +85,10 @@ The N100 production API diagnostic now includes 80 trials / 80,000 requests and
 limitations and is not release acceptance. Query plans motivated order-preserving
 browse/broad-search changes. Their isolated N100 profile records 80,000 requests
 and 10,148 errors at offered concurrency 100; 100k broad search still misses the
-150 ms gate at concurrency 10/50. A bounded exact-match-ID cache is now under
-end-to-end measurement; it is not yet performance acceptance.
+150 ms gate at concurrency 10/50. The bounded exact-match-ID cache's equivalent N100 run has zero errors through
+concurrency 50, with 100k search p95 median 7.36 ms at concurrency 10 and 36.92 ms
+at concurrency 50. Its concurrency-100 trials still produce 7,523 HTTP 503 errors.
+These are warm loopback diagnostics, not complete production acceptance.
 Startup now rejects symlinked owned storage and overlapping media/data paths.
 Actual TCP cancellation is covered by stalled-upload and stalled-direct-reader
 SIGTERM tests, alongside the expanded software container/PQ/HLG corpus.

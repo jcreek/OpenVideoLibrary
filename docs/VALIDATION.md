@@ -215,16 +215,37 @@ CI cancellation issue; all three were fixed and the reviewer confirmed no
 remaining blocking finding in this increment's scope. This is not a full external
 security review of the product.
 
-`validation-n100.json` captures a complete SSH Linux validation of the cache
-implementation before the two added review regressions: 22 normal API tests,
-shutdown, format/Clippy, three CPU-media tests and the physical VAAPI SDR test
-pass. Those newest test additions still require a source-specific rerun after
-performance measurement finishes. Software PQ/HLG success is separate from
+`validation-n100.json` captures a complete SSH Linux validation of the current
+cache implementation including both added review regressions: 23 normal API
+tests, shutdown, format/Clippy, three CPU-media tests and the physical VAAPI SDR
+test pass. The earlier 22-test cache snapshot was superseded after performance
+measurement finished. Software PQ/HLG success is separate from
 physical SDR evidence; hardware HDR acceptance remains missing.
 
 GitHub run 42647295810 at source `e76268b` passed Linux verification and amd64
-container smoke acceptance (`validation-linux-amd64.json`). Its emulated ARM64
-job is still live at this observation. A subsequent workflow revision removes
+container smoke acceptance (`validation-linux-amd64-initial.json`). Its emulated ARM64
+job was still live at that observation and was later cancelled as superseded.
+A subsequent workflow revision removes
 duplicate branch-push/PR runs, retains main push and manual execution, groups
 supersession by PR number, bounds job runtime and uses native ARM runners.
-That revised workflow has passed actionlint, but has not yet run in GitHub.
+That revised workflow has passed actionlint and launched as run 42651686557;
+all native image and verification jobs subsequently passed.
+
+The cache's N100 diagnostic completed all 80 trials/80,000 requests with zero
+errors through concurrency 50 and 7,523 HTTP 503s at concurrency 100. The harness
+exited nonzero as required. At 100k, search p95 median is 7.36 ms at concurrency
+10 and 36.92 ms at concurrency 50 (worst per-run 42.10 ms). See
+`benchmarks/rust-production-n100-cached.json` and `BENCHMARKS.md` for per-run
+uncertainty, resources, source identities and limits. This does not complete
+cold-cache, LAN, mixed-load, playback or pinned-Jellyfin acceptance.
+
+The native amd64 and ARM64 image jobs in run 42651686557 subsequently both passed
+at source `97bc011`. `validation-linux-amd64.json` and
+`validation-linux-arm64.json` retain image IDs, architectures, source/run
+provenance and API/range/read-only-mount/grant/queue/SIGTERM checks. This resolves
+the multi-architecture build/smoke gap without deleting Docker data. It does not
+validate production-host Nginx, rollback to the prior application or physical GPU
+behavior inside those images. The separate verification job also passed,
+including Linux browser/software-media checks and the disposable Nginx/TLS
+backup/restore drill; `validation-nginx-linux.json` retains its artifact with
+source provenance. It remains an isolated CI drill, not the N100 deployment.

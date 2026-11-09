@@ -112,4 +112,28 @@ caching full membership for repeated broad searches, retaining live permission
 and progress checks. Sparse queries retain their selective plan. The production
 cache has explicit term/row/page limits and invalidation, documented in ADR 001.
 The profiler records planning/fill and execution separately so a warm lookup
-cannot hide fill cost. N100 end-to-end results for this cache remain pending.
+cannot hide fill cost. `benchmarks/rust-production-n100-cached.json` records the equivalent 80-trial,
+80,000-request workload after the cache. At 100k, broad-search p95 median is
+7.36 ms (run standard deviation 0.13 ms) at concurrency 10 and 36.92 ms
+(2.45 ms) at concurrency 50. Worst per-run p95 at concurrency 50 is 42.10 ms.
+All browse/search trials through concurrency 50 have zero errors at both scales.
+Concurrency 100 has 7,523 HTTP 503 errors across workloads; the harness correctly
+exits nonzero. This is overload evidence, not sustainable capacity acceptance.
+Peak sampled core RSS reaches 14.05 MiB across these trials, with no harness
+FFmpeg processes. Full per-trial CPU/RSS and binary/source identities are retained.
+
+Both indexed and cached trials use the same seeded schema, media names, response
+ID/order checks, randomized order, request counts and concurrency on the same
+shared N100. They were sequential rather than interleaved; household/background
+variation and the loopback Python client remain limitations. The measured broad
+search improvement exceeds repeated-run variation, but does not establish LAN,
+OS-cold, mixed scanning/streaming, real-library or Jellyfin-relative performance.
+The first measured request in each search trial includes the cache fill; SQL profiling
+separately records the fill because aggregate p95 can hide that single request.
+
+`benchmarks/rust-sql-cached-production-n100.json` separately records the actual
+production SQL on N100: the first repeated broad query, including cache fill,
+takes 21.55 ms, followed by six total query timings of 0.64–0.66 ms. Initial
+term classification costs 3.03 ms before that repeat. This seven-sample SQL
+profile has disposable in-memory data and does not include HTTP/auth/LAN latency;
+it complements rather than replaces the five-repeat application measurement.
