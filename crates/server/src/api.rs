@@ -288,11 +288,23 @@ async fn items(
     Ok(Json(
         app.db
             .call(move |c| {
-                let (sql, args) = item_query(c, u, &q)?;
-                let mut s = c.prepare(&sql)?;
+                let tx = c.transaction()?;
+                // Pin the main read snapshot before checking external data_version
+                // or using cached IDs. External commits cannot mix old matches
+                // with newer item metadata within one response.
+                tx.query_row("SELECT 1 FROM main.items LIMIT 1", [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .optional()?;
+                let (sql, args) = item_query(&tx, u, &q)?;
+                let mut s = tx.prepare(&sql)?;
                 let rows = s
                     .query_map(params_from_iter(args), item_row)?
                     .collect::<std::result::Result<Vec<_>, _>>()?;
+                drop(s);
+                if !tx.is_autocommit() {
+                    tx.commit()?;
+                }
                 Ok(Value::Array(rows))
             })
             .await?,
@@ -354,24 +366,27 @@ pub fn item_query(
     // Only broad, unfiltered title ordering uses the title index; sparse matches
     // keep SQLite's rowid plan. The MATCH expression and result ordering stay
     // identical. Never use correlated FTS: the profile showed a large regression.
-    let broad_search = if ["library", "series", "season"]
+    let plan = if ["library", "series", "season"]
         .iter()
         .all(|key| q.get(*key).is_none_or(|v| v.is_empty()))
         && !continuing
     {
         if let Some(term) = q.get("q").filter(|v| !v.is_empty()) {
-            let query = format!("\"{}\"*", term.replace('"', "\"\""));
-            c.query_row(
-                "SELECT count(*) FROM (SELECT rowid FROM search WHERE search MATCH ? LIMIT 2049)",
-                [query],
-                |r| r.get::<_, i64>(0),
-            )? > 2048
+            crate::search::plan(c, &format!("\"{}\"*", term.replace('"', "\"\"")))?
         } else {
-            false
+            crate::search::Plan::Sparse
         }
     } else {
-        false
+        crate::search::Plan::Sparse
     };
+    if let crate::search::Plan::Cached(id) = plan {
+        sql=sql.replace("i.id IN(SELECT rowid FROM search WHERE search MATCH ?)","EXISTS(SELECT 1 FROM ovl_query_cache.entries ce WHERE ce.query_id=? AND ce.item_id=i.id)");
+        args[3] = id.into();
+    }
+    let broad_search = matches!(
+        plan,
+        crate::search::Plan::Broad | crate::search::Plan::Cached(_)
+    );
     if ["library", "series", "season"]
         .iter()
         .all(|key| q.get(*key).is_none_or(|v| v.is_empty()))

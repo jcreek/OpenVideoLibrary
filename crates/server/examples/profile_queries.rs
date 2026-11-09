@@ -29,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
     }
     tx.commit()?;
+    ovl_server::search::init(&c)?;
     let mut results = vec![];
     for query in ["", "Movie", "00099999", "NoMatches"] {
         let q = HashMap::from([
@@ -42,33 +43,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "FROM items i JOIN",
             "FROM items i INDEXED BY items_title JOIN",
         );
-        let variants = [
-            ("production", sql.clone()),
-            ("title-index", indexed.clone()),
-            (
+        c.execute_batch("CREATE TEMP TABLE IF NOT EXISTS profile_search_cache(item_id INTEGER PRIMARY KEY); DELETE FROM profile_search_cache;")?;
+        let filling = Instant::now();
+        if !query.is_empty() {
+            let expression = format!("\"{}\"*", query.replace('"', "\"\""));
+            c.execute("INSERT INTO profile_search_cache SELECT rowid FROM search WHERE search MATCH ? LIMIT 100001",[expression])?;
+        }
+        let cache_fill_ms = filling.elapsed().as_secs_f64() * 1000.0;
+        let mut variants=vec![
+            ("production",sql.clone()),
+            ("bounded-cache-prototype",indexed.replace("i.id IN(SELECT rowid FROM search WHERE search MATCH ?)","EXISTS(SELECT 1 FROM temp.profile_search_cache pc WHERE pc.item_id=i.id AND ? IS NOT NULL)")),
+        ];
+        if std::env::args().any(|v| v == "--experiments") {
+            variants.push((
                 "title-index-correlated-fts",
                 indexed.replace(
                     "i.id IN(SELECT rowid FROM search WHERE search MATCH ?)",
                     "EXISTS(SELECT 1 FROM search WHERE rowid=i.id AND search MATCH ?)",
                 ),
-            ),
-        ];
+            ));
+        }
+        let mut expected = None;
         for (label, sql) in variants {
-            let plan = c
-                .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?
-                .query_map(params_from_iter(&args), |r| r.get::<_, String>(3))?
-                .collect::<Result<Vec<_>, _>>()?;
             let mut timings = vec![];
+            let mut planning_times = vec![];
+            let mut total_times = vec![];
             let mut ids = vec![];
+            let mut executed_sql = sql.clone();
+            let mut executed_args = args.clone();
             for _ in 0..7 {
+                let total = Instant::now();
+                let planning = Instant::now();
+                if label == "production" {
+                    (executed_sql, executed_args) =
+                        api::item_query(&c, User { id: 1, admin: true }, &q)?;
+                }
+                planning_times.push(planning.elapsed().as_secs_f64() * 1000.0);
                 let start = Instant::now();
                 ids = c
-                    .prepare(&sql)?
-                    .query_map(params_from_iter(&args), |r| r.get::<_, i64>(0))?
+                    .prepare(&executed_sql)?
+                    .query_map(params_from_iter(&executed_args), |r| r.get::<_, i64>(0))?
                     .collect::<Result<Vec<_>, _>>()?;
                 timings.push(start.elapsed().as_secs_f64() * 1000.0);
+                total_times.push(total.elapsed().as_secs_f64() * 1000.0);
             }
-            results.push(json!({"variant":label,"query":query,"offset":900,"planning_ms":planning_ms,"plan":plan,"milliseconds":timings,"ids":ids}));
+            let plan = c
+                .prepare(&format!("EXPLAIN QUERY PLAN {executed_sql}"))?
+                .query_map(params_from_iter(&executed_args), |r| r.get::<_, String>(3))?
+                .collect::<Result<Vec<_>, _>>()?;
+            if let Some(expected) = &expected {
+                assert_eq!(&ids, expected, "profile variant changed results");
+            } else {
+                expected = Some(ids.clone());
+            }
+            results.push(json!({"variant":label,"query":query,"offset":900,"planning_ms":planning_ms,"cache_fill_ms":cache_fill_ms,"plan":plan,"milliseconds":timings,"planning_milliseconds":planning_times,"total_milliseconds":total_times,"ids":ids}));
         }
     }
     println!(

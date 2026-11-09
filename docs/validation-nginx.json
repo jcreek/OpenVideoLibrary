@@ -1,9 +1,9 @@
 {
-  "recorded_utc": "2026-11-09T15:39:57.802098+00:00",
+  "recorded_utc": "2026-11-09T16:05:06.371118+00:00",
   "scope": "Real disposable Nginx TLS proxy and live Rust backup/restore; not a production deployment or playback-quality benchmark",
   "host": "macOS-26.5-arm64-arm-64bit",
   "nginx_platform": "linux/arm64",
-  "binary_sha256": "cb8993a2a4a40c7fabd31352fe8007dbcd2f88d8c8118058f6543807ce40e176",
+  "binary_sha256": "bde653e5607d1fb842a5da3d9d66528c197527ae7e24d9b074736eafd873203d",
   "runtime": {
     "architecture": "aarch64",
     "os": "macos",

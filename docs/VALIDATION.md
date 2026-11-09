@@ -1,7 +1,15 @@
 # Rust preview validation — 9 November 2026
 
-These results apply to this Rust preview on the shared macOS ARM64 development
-host. Historical application/prototype reports do not certify this implementation.
+Current evidence is summarized in **Bounded search cache increment** below.
+Source hashes and platform scope belong to each captured artifact; historical
+application/prototype reports do not certify this implementation. The migration
+is published as draft PR #1; no registry image or stable release is published.
+
+## Initial preview checkpoint (historical)
+
+The following table and notes record the initial shared macOS ARM64 preview.
+Later continuation checkpoints supersede their counts and unrun statuses; they
+are retained to distinguish historical runs from current-source acceptance.
 
 | Check | Result |
 | --- | --- |
@@ -52,13 +60,14 @@ missing. Software HDR has not passed a visual-quality corpus.
 
 The container build was stopped by the existing Docker storage limit before the
 Rust image could be verified. No images/volumes were deleted to make room. Build
-and packaging definitions exist; GitHub CI has not run on this unpublished branch.
+and packaging definitions existed; at that checkpoint GitHub CI had not run.
+Later Linux CI evidence is recorded separately below.
 
 The web build retains lazy HLS loading; its HLS chunk produces Vite's >500 kB
 warning. npm reports three low-severity development dependency findings. No
 zero-finding audit, full parity or stable-release certification is claimed.
 
-## Migration continuation audit
+## Migration continuation audit (chronological checkpoints)
 
 The supplied preview was imported on `rust-migration`; the remote had no branches.
 The initial audit re-ran formatting and the normal Rust suite (12 passed, two media
@@ -186,3 +195,36 @@ The latest real Nginx/TLS restore drill also passes against the cancellation-awa
 server, recorded by binary hash. Docker's cached tag/manifest lookup failed, so
 the rerun used the exact already-cached native Nginx image ID; no image pull,
 prune or unrelated data deletion was used to obtain that result.
+
+## Bounded search cache increment
+
+The current local source passes web install/check/build, format, all-target/all-
+feature Clippy, 23 normal API tests plus the real-socket shutdown test, all three
+explicit CPU-media tests, three Python regression tests, contract regeneration,
+the separate benchmark crate check/format and nine Chrome/Firefox/WebKit cases.
+The real cached Nginx/TLS backup/restore drill also passes, with the binary hash
+in `validation-nginx.json`. The first local CPU-media invocation failed because
+FFmpeg was absent from PATH; rerunning with the existing ffmpeg-static and
+ffprobe-static binaries passed. It was an environment failure, not a skipped test.
+
+New coverage checks live progress/grant changes, metadata invalidation, external
+writes against populated cache membership, eight-term eviction, genuine SQLite
+page-quota failure, and complete tail results beyond the 100,000-match cache cap.
+Independent read-only adversarial review found two coverage gaps and a cross-PR
+CI cancellation issue; all three were fixed and the reviewer confirmed no
+remaining blocking finding in this increment's scope. This is not a full external
+security review of the product.
+
+`validation-n100.json` captures a complete SSH Linux validation of the cache
+implementation before the two added review regressions: 22 normal API tests,
+shutdown, format/Clippy, three CPU-media tests and the physical VAAPI SDR test
+pass. Those newest test additions still require a source-specific rerun after
+performance measurement finishes. Software PQ/HLG success is separate from
+physical SDR evidence; hardware HDR acceptance remains missing.
+
+GitHub run 42647295810 at source `e76268b` passed Linux verification and amd64
+container smoke acceptance (`validation-linux-amd64.json`). Its emulated ARM64
+job is still live at this observation. A subsequent workflow revision removes
+duplicate branch-push/PR runs, retains main push and manual execution, groups
+supersession by PR number, bounds job runtime and uses native ARM runners.
+That revised workflow has passed actionlint, but has not yet run in GitHub.

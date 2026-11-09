@@ -1609,3 +1609,228 @@ async fn cached_artwork_cannot_escape_owned_cache() {
     );
     app.shutdown().await;
 }
+
+#[tokio::test]
+async fn broad_search_cache_keeps_metadata_and_permissions_current_and_falls_back_on_quota() {
+    for constrained in [false, true] {
+        let root = TempDir::new().unwrap();
+        let (app, router, token) = setup(&root).await;
+        app.db.call(move|c|{
+            let tx=c.transaction()?;
+            tx.execute("INSERT INTO libraries(id,name,path,kind) VALUES(1,'Synthetic','/synthetic','movie')",[])?;
+            for id in 1..=5000 {
+                tx.execute("INSERT INTO items(id,title) VALUES(?,?)",rusqlite::params![id,format!("Movie {id:05}")])?;
+                tx.execute("INSERT INTO media_files(item_id,library_id,path,mtime,size) VALUES(?,1,?,0,0)",rusqlite::params![id,format!("/synthetic/{id}.mp4")])?;
+            }
+            tx.commit()?;
+            if constrained {c.execute_batch("PRAGMA ovl_query_cache.max_page_count=4")?;}
+            Ok(())
+        }).await.unwrap();
+        let url = "/api/v1/items?q=Movie&offset=4900";
+        for _ in 0..3 {
+            let (status, items) = request(&router, "GET", url, Some(&token), None).await;
+            assert_eq!(status, 200, "constrained={constrained}: {items}");
+            let ids: Vec<i64> = items
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v["id"].as_i64().unwrap())
+                .collect();
+            assert_eq!(
+                ids,
+                (4901..=5000).collect::<Vec<_>>(),
+                "cache must not truncate matches"
+            );
+        }
+        if !constrained {
+            app.db
+                .call(|c| {
+                    assert_eq!(
+                        c.query_row("SELECT count(*) FROM ovl_query_cache.entries", [], |r| r
+                            .get::<_, i64>(0))?,
+                        5000
+                    );
+                    c.execute("INSERT INTO progress VALUES(1,3,42,0,0)", [])?;
+                    Ok(())
+                })
+                .await
+                .unwrap();
+            let (_, progress) =
+                request(&router, "GET", "/api/v1/items?q=Movie", Some(&token), None).await;
+            assert_eq!(
+                progress
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|v| v["id"] == 3)
+                    .unwrap()["position"],
+                42.0
+            );
+            app.db
+                .call(|c| {
+                    c.execute(
+                        "UPDATE items SET title='Removed from search' WHERE id=1",
+                        [],
+                    )?;
+                    Ok(())
+                })
+                .await
+                .unwrap();
+            let (status, items) =
+                request(&router, "GET", "/api/v1/items?q=Movie", Some(&token), None).await;
+            assert_eq!(status, 200);
+            assert_eq!(items[0]["id"], 2);
+            // Repopulate after the internal mutation so the external-write
+            // assertion exercises invalidation of actual cached membership.
+            assert_eq!(
+                request(&router, "GET", "/api/v1/items?q=Movie", Some(&token), None)
+                    .await
+                    .0,
+                200
+            );
+            app.db
+                .call(|c| {
+                    assert_eq!(
+                        c.query_row("SELECT count(*) FROM ovl_query_cache.entries", [], |r| r
+                            .get::<_, i64>(0))?,
+                        4999
+                    );
+                    Ok(())
+                })
+                .await
+                .unwrap();
+            // External writes occur only on this disposable fixture. They must
+            // also invalidate the cache, independently of our TEMP triggers.
+            let c = rusqlite::Connection::open(app.config.data.join("library.db")).unwrap();
+            c.execute("UPDATE items SET title='Removed externally' WHERE id=2", [])
+                .unwrap();
+            drop(c);
+            let (status, items) =
+                request(&router, "GET", "/api/v1/items?q=Movie", Some(&token), None).await;
+            assert_eq!(status, 200);
+            assert_eq!(items[0]["id"], 3);
+            for term in [
+                "movie", "MOVIE", "mOvie", "moVie", "movIe", "moviE", "MOvie", "MovIe", "MOvIE",
+            ] {
+                for _ in 0..2 {
+                    assert_eq!(
+                        request(
+                            &router,
+                            "GET",
+                            &format!("/api/v1/items?q={term}"),
+                            Some(&token),
+                            None
+                        )
+                        .await
+                        .0,
+                        200
+                    );
+                }
+            }
+            app.db
+                .call(|c| {
+                    assert!(
+                        c.query_row("SELECT count(*) FROM ovl_query_cache.queries", [], |r| r
+                            .get::<_, i64>(0))?
+                            <= 8
+                    );
+                    assert!(
+                        c.query_row("SELECT count(*) FROM ovl_query_cache.entries", [], |r| r
+                            .get::<_, i64>(0))?
+                            <= 200000
+                    );
+                    Ok(())
+                })
+                .await
+                .unwrap();
+        }
+        let (status, created) = request(
+            &router,
+            "POST",
+            "/api/v1/users",
+            Some(&token),
+            Some(json!({"Name":"cache-viewer","Password":"test-password-123","Libraries":[1]})),
+        )
+        .await;
+        assert_eq!(status, 201);
+        let viewer = account(&router, "cache-viewer").await;
+        assert!(
+            !request(&router, "GET", url, Some(&viewer), None)
+                .await
+                .1
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            request(
+                &router,
+                "PUT",
+                &format!("/api/v1/users/{}/access", created["id"]),
+                Some(&token),
+                Some(json!({"Libraries":[]}))
+            )
+            .await
+            .0,
+            200
+        );
+        assert!(
+            request(&router, "GET", url, Some(&viewer), None)
+                .await
+                .1
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        app.shutdown().await;
+    }
+}
+
+#[tokio::test]
+async fn broad_search_above_cache_cap_preserves_tail_results() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    app.db.call(|c| {
+        let tx = c.transaction()?;
+        tx.execute("INSERT INTO libraries(id,name,path,kind) VALUES(1,'Synthetic','/synthetic','movie')", [])?;
+        tx.execute_batch("WITH RECURSIVE ids(id) AS (VALUES(1) UNION ALL SELECT id+1 FROM ids WHERE id<100005) INSERT INTO items(id,title) SELECT id,printf('Movie %08d',id) FROM ids;
+            INSERT INTO media_files(item_id,library_id,path,mtime,size) SELECT id,1,printf('/synthetic/%d.mp4',id),0,0 FROM items;")?;
+        tx.commit()?;
+        Ok(())
+    }).await.unwrap();
+    for _ in 0..3 {
+        let (status, items) = request(
+            &router,
+            "GET",
+            "/api/v1/items?q=Movie&offset=100000",
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, 200, "{items}");
+        let ids: Vec<_> = items
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["id"].as_i64().unwrap())
+            .collect();
+        assert_eq!(ids, (100001..=100005).collect::<Vec<_>>());
+    }
+    app.db
+        .call(|c| {
+            assert_eq!(
+                c.query_row("SELECT count(*) FROM ovl_query_cache.entries", [], |r| r
+                    .get::<_, i64>(0))?,
+                0
+            );
+            assert_eq!(
+                c.query_row("SELECT status FROM ovl_query_cache.queries", [], |r| r
+                    .get::<_, i64>(0))?,
+                2
+            );
+            Ok(())
+        })
+        .await
+        .unwrap();
+    app.shutdown().await;
+}

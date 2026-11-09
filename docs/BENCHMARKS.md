@@ -94,3 +94,22 @@ filtered/progress queries retain their selective plans. The FTS expression and
 ordering are unchanged. A correlated-FTS experiment was rejected after it
 substantially regressed all measured search shapes. N100 end-to-end measurements
 must be repeated after these changes.
+
+## N100 production diagnostics and bounded search cache
+
+`benchmarks/rust-production-n100-indexed.json` records five repeats at 10k/100k,
+1,000 requests per trial and concurrency 1/10/50/100: 80,000 authenticated requests,
+10,148 errors. Unlike the initial contaminated diagnostic, no acceptance builds,
+tests or harness FFmpeg overlapped the measured trials. The household host and
+warm loopback/synthetic limitations remain. At 100k, search p95 median was
+373.54 ms (run standard deviation 65.27 ms) at concurrency 10 and 1,199.61 ms
+(276.53 ms) at concurrency 50. These miss the initial latency gate; concurrency
+100 errors prevent a capacity claim. Reports include per-trial errors, CPU/RSS,
+source/binary hashes and runtime versions.
+
+The SQL prototype in `benchmarks/rust-sql-cache-prototype-local.json` motivated
+caching full membership for repeated broad searches, retaining live permission
+and progress checks. Sparse queries retain their selective plan. The production
+cache has explicit term/row/page limits and invalidation, documented in ADR 001.
+The profiler records planning/fill and execution separately so a warm lookup
+cannot hide fill cost. N100 end-to-end results for this cache remain pending.

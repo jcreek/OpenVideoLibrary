@@ -47,9 +47,11 @@ zero errors on a shared macOS development host. It is neither N100/SMB acceptanc
 nor a Jellyfin comparison. Historical N100/VAAPI results describe the earlier
 application/prototypes and must not be attributed to this Rust implementation.
 
-The Rust image build was attempted and failed because Docker's storage is full
-(`no space left on device`). Existing images and volumes were not deleted. No
-Rust Linux image, multi-architecture build or deployment is certified from that run.
+The local Rust image build failed because Docker storage is full (`no space
+left on device`); no unrelated images or volumes were deleted. GitHub CI later
+built and smoke-tested the Linux amd64 image at source `e76268b` (see
+`validation-linux-amd64.json`). ARM64 and production-host deployment acceptance
+remain pending; that CI result does not certify newer source.
 
 ## Remaining acceptance and parity
 
@@ -60,8 +62,9 @@ Rust Linux image, multi-architecture build or deployment is certified from that 
   synthetic PQ/HLG and a six-container software slice now pass.
 - Real mobile devices, additional desktop/browser codec coverage, accessibility,
   multi-client queue/session coordination and broader security/provider review.
-- Linux amd64/arm64 container builds after storage capacity is available, production-host
-  Nginx deployment and rollback; a disposable real Nginx/TLS + backup/restore drill passes. No registry publication occurred.
+- Linux ARM64 image acceptance and production-host Nginx deployment/rollback;
+  amd64 CI image smoke and a disposable real Nginx/TLS backup/restore drill pass
+  for their recorded source snapshots. No registry publication occurred.
 - Music/other media, richer discovery and user controls, live TV/DVR, DLNA/casting,
   selected plugin-equivalent integrations and own native clients remain subsequent
   stages. Recording output will require a dedicated writable destination.
@@ -79,7 +82,10 @@ stages or production performance gates.
 The N100 production API diagnostic now includes 80 trials / 80,000 requests and
 17,643 errors at high offered concurrency. It is retained with its interference
 limitations and is not release acceptance. Query plans motivated order-preserving
-browse/broad-search changes; their isolated repeated N100 profile is in progress.
+browse/broad-search changes. Their isolated N100 profile records 80,000 requests
+and 10,148 errors at offered concurrency 100; 100k broad search still misses the
+150 ms gate at concurrency 10/50. A bounded exact-match-ID cache is now under
+end-to-end measurement; it is not yet performance acceptance.
 Startup now rejects symlinked owned storage and overlapping media/data paths.
 Actual TCP cancellation is covered by stalled-upload and stalled-direct-reader
 SIGTERM tests, alongside the expanded software container/PQ/HLG corpus.

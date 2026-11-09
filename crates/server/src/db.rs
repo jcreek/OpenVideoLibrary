@@ -39,6 +39,7 @@ impl Db {
         // Additive tables leave user_version=2 for legacy backup/restore and rollback.
         // Existing tables and values are never rewritten by the expansion.
         conn.execute_batch(include_str!("migrations/expansion.sql"))?;
+        crate::search::init(&conn)?;
         let (tx, mut rx) = mpsc::channel::<Option<Job>>(64);
         let worker = std::thread::Builder::new()
             .name("ovl-sqlite".into())

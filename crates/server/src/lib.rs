@@ -7,6 +7,7 @@ pub mod lists;
 pub mod media;
 pub mod playback;
 pub mod scan;
+pub mod search;
 pub mod transport;
 use crate::{
     db::Db,

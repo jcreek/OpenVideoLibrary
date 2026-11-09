@@ -35,3 +35,14 @@ separate tested pipeline before it can be enabled.
 Performance targets remain N100/SMB browse/search p95 <150 ms and LAN direct first
 frame <2 s. Additional playback budgets follow real measurements, without reducing
 picture quality or benchmark semantics to manufacture a win.
+
+Repeated broad unfiltered FTS queries can cache complete match IDs in a private
+in-memory SQLite attachment. It admits eight terms, 100,000 matches per query,
+200,000 total matches and 4,096 pages of 4,096 bytes (16 MiB database pages, plus
+bounded SQLite bookkeeping/journal overhead). Sparse or filtered queries keep
+their selective SQL plan. The first broad request records a term; only a repeat
+within the same metadata generation fills it. Item insert/delete/title/series
+updates invalidate membership; external commits are detected through data_version
+within a pinned read snapshot. Grants, progress, ordering and pagination remain
+live SQL. Over-cap or allocation-full fills fall back to complete uncached FTS;
+there is no partial-match result. The cache is disposable and absent from backups.
