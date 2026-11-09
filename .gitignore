@@ -1,0 +1,16 @@
+data/
+web/node_modules/
+web/dist/
+target/
+bench/rust/target/
+*.db
+*.db-shm
+*.db-wal
+bin/
+.DS_Store
+__pycache__/
+playwright-report/
+test-results/
+.env
+.env.*
+!.env.example

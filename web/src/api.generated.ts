@@ -1,0 +1,27 @@
+// Generated from docs/openapi.json. Run python3 scripts/generate-types.py.
+export type Item = { "id": number; "library_id": number; "title": string; "series": string; "season": number; "episode": number; "overview": string; "position": number; "watched": boolean };
+export type Library = { "id": number; "name": string; "kind": "movie" | "tv"; "offline": boolean };
+export type User = { "ID": number; "Admin": boolean };
+export type Credentials = { "Name": string; "Password": string };
+export type CreateUser = { "Name": string; "Password": string; "Libraries": (number)[] };
+export type CreateLibrary = { "Name": string; "Path": string; "Kind": "movie" | "tv" };
+export type PlaybackRequest = { "Mode": "auto" | "direct" | "remux" | "transcode"; "Start"?: number; "Audio"?: number; "Subtitle"?: number; "Adaptive"?: boolean; "CanPlayMP4"?: boolean; "Capabilities"?: ClientCapabilities };
+export type PlaybackResponse = { "id"?: string; "url": string; "mode": string; "start"?: number; "reason"?: string };
+export type Progress = { "Position": number; "Watched": boolean };
+export type Metadata = { "Title": string; "Overview": string };
+export type Match = { "ID": number; "Kind": "movie" | "tv" };
+export type Subtitle = { "Index": number; "External": boolean };
+export type Error = { "error": string };
+export type Account = { "id": number; "name": string; "admin": boolean; "libraries": (number)[] };
+export type Series = { "library_id": number; "name": string; "episodes": number; "seasons": number; "watched": number };
+export type MediaTrack = { "index": number; "codec_type": string; "codec_name": string; "width"?: number; "height"?: number; "color_transfer"?: string; "tags"?: Record<string, string> };
+export type MediaInfo = { "streams": (MediaTrack)[]; "format": { "format_name": string; "duration": string } };
+export type Access = { "Libraries": (number)[] };
+export type Password = { "Password": string };
+export type ClientCapabilities = { "containers": (string)[]; "video_codecs": (string)[]; "audio_codecs": (string)[]; "hdr": boolean };
+export type MediaListSummary = { "id": number; "kind": "collection" | "playlist" | "queue"; "name": string; "revision": number; "cursor": number };
+export type MediaList = { "id": number; "kind": "collection" | "playlist" | "queue"; "name": string; "revision": number; "cursor": number; "entries": (MediaListEntry)[] };
+export type MediaListEntry = { "position": number; "item": Item };
+export type WriteMediaList = { "Kind": "collection" | "playlist" | "queue"; "Name": string; "ItemIDs": (number)[]; "Revision"?: number; "Cursor"?: number };
+export type ListSaved = { "id": number; "revision": number };
+export type PlaybackTelemetry = { "Event": "first_frame" | "seek" | "stall"; "DurationMs": number; "Mode": "direct" | "remux" | "transcode" };

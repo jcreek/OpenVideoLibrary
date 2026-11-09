@@ -1,0 +1,6688 @@
+{
+  "utc": "2026-11-09T08:56:14.622885+00:00",
+  "kind": "N100 prototype matrix; off-host HTTP client; SSH transport",
+  "transport": "single persistent SSH tunnel, shared by candidates",
+  "isolation": "existing household services continue running; OS/NAS caches not evicted",
+  "configuration": {
+    "requests": 2000,
+    "repetitions": 5,
+    "concurrency": [
+      1,
+      50,
+      100,
+      200
+    ],
+    "modes": [
+      "idle",
+      "mixed-vaapi"
+    ],
+    "candidates": [
+      "go-cgo",
+      "rust"
+    ],
+    "items": [
+      100000
+    ]
+  },
+  "results": [
+    {
+      "requests": 2000,
+      "seconds": 2.8520987500000006,
+      "errors": 0,
+      "successful_rps": 701.2379918472317,
+      "p50_ms": 1.3498329999999115,
+      "p95_ms": 1.7000829999997968,
+      "p99_ms": 1.9880829999996408,
+      "core_peak_rss_bytes": 15925248,
+      "core_cpu_seconds": 1.35,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.5410865829999993,
+      "errors": 0,
+      "successful_rps": 787.064877434757,
+      "p50_ms": 1.2096660000002757,
+      "p95_ms": 1.509125000000111,
+      "p99_ms": 1.7088750000002761,
+      "core_peak_rss_bytes": 5373952,
+      "core_cpu_seconds": 0.75,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.8522054999999984,
+      "errors": 0,
+      "successful_rps": 701.211746488814,
+      "p50_ms": 1.3585000000002623,
+      "p95_ms": 1.7015419999992787,
+      "p99_ms": 1.937375000000685,
+      "core_peak_rss_bytes": 16097280,
+      "core_cpu_seconds": 1.36,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 1.8801046249999995,
+      "errors": 0,
+      "successful_rps": 1063.7705867033865,
+      "p50_ms": 0.8796659999994461,
+      "p95_ms": 1.2421660000008217,
+      "p99_ms": 1.510749999999561,
+      "core_peak_rss_bytes": 5373952,
+      "core_cpu_seconds": 0.27,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.399737625000002,
+      "errors": 0,
+      "successful_rps": 833.4244457245605,
+      "p50_ms": 1.1656670000004254,
+      "p95_ms": 1.5359580000016138,
+      "p99_ms": 1.7453329999987943,
+      "core_peak_rss_bytes": 16224256,
+      "core_cpu_seconds": 0.95,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.224622,
+      "errors": 0,
+      "successful_rps": 899.0291384334057,
+      "p50_ms": 1.0617919999980074,
+      "p95_ms": 1.3801249999971787,
+      "p99_ms": 1.5449170000003676,
+      "core_peak_rss_bytes": 5373952,
+      "core_cpu_seconds": 0.6,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.2020859580000014,
+      "errors": 0,
+      "successful_rps": 908.2297594851648,
+      "p50_ms": 0.9886249999979668,
+      "p95_ms": 1.4687080000008734,
+      "p99_ms": 2.0298340000017845,
+      "core_peak_rss_bytes": 16461824,
+      "core_cpu_seconds": 0.69,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.0094753749999974,
+      "errors": 0,
+      "successful_rps": 995.2846523436509,
+      "p50_ms": 0.8974579999971866,
+      "p95_ms": 1.3173750000028406,
+      "p99_ms": 2.269375000000906,
+      "core_peak_rss_bytes": 5505024,
+      "core_cpu_seconds": 0.37,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.1039939590000003,
+      "errors": 0,
+      "successful_rps": 950.5730714885573,
+      "p50_ms": 0.9228750000005448,
+      "p95_ms": 1.4367079999999532,
+      "p99_ms": 2.9805839999994532,
+      "core_peak_rss_bytes": 5505024,
+      "core_cpu_seconds": 0.39,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.411440374999998,
+      "errors": 0,
+      "successful_rps": 829.3798265694219,
+      "p50_ms": 1.0692909999967526,
+      "p95_ms": 1.7844999999994116,
+      "p99_ms": 3.124999999997158,
+      "core_peak_rss_bytes": 16515072,
+      "core_cpu_seconds": 0.75,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.249230541000003,
+      "errors": 0,
+      "successful_rps": 889.1929766838416,
+      "p50_ms": 0.9952919999989263,
+      "p95_ms": 1.6276250000046844,
+      "p99_ms": 2.3144170000009012,
+      "core_peak_rss_bytes": 16568320,
+      "core_cpu_seconds": 0.76,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 1.893444499999994,
+      "errors": 0,
+      "successful_rps": 1056.2760091462974,
+      "p50_ms": 0.845083000001523,
+      "p95_ms": 1.3559170000050358,
+      "p99_ms": 2.1729580000027227,
+      "core_peak_rss_bytes": 5373952,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 1.9447254580000006,
+      "errors": 0,
+      "successful_rps": 1028.4227996155535,
+      "p50_ms": 0.8761250000048904,
+      "p95_ms": 1.346666999999968,
+      "p99_ms": 1.7198330000027795,
+      "core_peak_rss_bytes": 5373952,
+      "core_cpu_seconds": 0.4,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.3269383749999974,
+      "errors": 0,
+      "successful_rps": 859.4984815616366,
+      "p50_ms": 1.0426660000035781,
+      "p95_ms": 1.5632090000039511,
+      "p99_ms": 2.359333000001129,
+      "core_peak_rss_bytes": 16236544,
+      "core_cpu_seconds": 0.71,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.0495613329999998,
+      "errors": 0,
+      "successful_rps": 975.8185655622925,
+      "p50_ms": 0.9200840000005428,
+      "p95_ms": 1.446707999996022,
+      "p99_ms": 2.0038330000033966,
+      "core_peak_rss_bytes": 5505024,
+      "core_cpu_seconds": 0.45,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.4535472909999996,
+      "errors": 0,
+      "successful_rps": 815.1463015758111,
+      "p50_ms": 1.1576249999976085,
+      "p95_ms": 1.6244589999985237,
+      "p99_ms": 1.9530000000003156,
+      "core_peak_rss_bytes": 16564224,
+      "core_cpu_seconds": 0.98,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.1872404590000016,
+      "errors": 0,
+      "successful_rps": 914.3942047022999,
+      "p50_ms": 0.993208000004131,
+      "p95_ms": 1.4889999999994075,
+      "p99_ms": 2.1147499999969455,
+      "core_peak_rss_bytes": 5767168,
+      "core_cpu_seconds": 0.49,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.495073542,
+      "errors": 0,
+      "successful_rps": 801.5795792523377,
+      "p50_ms": 1.1065829999949983,
+      "p95_ms": 1.717166000005932,
+      "p99_ms": 3.1334170000008044,
+      "core_peak_rss_bytes": 16551936,
+      "core_cpu_seconds": 0.81,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.3963364170000006,
+      "errors": 0,
+      "successful_rps": 834.6073555497778,
+      "p50_ms": 1.0804999999933784,
+      "p95_ms": 1.6045420000025956,
+      "p99_ms": 2.1229159999975877,
+      "core_peak_rss_bytes": 16297984,
+      "core_cpu_seconds": 0.81,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 1.8967803329999953,
+      "errors": 0,
+      "successful_rps": 1054.4183557812148,
+      "p50_ms": 0.8465840000013714,
+      "p95_ms": 1.3530419999909782,
+      "p99_ms": 1.7119169999944006,
+      "core_peak_rss_bytes": 5636096,
+      "core_cpu_seconds": 0.28,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4351364999999987,
+      "errors": 0,
+      "successful_rps": 4596.258875088635,
+      "p50_ms": 7.461333999998487,
+      "p95_ms": 28.983040999989385,
+      "p99_ms": 43.46858299999212,
+      "core_peak_rss_bytes": 17178624,
+      "core_cpu_seconds": 0.51,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.40881491700000083,
+      "errors": 0,
+      "successful_rps": 4892.189391415959,
+      "p50_ms": 8.694332999994003,
+      "p95_ms": 23.179792000007637,
+      "p99_ms": 31.55825000000334,
+      "core_peak_rss_bytes": 10616832,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5121462500000007,
+      "errors": 0,
+      "successful_rps": 3905.1345196806524,
+      "p50_ms": 9.328124999996135,
+      "p95_ms": 31.33379099999445,
+      "p99_ms": 43.91712500000722,
+      "core_peak_rss_bytes": 17309696,
+      "core_cpu_seconds": 0.55,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.28216158300000416,
+      "errors": 0,
+      "successful_rps": 7088.137154376436,
+      "p50_ms": 5.298542000005568,
+      "p95_ms": 13.955582999997773,
+      "p99_ms": 23.624707999999828,
+      "core_peak_rss_bytes": 9437184,
+      "core_cpu_seconds": 0.33,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5822494580000068,
+      "errors": 0,
+      "successful_rps": 3434.953820085783,
+      "p50_ms": 10.33437499999934,
+      "p95_ms": 36.330875000004426,
+      "p99_ms": 54.510415999999395,
+      "core_peak_rss_bytes": 17444864,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.3375402909999963,
+      "errors": 0,
+      "successful_rps": 5925.21856894418,
+      "p50_ms": 6.300041999992345,
+      "p95_ms": 18.33541699998875,
+      "p99_ms": 25.480041999998093,
+      "core_peak_rss_bytes": 9699328,
+      "core_cpu_seconds": 0.35,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4298755829999976,
+      "errors": 0,
+      "successful_rps": 4652.508956294945,
+      "p50_ms": 7.550542000004157,
+      "p95_ms": 27.747040999997807,
+      "p99_ms": 40.852499999999736,
+      "core_peak_rss_bytes": 17481728,
+      "core_cpu_seconds": 0.51,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.43981404200000895,
+      "errors": 0,
+      "successful_rps": 4547.376411415166,
+      "p50_ms": 8.392624999999043,
+      "p95_ms": 26.495374999996102,
+      "p99_ms": 41.21112500000379,
+      "core_peak_rss_bytes": 9830400,
+      "core_cpu_seconds": 0.34,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.36520787499999585,
+      "errors": 0,
+      "successful_rps": 5476.333170526574,
+      "p50_ms": 8.223082999990083,
+      "p95_ms": 18.282417000008877,
+      "p99_ms": 24.367707999999766,
+      "core_peak_rss_bytes": 10092544,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5758601250000055,
+      "errors": 0,
+      "successful_rps": 3473.0656164115912,
+      "p50_ms": 10.39645800000244,
+      "p95_ms": 33.56850000000122,
+      "p99_ms": 54.27925000000755,
+      "core_peak_rss_bytes": 17768448,
+      "core_cpu_seconds": 0.57,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2618633339999974,
+      "errors": 0,
+      "successful_rps": 7637.57174190725,
+      "p50_ms": 4.927209000001653,
+      "p95_ms": 13.45041700000138,
+      "p99_ms": 20.48679199999981,
+      "core_peak_rss_bytes": 9699328,
+      "core_cpu_seconds": 0.31,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4982710410000095,
+      "errors": 0,
+      "successful_rps": 4013.8796667494103,
+      "p50_ms": 9.070249999993507,
+      "p95_ms": 32.3767499999974,
+      "p99_ms": 47.17641700000286,
+      "core_peak_rss_bytes": 18227200,
+      "core_cpu_seconds": 0.57,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.24480524999999886,
+      "errors": 0,
+      "successful_rps": 8169.759431221386,
+      "p50_ms": 4.6125420000038275,
+      "p95_ms": 13.019917000008263,
+      "p99_ms": 18.295042000005424,
+      "core_peak_rss_bytes": 8257536,
+      "core_cpu_seconds": 0.35,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4477154589999941,
+      "errors": 0,
+      "successful_rps": 4467.122945602882,
+      "p50_ms": 8.223999999998455,
+      "p95_ms": 28.6848329999998,
+      "p99_ms": 44.729374999988636,
+      "core_peak_rss_bytes": 17244160,
+      "core_cpu_seconds": 0.52,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.25120104200000526,
+      "errors": 0,
+      "successful_rps": 7961.7504134395995,
+      "p50_ms": 4.865124999994919,
+      "p95_ms": 13.0128339999942,
+      "p99_ms": 19.6321249999869,
+      "core_peak_rss_bytes": 9437184,
+      "core_cpu_seconds": 0.33,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4975105000000042,
+      "errors": 0,
+      "successful_rps": 4020.015657960954,
+      "p50_ms": 8.811749999992458,
+      "p95_ms": 33.27737499999728,
+      "p99_ms": 47.09187500000667,
+      "core_peak_rss_bytes": 17432576,
+      "core_cpu_seconds": 0.57,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.23649816600000406,
+      "errors": 0,
+      "successful_rps": 8456.725199298018,
+      "p50_ms": 4.997624999987238,
+      "p95_ms": 12.370249999989369,
+      "p99_ms": 18.812999999994418,
+      "core_peak_rss_bytes": 8650752,
+      "core_cpu_seconds": 0.32,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5352689999999996,
+      "errors": 0,
+      "successful_rps": 3736.4390614812396,
+      "p50_ms": 9.502333000000363,
+      "p95_ms": 36.350624999997194,
+      "p99_ms": 53.933250000000044,
+      "core_peak_rss_bytes": 17526784,
+      "core_cpu_seconds": 0.59,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.43466591600000015,
+      "errors": 0,
+      "successful_rps": 4601.234940169542,
+      "p50_ms": 7.346750000010616,
+      "p95_ms": 25.734249999999292,
+      "p99_ms": 39.53437500000234,
+      "core_peak_rss_bytes": 9961472,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.7035213329999976,
+      "errors": 0,
+      "successful_rps": 2842.842009454753,
+      "p50_ms": 12.594125000006784,
+      "p95_ms": 45.20216699999935,
+      "p99_ms": 67.8490829999987,
+      "core_peak_rss_bytes": 17297408,
+      "core_cpu_seconds": 0.64,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4488522920000122,
+      "errors": 0,
+      "successful_rps": 4455.808816500252,
+      "p50_ms": 14.94616699999085,
+      "p95_ms": 61.4481249999983,
+      "p99_ms": 93.47979199999656,
+      "core_peak_rss_bytes": 17670144,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.26363608399999805,
+      "errors": 0,
+      "successful_rps": 7586.214943171492,
+      "p50_ms": 10.566415999988976,
+      "p95_ms": 24.96058299999504,
+      "p99_ms": 35.481125000004,
+      "core_peak_rss_bytes": 11403264,
+      "core_cpu_seconds": 0.32,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.21869641699998965,
+      "errors": 0,
+      "successful_rps": 9145.097242265723,
+      "p50_ms": 8.482250000000136,
+      "p95_ms": 20.916125000013608,
+      "p99_ms": 29.492916999998897,
+      "core_peak_rss_bytes": 10354688,
+      "core_cpu_seconds": 0.31,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5769246250000037,
+      "errors": 0,
+      "successful_rps": 3466.6573644693826,
+      "p50_ms": 18.046083000001545,
+      "p95_ms": 79.41070900000113,
+      "p99_ms": 118.22275000000104,
+      "core_peak_rss_bytes": 17952768,
+      "core_cpu_seconds": 0.59,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.34424666699999307,
+      "errors": 0,
+      "successful_rps": 5809.787549809568,
+      "p50_ms": 15.890957999999955,
+      "p95_ms": 33.44208299999707,
+      "p99_ms": 49.8262499999953,
+      "core_peak_rss_bytes": 11665408,
+      "core_cpu_seconds": 0.33,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.6652919170000047,
+      "errors": 0,
+      "successful_rps": 3006.1991569333704,
+      "p50_ms": 22.948791999994,
+      "p95_ms": 88.17720899999415,
+      "p99_ms": 140.44625000001076,
+      "core_peak_rss_bytes": 17821696,
+      "core_cpu_seconds": 0.63,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4463387910000023,
+      "errors": 0,
+      "successful_rps": 4480.901145784547,
+      "p50_ms": 14.72945899999445,
+      "p95_ms": 55.18675000000428,
+      "p99_ms": 87.4301659999901,
+      "core_peak_rss_bytes": 17899520,
+      "core_cpu_seconds": 0.52,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.22560062499999844,
+      "errors": 0,
+      "successful_rps": 8865.223666822792,
+      "p50_ms": 9.541459000004693,
+      "p95_ms": 21.16824999998812,
+      "p99_ms": 30.622416999989355,
+      "core_peak_rss_bytes": 11010048,
+      "core_cpu_seconds": 0.28,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4805631669999997,
+      "errors": 0,
+      "successful_rps": 4161.783793138689,
+      "p50_ms": 16.04600000000289,
+      "p95_ms": 63.22645899999202,
+      "p99_ms": 90.6916659999979,
+      "core_peak_rss_bytes": 17506304,
+      "core_cpu_seconds": 0.57,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.43727087499999584,
+      "errors": 0,
+      "successful_rps": 4573.823948370718,
+      "p50_ms": 18.34229099999618,
+      "p95_ms": 42.074374999998554,
+      "p99_ms": 61.45920800000226,
+      "core_peak_rss_bytes": 12976128,
+      "core_cpu_seconds": 0.37,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.3132785829999989,
+      "errors": 0,
+      "successful_rps": 6384.094248791999,
+      "p50_ms": 12.176791000001685,
+      "p95_ms": 31.803207999999472,
+      "p99_ms": 41.658334000004515,
+      "core_peak_rss_bytes": 11272192,
+      "core_cpu_seconds": 0.35,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5697957080000009,
+      "errors": 0,
+      "successful_rps": 3510.0299491901346,
+      "p50_ms": 19.296916999991254,
+      "p95_ms": 75.95012499999143,
+      "p99_ms": 120.32191699999828,
+      "core_peak_rss_bytes": 17666048,
+      "core_cpu_seconds": 0.61,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.6838804579999902,
+      "errors": 0,
+      "successful_rps": 2924.4877179982655,
+      "p50_ms": 22.050417000002653,
+      "p95_ms": 92.48145899999827,
+      "p99_ms": 140.86395799999707,
+      "core_peak_rss_bytes": 18051072,
+      "core_cpu_seconds": 0.68,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2580063329999973,
+      "errors": 0,
+      "successful_rps": 7751.747706131,
+      "p50_ms": 8.2250419999923,
+      "p95_ms": 21.853292000002966,
+      "p99_ms": 32.48462499999505,
+      "core_peak_rss_bytes": 13238272,
+      "core_cpu_seconds": 0.3,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4192652079999988,
+      "errors": 0,
+      "successful_rps": 4770.25033758586,
+      "p50_ms": 18.032042000001525,
+      "p95_ms": 46.21116599999198,
+      "p99_ms": 67.57762499999842,
+      "core_peak_rss_bytes": 12451840,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5873157919999983,
+      "errors": 0,
+      "successful_rps": 3405.3230429737973,
+      "p50_ms": 18.681458000003204,
+      "p95_ms": 78.13654199999576,
+      "p99_ms": 118.46654100000364,
+      "core_peak_rss_bytes": 17870848,
+      "core_cpu_seconds": 0.63,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.6013072499999907,
+      "errors": 0,
+      "successful_rps": 3326.0866221054725,
+      "p50_ms": 21.26000000001227,
+      "p95_ms": 79.25229199999251,
+      "p99_ms": 115.11804200000597,
+      "core_peak_rss_bytes": 18145280,
+      "core_cpu_seconds": 0.64,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.38602550000000235,
+      "errors": 0,
+      "successful_rps": 5181.004881801819,
+      "p50_ms": 12.632999999993899,
+      "p95_ms": 38.119249999994054,
+      "p99_ms": 63.449958000006745,
+      "core_peak_rss_bytes": 12976128,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5107694170000059,
+      "errors": 0,
+      "successful_rps": 3915.6612229192588,
+      "p50_ms": 16.97070799998812,
+      "p95_ms": 69.7922499999919,
+      "p99_ms": 99.67845799999964,
+      "core_peak_rss_bytes": 17793024,
+      "core_cpu_seconds": 0.6,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.41371374999999944,
+      "errors": 0,
+      "successful_rps": 4834.260403479466,
+      "p50_ms": 15.833999999998127,
+      "p95_ms": 44.18954199999803,
+      "p99_ms": 65.05129100000318,
+      "core_peak_rss_bytes": 13107200,
+      "core_cpu_seconds": 0.35,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.3411005420000066,
+      "errors": 0,
+      "successful_rps": 5863.373855324924,
+      "p50_ms": 30.659624999998414,
+      "p95_ms": 66.40474999998958,
+      "p99_ms": 95.22258300000885,
+      "core_peak_rss_bytes": 16515072,
+      "core_cpu_seconds": 0.35,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5292659579999963,
+      "errors": 0,
+      "successful_rps": 3778.8185122611153,
+      "p50_ms": 33.22116599998992,
+      "p95_ms": 136.0302080000082,
+      "p99_ms": 213.7530830000003,
+      "core_peak_rss_bytes": 22405120,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5692839579999998,
+      "errors": 0,
+      "successful_rps": 3513.1852424339713,
+      "p50_ms": 34.03195799999992,
+      "p95_ms": 144.62483299999462,
+      "p99_ms": 221.43708299999787,
+      "core_peak_rss_bytes": 22257664,
+      "core_cpu_seconds": 0.59,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.26922070799999176,
+      "errors": 0,
+      "successful_rps": 7428.8490467830625,
+      "p50_ms": 14.203582999996911,
+      "p95_ms": 38.81570900000497,
+      "p99_ms": 56.17004199999087,
+      "core_peak_rss_bytes": 14286848,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.48044879200000423,
+      "errors": 0,
+      "successful_rps": 4162.774541849576,
+      "p50_ms": 31.012541999999144,
+      "p95_ms": 122.24604200000044,
+      "p99_ms": 166.01529200001153,
+      "core_peak_rss_bytes": 22831104,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4113727499999982,
+      "errors": 0,
+      "successful_rps": 4861.77074198524,
+      "p50_ms": 36.653833999992,
+      "p95_ms": 77.65466700000445,
+      "p99_ms": 118.91425000000311,
+      "core_peak_rss_bytes": 16646144,
+      "core_cpu_seconds": 0.4,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.24668262499997695,
+      "errors": 0,
+      "successful_rps": 8107.5835803198015,
+      "p50_ms": 14.227707999992845,
+      "p95_ms": 43.32866600000784,
+      "p99_ms": 60.52166599999964,
+      "core_peak_rss_bytes": 12713984,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.7143179580000094,
+      "errors": 0,
+      "successful_rps": 2799.873610345344,
+      "p50_ms": 44.171374999990576,
+      "p95_ms": 190.81524999998578,
+      "p99_ms": 284.7147919999884,
+      "core_peak_rss_bytes": 22806528,
+      "core_cpu_seconds": 0.62,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.655418042000008,
+      "errors": 0,
+      "successful_rps": 3051.4875573107515,
+      "p50_ms": 43.57395900001393,
+      "p95_ms": 165.56904199998712,
+      "p99_ms": 250.45920899998464,
+      "core_peak_rss_bytes": 22892544,
+      "core_cpu_seconds": 0.64,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4314905420000059,
+      "errors": 0,
+      "successful_rps": 4635.095802401093,
+      "p50_ms": 31.00245799998902,
+      "p95_ms": 88.95258299997977,
+      "p99_ms": 124.57704199999853,
+      "core_peak_rss_bytes": 17956864,
+      "core_cpu_seconds": 0.37,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.3668077910000136,
+      "errors": 0,
+      "successful_rps": 5452.44689200161,
+      "p50_ms": 26.915666000007832,
+      "p95_ms": 67.81529200000591,
+      "p99_ms": 112.01562500002638,
+      "core_peak_rss_bytes": 15728640,
+      "core_cpu_seconds": 0.35,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5226907499999811,
+      "errors": 0,
+      "successful_rps": 3826.354302233342,
+      "p50_ms": 25.785792000021956,
+      "p95_ms": 129.6679589999883,
+      "p99_ms": 194.10637499998984,
+      "core_peak_rss_bytes": 22630400,
+      "core_cpu_seconds": 0.56,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5478269580000017,
+      "errors": 0,
+      "successful_rps": 3650.7878460409643,
+      "p50_ms": 30.733709000003273,
+      "p95_ms": 133.3232080000073,
+      "p99_ms": 209.07966599997962,
+      "core_peak_rss_bytes": 22257664,
+      "core_cpu_seconds": 0.62,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.3784742089999895,
+      "errors": 0,
+      "successful_rps": 5284.375929563156,
+      "p50_ms": 17.290000000002692,
+      "p95_ms": 84.95441699997741,
+      "p99_ms": 111.60720899999887,
+      "core_peak_rss_bytes": 18612224,
+      "core_cpu_seconds": 0.39,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5896870830000012,
+      "errors": 0,
+      "successful_rps": 3391.629319443641,
+      "p50_ms": 40.02704200001972,
+      "p95_ms": 154.83687500000087,
+      "p99_ms": 227.28200000000243,
+      "core_peak_rss_bytes": 22659072,
+      "core_cpu_seconds": 0.63,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2890020840000034,
+      "errors": 0,
+      "successful_rps": 6920.365321656215,
+      "p50_ms": 16.402290999991465,
+      "p95_ms": 55.940208999999186,
+      "p99_ms": 88.65554199999792,
+      "core_peak_rss_bytes": 15466496,
+      "core_cpu_seconds": 0.37,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.3373972920000199,
+      "errors": 0,
+      "successful_rps": 5927.7298526743425,
+      "p50_ms": 26.1797080000008,
+      "p95_ms": 61.26279200000795,
+      "p99_ms": 80.75737499999036,
+      "core_peak_rss_bytes": 15728640,
+      "core_cpu_seconds": 0.37,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.46552629199999274,
+      "errors": 0,
+      "successful_rps": 4296.21276900947,
+      "p50_ms": 30.64045899998291,
+      "p95_ms": 110.23654199999555,
+      "p99_ms": 164.70499999999788,
+      "core_peak_rss_bytes": 22237184,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4691472920000024,
+      "errors": 0,
+      "successful_rps": 4263.053488966936,
+      "p50_ms": 30.527957999993305,
+      "p95_ms": 114.73154199998703,
+      "p99_ms": 176.84149999999477,
+      "core_peak_rss_bytes": 22020096,
+      "core_cpu_seconds": 0.59,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.24989645900001278,
+      "errors": 0,
+      "successful_rps": 8003.314684822716,
+      "p50_ms": 10.981125000000702,
+      "p95_ms": 23.183666999983643,
+      "p99_ms": 31.23216599999523,
+      "core_peak_rss_bytes": 13107200,
+      "core_cpu_seconds": 0.34,
+      "ffmpeg_peak_rss_bytes": 0,
+      "ffmpeg_cpu_seconds": 0,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "idle",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 0,
+        "scan_started": 0,
+        "errors": 0
+      },
+      "sample": null
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.610156125000003,
+      "errors": 0,
+      "successful_rps": 766.2376900921961,
+      "p50_ms": 1.1637910000104057,
+      "p95_ms": 1.6650830000060068,
+      "p99_ms": 4.531291999995801,
+      "core_peak_rss_bytes": 6553600,
+      "core_cpu_seconds": 0.68,
+      "ffmpeg_peak_rss_bytes": 112664576,
+      "ffmpeg_cpu_seconds": 0.25,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 24,
+        "scan_started": 6,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.857653292000009,
+      "errors": 0,
+      "successful_rps": 699.8749657976331,
+      "p50_ms": 1.2919589999853542,
+      "p95_ms": 1.8357499999979154,
+      "p99_ms": 4.699500000015178,
+      "core_peak_rss_bytes": 16777216,
+      "core_cpu_seconds": 1.11,
+      "ffmpeg_peak_rss_bytes": 113000448,
+      "ffmpeg_cpu_seconds": 0.28,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 26,
+        "scan_started": 6,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.4617268339999896,
+      "errors": 0,
+      "successful_rps": 812.4378271289578,
+      "p50_ms": 1.1115419999896403,
+      "p95_ms": 1.652875000019094,
+      "p99_ms": 4.836041999993768,
+      "core_peak_rss_bytes": 6553600,
+      "core_cpu_seconds": 0.67,
+      "ffmpeg_peak_rss_bytes": 112869376,
+      "ffmpeg_cpu_seconds": 0.24999999999999997,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 22,
+        "scan_started": 5,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.5973494590000143,
+      "errors": 0,
+      "successful_rps": 770.0157532017292,
+      "p50_ms": 1.1820000000000164,
+      "p95_ms": 1.7014999999958036,
+      "p99_ms": 4.909916000002568,
+      "core_peak_rss_bytes": 16588800,
+      "core_cpu_seconds": 0.99,
+      "ffmpeg_peak_rss_bytes": 112529408,
+      "ffmpeg_cpu_seconds": 0.25,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 24,
+        "scan_started": 6,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 1.7771656669999913,
+      "errors": 0,
+      "successful_rps": 1125.3874847673442,
+      "p50_ms": 0.7775830000014139,
+      "p95_ms": 1.172291000017367,
+      "p99_ms": 3.5265840000135995,
+      "core_peak_rss_bytes": 6684672,
+      "core_cpu_seconds": 0.31,
+      "ffmpeg_peak_rss_bytes": 113004544,
+      "ffmpeg_cpu_seconds": 0.10000000000000003,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 16,
+        "scan_started": 4,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 1.9876182079999865,
+      "errors": 0,
+      "successful_rps": 1006.2294619510819,
+      "p50_ms": 0.8975420000183476,
+      "p95_ms": 1.3011249999976826,
+      "p99_ms": 4.148333000017601,
+      "core_peak_rss_bytes": 16936960,
+      "core_cpu_seconds": 0.52,
+      "ffmpeg_peak_rss_bytes": 112922624,
+      "ffmpeg_cpu_seconds": 0.12,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 18,
+        "scan_started": 4,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 1.9243577080000023,
+      "errors": 0,
+      "successful_rps": 1039.3078125161112,
+      "p50_ms": 0.817707999999584,
+      "p95_ms": 1.2563749999969787,
+      "p99_ms": 4.337915999997222,
+      "core_peak_rss_bytes": 6946816,
+      "core_cpu_seconds": 0.31,
+      "ffmpeg_peak_rss_bytes": 113000448,
+      "ffmpeg_cpu_seconds": 0.09000000000000002,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 18,
+        "scan_started": 4,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.6375877499999945,
+      "errors": 0,
+      "successful_rps": 758.268611158057,
+      "p50_ms": 1.1900410000009742,
+      "p95_ms": 1.8167499999890424,
+      "p99_ms": 4.873999999972511,
+      "core_peak_rss_bytes": 16678912,
+      "core_cpu_seconds": 1.03,
+      "ffmpeg_peak_rss_bytes": 112791552,
+      "ffmpeg_cpu_seconds": 0.22999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 24,
+        "scan_started": 6,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.7981235839999954,
+      "errors": 0,
+      "successful_rps": 714.7647128369307,
+      "p50_ms": 1.253333999983397,
+      "p95_ms": 1.8699999999967076,
+      "p99_ms": 4.533334000001332,
+      "core_peak_rss_bytes": 16605184,
+      "core_cpu_seconds": 1.16,
+      "ffmpeg_peak_rss_bytes": 112664576,
+      "ffmpeg_cpu_seconds": 0.29000000000000004,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 25,
+        "scan_started": 6,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.390427041999999,
+      "errors": 0,
+      "successful_rps": 836.6705885014837,
+      "p50_ms": 1.0575000000017099,
+      "p95_ms": 1.7947909999804779,
+      "p99_ms": 4.616583000000674,
+      "core_peak_rss_bytes": 6553600,
+      "core_cpu_seconds": 0.73,
+      "ffmpeg_peak_rss_bytes": 112652288,
+      "ffmpeg_cpu_seconds": 0.25,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 22,
+        "scan_started": 5,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.2308544170000175,
+      "errors": 0,
+      "successful_rps": 896.5174888864046,
+      "p50_ms": 0.9998330000087208,
+      "p95_ms": 1.6023750000044856,
+      "p99_ms": 4.362665999991577,
+      "core_peak_rss_bytes": 6422528,
+      "core_cpu_seconds": 0.67,
+      "ffmpeg_peak_rss_bytes": 112873472,
+      "ffmpeg_cpu_seconds": 0.21999999999999997,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 21,
+        "scan_started": 5,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.378888125000003,
+      "errors": 0,
+      "successful_rps": 840.7289014484435,
+      "p50_ms": 1.0277090000272437,
+      "p95_ms": 1.8352920000097583,
+      "p99_ms": 4.817332999976998,
+      "core_peak_rss_bytes": 16756736,
+      "core_cpu_seconds": 1.04,
+      "ffmpeg_peak_rss_bytes": 112926720,
+      "ffmpeg_cpu_seconds": 0.22999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 22,
+        "scan_started": 5,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.9000258339999903,
+      "errors": 0,
+      "successful_rps": 689.6490288299985,
+      "p50_ms": 1.3318749999768897,
+      "p95_ms": 1.8767500000080872,
+      "p99_ms": 5.192708000009816,
+      "core_peak_rss_bytes": 16789504,
+      "core_cpu_seconds": 1.24,
+      "ffmpeg_peak_rss_bytes": 113000448,
+      "ffmpeg_cpu_seconds": 0.29000000000000004,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 26,
+        "scan_started": 6,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.3268465419999984,
+      "errors": 0,
+      "successful_rps": 859.5324031471953,
+      "p50_ms": 1.0283750000041891,
+      "p95_ms": 1.826915999998846,
+      "p99_ms": 4.604416000006495,
+      "core_peak_rss_bytes": 6553600,
+      "core_cpu_seconds": 0.7,
+      "ffmpeg_peak_rss_bytes": 112795648,
+      "ffmpeg_cpu_seconds": 0.22999999999999998,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 21,
+        "scan_started": 5,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.0521526250000193,
+      "errors": 0,
+      "successful_rps": 974.5863809715329,
+      "p50_ms": 0.8859579999977996,
+      "p95_ms": 1.5904999999918346,
+      "p99_ms": 3.640791000009358,
+      "core_peak_rss_bytes": 6815744,
+      "core_cpu_seconds": 0.49,
+      "ffmpeg_peak_rss_bytes": 112766976,
+      "ffmpeg_cpu_seconds": 0.14999999999999997,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 19,
+        "scan_started": 5,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.942767500000002,
+      "errors": 0,
+      "successful_rps": 679.6323528787098,
+      "p50_ms": 1.3376670000013746,
+      "p95_ms": 1.9386670000187678,
+      "p99_ms": 4.798624999978074,
+      "core_peak_rss_bytes": 17252352,
+      "core_cpu_seconds": 1.24,
+      "ffmpeg_peak_rss_bytes": 112873472,
+      "ffmpeg_cpu_seconds": 0.29000000000000004,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 27,
+        "scan_started": 6,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.84762279200001,
+      "errors": 0,
+      "successful_rps": 702.3402136050865,
+      "p50_ms": 1.298667000014575,
+      "p95_ms": 1.9015839999951822,
+      "p99_ms": 4.90100000001803,
+      "core_peak_rss_bytes": 16646144,
+      "core_cpu_seconds": 1.27,
+      "ffmpeg_peak_rss_bytes": 112787456,
+      "ffmpeg_cpu_seconds": 0.29000000000000004,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 26,
+        "scan_started": 6,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.423384249999998,
+      "errors": 0,
+      "successful_rps": 825.2921508423609,
+      "p50_ms": 1.0815420000085396,
+      "p95_ms": 1.6524170000025151,
+      "p99_ms": 4.552875000001677,
+      "core_peak_rss_bytes": 6291456,
+      "core_cpu_seconds": 0.68,
+      "ffmpeg_peak_rss_bytes": 112607232,
+      "ffmpeg_cpu_seconds": 0.25,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 22,
+        "scan_started": 5,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.386993958000005,
+      "errors": 0,
+      "successful_rps": 837.8739264492079,
+      "p50_ms": 1.0687919999838869,
+      "p95_ms": 1.6153750000000855,
+      "p99_ms": 4.768915999989076,
+      "core_peak_rss_bytes": 6553600,
+      "core_cpu_seconds": 0.64,
+      "ffmpeg_peak_rss_bytes": 112738304,
+      "ffmpeg_cpu_seconds": 0.22999999999999998,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 22,
+        "scan_started": 5,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 2.129112666999987,
+      "errors": 0,
+      "successful_rps": 939.3584618601174,
+      "p50_ms": 0.9130830000003698,
+      "p95_ms": 1.491458999993256,
+      "p99_ms": 4.909791999978097,
+      "core_peak_rss_bytes": 16769024,
+      "core_cpu_seconds": 0.68,
+      "ffmpeg_peak_rss_bytes": 112705536,
+      "ffmpeg_cpu_seconds": 0.13999999999999999,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 1,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 20,
+        "scan_started": 5,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.28386366699999144,
+      "errors": 0,
+      "successful_rps": 7045.635748797891,
+      "p50_ms": 5.861708999987059,
+      "p95_ms": 15.886749999992844,
+      "p99_ms": 27.923791000006304,
+      "core_peak_rss_bytes": 9437184,
+      "core_cpu_seconds": 0.35,
+      "ffmpeg_peak_rss_bytes": 112607232,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4404957080000145,
+      "errors": 0,
+      "successful_rps": 4540.339357858021,
+      "p50_ms": 7.853083000014749,
+      "p95_ms": 27.68224999999802,
+      "p99_ms": 48.51291699998228,
+      "core_peak_rss_bytes": 17395712,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 112480256,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4211645000000033,
+      "errors": 0,
+      "successful_rps": 4748.738319587677,
+      "p50_ms": 7.702291000015293,
+      "p95_ms": 26.497207999995,
+      "p99_ms": 39.26062499999716,
+      "core_peak_rss_bytes": 17584128,
+      "core_cpu_seconds": 0.54,
+      "ffmpeg_peak_rss_bytes": 112476160,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2846963329999994,
+      "errors": 0,
+      "successful_rps": 7025.029015740797,
+      "p50_ms": 5.532875000000104,
+      "p95_ms": 17.529792000004818,
+      "p99_ms": 22.94679199999905,
+      "core_peak_rss_bytes": 9306112,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 112480256,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.41931345800000486,
+      "errors": 0,
+      "successful_rps": 4769.701429425566,
+      "p50_ms": 7.325874999992266,
+      "p95_ms": 27.398708000021088,
+      "p99_ms": 40.742958999999246,
+      "core_peak_rss_bytes": 17563648,
+      "core_cpu_seconds": 0.53,
+      "ffmpeg_peak_rss_bytes": 112603136,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.39884275,
+      "errors": 0,
+      "successful_rps": 5014.507597292416,
+      "p50_ms": 9.565457999997307,
+      "p95_ms": 19.025125000013077,
+      "p99_ms": 28.39566700001228,
+      "core_peak_rss_bytes": 10395648,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 112480256,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.5303353329999823,
+      "errors": 0,
+      "successful_rps": 3771.198853914693,
+      "p50_ms": 9.610750000007329,
+      "p95_ms": 33.350083000016184,
+      "p99_ms": 48.554499999994505,
+      "core_peak_rss_bytes": 17530880,
+      "core_cpu_seconds": 0.6,
+      "ffmpeg_peak_rss_bytes": 112480256,
+      "ffmpeg_cpu_seconds": 0.03,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.26704416600000513,
+      "errors": 0,
+      "successful_rps": 7489.3978399062335,
+      "p50_ms": 5.767375000004904,
+      "p95_ms": 13.431582999999137,
+      "p99_ms": 18.6138329999892,
+      "core_peak_rss_bytes": 9437184,
+      "core_cpu_seconds": 0.37,
+      "ffmpeg_peak_rss_bytes": 112607232,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.43063825000001543,
+      "errors": 0,
+      "successful_rps": 4644.269290988268,
+      "p50_ms": 7.532916999991812,
+      "p95_ms": 27.792542000014464,
+      "p99_ms": 42.235125000019025,
+      "core_peak_rss_bytes": 17715200,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 112472064,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2607340419999957,
+      "errors": 0,
+      "successful_rps": 7670.651613647108,
+      "p50_ms": 5.45675000000756,
+      "p95_ms": 12.930291000003535,
+      "p99_ms": 23.75466600000209,
+      "core_peak_rss_bytes": 9699328,
+      "core_cpu_seconds": 0.33999999999999997,
+      "ffmpeg_peak_rss_bytes": 112738304,
+      "ffmpeg_cpu_seconds": 0.010000000000000009,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2889954589999775,
+      "errors": 0,
+      "successful_rps": 6920.523965742161,
+      "p50_ms": 6.121500000006108,
+      "p95_ms": 14.581500000019787,
+      "p99_ms": 21.301291999975547,
+      "core_peak_rss_bytes": 9437184,
+      "core_cpu_seconds": 0.39999999999999997,
+      "ffmpeg_peak_rss_bytes": 112267264,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4465221670000119,
+      "errors": 0,
+      "successful_rps": 4479.060946597858,
+      "p50_ms": 7.921374999966702,
+      "p95_ms": 28.95212500004618,
+      "p99_ms": 42.36725000004071,
+      "core_peak_rss_bytes": 17342464,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 112349184,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.44897908299998335,
+      "errors": 0,
+      "successful_rps": 4454.5505029686965,
+      "p50_ms": 7.702582999968399,
+      "p95_ms": 30.545334000009916,
+      "p99_ms": 48.22487500001671,
+      "core_peak_rss_bytes": 17559552,
+      "core_cpu_seconds": 0.59,
+      "ffmpeg_peak_rss_bytes": 112340992,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2465256669999576,
+      "errors": 0,
+      "successful_rps": 8112.745517895076,
+      "p50_ms": 5.4013750000194705,
+      "p95_ms": 11.925875000031283,
+      "p99_ms": 19.01004199999079,
+      "core_peak_rss_bytes": 9306112,
+      "core_cpu_seconds": 0.33,
+      "ffmpeg_peak_rss_bytes": 112607232,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.29134091700001363,
+      "errors": 0,
+      "successful_rps": 6864.809861224904,
+      "p50_ms": 5.416583999988234,
+      "p95_ms": 16.810040999985176,
+      "p99_ms": 25.533041999949546,
+      "core_peak_rss_bytes": 9175040,
+      "core_cpu_seconds": 0.4,
+      "ffmpeg_peak_rss_bytes": 112476160,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.44738329200004046,
+      "errors": 0,
+      "successful_rps": 4470.439633672818,
+      "p50_ms": 7.872499999962201,
+      "p95_ms": 30.148083999961273,
+      "p99_ms": 42.337958000018716,
+      "core_peak_rss_bytes": 17485824,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 112476160,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4647689579999792,
+      "errors": 0,
+      "successful_rps": 4303.213382852668,
+      "p50_ms": 8.071207999989838,
+      "p95_ms": 30.86391699997648,
+      "p99_ms": 47.73575000001529,
+      "core_peak_rss_bytes": 17555456,
+      "core_cpu_seconds": 0.62,
+      "ffmpeg_peak_rss_bytes": 112218112,
+      "ffmpeg_cpu_seconds": 0.040000000000000036,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2597950830000286,
+      "errors": 0,
+      "successful_rps": 7698.375107429495,
+      "p50_ms": 5.470959000035691,
+      "p95_ms": 12.741000000005442,
+      "p99_ms": 17.431250000015552,
+      "core_peak_rss_bytes": 9306112,
+      "core_cpu_seconds": 0.33,
+      "ffmpeg_peak_rss_bytes": 112476160,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4501592500000129,
+      "errors": 0,
+      "successful_rps": 4442.872161351661,
+      "p50_ms": 8.003125000016098,
+      "p95_ms": 30.805374999999913,
+      "p99_ms": 46.5395829999693,
+      "core_peak_rss_bytes": 17620992,
+      "core_cpu_seconds": 0.6,
+      "ffmpeg_peak_rss_bytes": 112533504,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.29597204099997043,
+      "errors": 0,
+      "successful_rps": 6757.395033810642,
+      "p50_ms": 6.020832999979575,
+      "p95_ms": 14.979292000020905,
+      "p99_ms": 21.729667000045083,
+      "core_peak_rss_bytes": 9699328,
+      "core_cpu_seconds": 0.42,
+      "ffmpeg_peak_rss_bytes": 112664576,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 50,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.23949245799997243,
+      "errors": 0,
+      "successful_rps": 8350.993666782735,
+      "p50_ms": 9.818375000008928,
+      "p95_ms": 21.009792000029393,
+      "p99_ms": 29.421500000012202,
+      "core_peak_rss_bytes": 11534336,
+      "core_cpu_seconds": 0.33,
+      "ffmpeg_peak_rss_bytes": 112656384,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4191448330000185,
+      "errors": 0,
+      "successful_rps": 4771.620314832587,
+      "p50_ms": 13.74870799998007,
+      "p95_ms": 54.34716700000308,
+      "p99_ms": 81.80162500002552,
+      "core_peak_rss_bytes": 18919424,
+      "core_cpu_seconds": 0.5599999999999999,
+      "ffmpeg_peak_rss_bytes": 112611328,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.24587550000001102,
+      "errors": 0,
+      "successful_rps": 8134.197998580218,
+      "p50_ms": 9.973624999986441,
+      "p95_ms": 23.248624999951062,
+      "p99_ms": 35.56174999999939,
+      "core_peak_rss_bytes": 11927552,
+      "core_cpu_seconds": 0.33999999999999997,
+      "ffmpeg_peak_rss_bytes": 112738304,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.41059450000000197,
+      "errors": 0,
+      "successful_rps": 4870.985851003826,
+      "p50_ms": 14.25587500000347,
+      "p95_ms": 52.40404099998841,
+      "p99_ms": 73.45816599996624,
+      "core_peak_rss_bytes": 19451904,
+      "core_cpu_seconds": 0.54,
+      "ffmpeg_peak_rss_bytes": 112611328,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.3887646250000216,
+      "errors": 0,
+      "successful_rps": 5144.500994656828,
+      "p50_ms": 13.639208000029157,
+      "p95_ms": 50.37195799997107,
+      "p99_ms": 73.4179589999826,
+      "core_peak_rss_bytes": 19427328,
+      "core_cpu_seconds": 0.52,
+      "ffmpeg_peak_rss_bytes": 112476160,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2523086660000331,
+      "errors": 0,
+      "successful_rps": 7926.798677615527,
+      "p50_ms": 10.814582999955746,
+      "p95_ms": 22.50987500002566,
+      "p99_ms": 31.81174999997438,
+      "core_peak_rss_bytes": 11796480,
+      "core_cpu_seconds": 0.37,
+      "ffmpeg_peak_rss_bytes": 112349184,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.24805062500001895,
+      "errors": 0,
+      "successful_rps": 8062.870230622669,
+      "p50_ms": 10.080916999982037,
+      "p95_ms": 20.887291999997615,
+      "p99_ms": 32.22645900001453,
+      "core_peak_rss_bytes": 11796480,
+      "core_cpu_seconds": 0.35,
+      "ffmpeg_peak_rss_bytes": 112484352,
+      "ffmpeg_cpu_seconds": 0.010000000000000009,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.40306904099998064,
+      "errors": 0,
+      "successful_rps": 4961.929090455985,
+      "p50_ms": 13.594915999988189,
+      "p95_ms": 54.85191700000769,
+      "p99_ms": 85.23045800001228,
+      "core_peak_rss_bytes": 19165184,
+      "core_cpu_seconds": 0.54,
+      "ffmpeg_peak_rss_bytes": 112271360,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4150870000000282,
+      "errors": 0,
+      "successful_rps": 4818.267013902782,
+      "p50_ms": 14.014499999973395,
+      "p95_ms": 53.01162499995371,
+      "p99_ms": 79.10137499999337,
+      "core_peak_rss_bytes": 19218432,
+      "core_cpu_seconds": 0.5599999999999999,
+      "ffmpeg_peak_rss_bytes": 112611328,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.26142754199997853,
+      "errors": 0,
+      "successful_rps": 7650.303348681465,
+      "p50_ms": 11.812833000021783,
+      "p95_ms": 27.03866699999935,
+      "p99_ms": 38.50937499998963,
+      "core_peak_rss_bytes": 11534336,
+      "core_cpu_seconds": 0.4,
+      "ffmpeg_peak_rss_bytes": 112480256,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4445786669999734,
+      "errors": 0,
+      "successful_rps": 4498.641406921398,
+      "p50_ms": 15.161665999983143,
+      "p95_ms": 60.017334000008304,
+      "p99_ms": 93.37966700002198,
+      "core_peak_rss_bytes": 18984960,
+      "core_cpu_seconds": 0.6,
+      "ffmpeg_peak_rss_bytes": 112345088,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2522063750000143,
+      "errors": 0,
+      "successful_rps": 7930.013664404346,
+      "p50_ms": 10.280499999964832,
+      "p95_ms": 22.797625000009702,
+      "p99_ms": 31.096958000034647,
+      "core_peak_rss_bytes": 11665408,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 112607232,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.41758095799997363,
+      "errors": 0,
+      "successful_rps": 4789.490424992335,
+      "p50_ms": 14.22508400003153,
+      "p95_ms": 55.40420800002721,
+      "p99_ms": 86.36220800002548,
+      "core_peak_rss_bytes": 19456000,
+      "core_cpu_seconds": 0.54,
+      "ffmpeg_peak_rss_bytes": 112480256,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.28187408299999106,
+      "errors": 0,
+      "successful_rps": 7095.366763463895,
+      "p50_ms": 12.492499999950724,
+      "p95_ms": 25.967374999993353,
+      "p99_ms": 39.437249999991764,
+      "core_peak_rss_bytes": 11403264,
+      "core_cpu_seconds": 0.42,
+      "ffmpeg_peak_rss_bytes": 112611328,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.24541483399997333,
+      "errors": 0,
+      "successful_rps": 8149.466629226729,
+      "p50_ms": 9.978875000001608,
+      "p95_ms": 20.317750000003798,
+      "p99_ms": 27.427250000016556,
+      "core_peak_rss_bytes": 11796480,
+      "core_cpu_seconds": 0.33999999999999997,
+      "ffmpeg_peak_rss_bytes": 112394240,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4434676249999825,
+      "errors": 0,
+      "successful_rps": 4509.912082082833,
+      "p50_ms": 15.055541999970501,
+      "p95_ms": 57.95495900002834,
+      "p99_ms": 88.38170799998579,
+      "core_peak_rss_bytes": 19402752,
+      "core_cpu_seconds": 0.59,
+      "ffmpeg_peak_rss_bytes": 112214016,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2505172500000299,
+      "errors": 0,
+      "successful_rps": 7983.482175378188,
+      "p50_ms": 10.127541999963796,
+      "p95_ms": 22.6582920000169,
+      "p99_ms": 31.522542000004705,
+      "core_peak_rss_bytes": 11534336,
+      "core_cpu_seconds": 0.36,
+      "ffmpeg_peak_rss_bytes": 112476160,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4183585420000213,
+      "errors": 0,
+      "successful_rps": 4780.588416908428,
+      "p50_ms": 13.65241700000297,
+      "p95_ms": 53.219624999996995,
+      "p99_ms": 78.53758400000288,
+      "core_peak_rss_bytes": 19353600,
+      "core_cpu_seconds": 0.54,
+      "ffmpeg_peak_rss_bytes": 112345088,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4377977499999588,
+      "errors": 0,
+      "successful_rps": 4568.319503698199,
+      "p50_ms": 15.318082999954186,
+      "p95_ms": 53.85949999998729,
+      "p99_ms": 85.82254200001671,
+      "core_peak_rss_bytes": 19111936,
+      "core_cpu_seconds": 0.59,
+      "ffmpeg_peak_rss_bytes": 112603136,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2799018750000073,
+      "errors": 0,
+      "successful_rps": 7145.361209173564,
+      "p50_ms": 11.440917000015816,
+      "p95_ms": 28.379416999996465,
+      "p99_ms": 39.86920799997051,
+      "core_peak_rss_bytes": 11927552,
+      "core_cpu_seconds": 0.42,
+      "ffmpeg_peak_rss_bytes": 112394240,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 100,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.42553545900000245,
+      "errors": 0,
+      "successful_rps": 4699.960855670993,
+      "p50_ms": 27.282166000020425,
+      "p95_ms": 104.08954100000756,
+      "p99_ms": 147.4090419999925,
+      "core_peak_rss_bytes": 23986176,
+      "core_cpu_seconds": 0.57,
+      "ffmpeg_peak_rss_bytes": 112607232,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.26673737499999106,
+      "errors": 0,
+      "successful_rps": 7498.011855294246,
+      "p50_ms": 18.312790999971185,
+      "p95_ms": 40.861708000022645,
+      "p99_ms": 52.09929200003671,
+      "core_peak_rss_bytes": 14778368,
+      "core_cpu_seconds": 0.37,
+      "ffmpeg_peak_rss_bytes": 112607232,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2517517499999826,
+      "errors": 0,
+      "successful_rps": 7944.334051303072,
+      "p50_ms": 19.433041000013418,
+      "p95_ms": 45.1913750000017,
+      "p99_ms": 65.91120900003489,
+      "core_peak_rss_bytes": 14942208,
+      "core_cpu_seconds": 0.38,
+      "ffmpeg_peak_rss_bytes": 112476160,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.40503058400003056,
+      "errors": 0,
+      "successful_rps": 4937.89871433474,
+      "p50_ms": 26.21145900002375,
+      "p95_ms": 98.74716699999908,
+      "p99_ms": 151.62300000002915,
+      "core_peak_rss_bytes": 23851008,
+      "core_cpu_seconds": 0.53,
+      "ffmpeg_peak_rss_bytes": 112267264,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4281409580000286,
+      "errors": 0,
+      "successful_rps": 4671.358725739728,
+      "p50_ms": 27.010874999973566,
+      "p95_ms": 108.41175000001613,
+      "p99_ms": 151.47083300001896,
+      "core_peak_rss_bytes": 23855104,
+      "core_cpu_seconds": 0.57,
+      "ffmpeg_peak_rss_bytes": 112476160,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.24995412499998793,
+      "errors": 0,
+      "successful_rps": 8001.468269427826,
+      "p50_ms": 20.543499999973847,
+      "p95_ms": 47.000874999980624,
+      "p99_ms": 70.88512500001798,
+      "core_peak_rss_bytes": 15073280,
+      "core_cpu_seconds": 0.39999999999999997,
+      "ffmpeg_peak_rss_bytes": 112611328,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2713360410000405,
+      "errors": 0,
+      "successful_rps": 7370.933815606536,
+      "p50_ms": 22.26141699998152,
+      "p95_ms": 51.638000000025386,
+      "p99_ms": 67.96983300000647,
+      "core_peak_rss_bytes": 15335424,
+      "core_cpu_seconds": 0.43,
+      "ffmpeg_peak_rss_bytes": 112611328,
+      "ffmpeg_cpu_seconds": 0.020000000000000018,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.42682929199997943,
+      "errors": 0,
+      "successful_rps": 4685.714025456567,
+      "p50_ms": 27.022457999976268,
+      "p95_ms": 109.73229199998968,
+      "p99_ms": 170.04304200003162,
+      "core_peak_rss_bytes": 23957504,
+      "core_cpu_seconds": 0.57,
+      "ffmpeg_peak_rss_bytes": 112525312,
+      "ffmpeg_cpu_seconds": 0.040000000000000036,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2553440830000113,
+      "errors": 0,
+      "successful_rps": 7832.568417102938,
+      "p50_ms": 20.33045799998945,
+      "p95_ms": 40.86595799998349,
+      "p99_ms": 56.65241600001991,
+      "core_peak_rss_bytes": 15466496,
+      "core_cpu_seconds": 0.39,
+      "ffmpeg_peak_rss_bytes": 112607232,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.43645533300002626,
+      "errors": 0,
+      "successful_rps": 4582.370402608598,
+      "p50_ms": 27.350250000040432,
+      "p95_ms": 107.36162500001001,
+      "p99_ms": 153.96433399996567,
+      "core_peak_rss_bytes": 24203264,
+      "core_cpu_seconds": 0.57,
+      "ffmpeg_peak_rss_bytes": 112607232,
+      "ffmpeg_cpu_seconds": 0.030000000000000027,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.46484058400000094,
+      "errors": 0,
+      "successful_rps": 4302.5503126035055,
+      "p50_ms": 29.887291999955323,
+      "p95_ms": 113.52799999997387,
+      "p99_ms": 165.77245799999218,
+      "core_peak_rss_bytes": 23842816,
+      "core_cpu_seconds": 0.62,
+      "ffmpeg_peak_rss_bytes": 112472064,
+      "ffmpeg_cpu_seconds": 0.040000000000000036,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.25855370799996535,
+      "errors": 0,
+      "successful_rps": 7735.336752549177,
+      "p50_ms": 20.834374999992633,
+      "p95_ms": 45.278458999973736,
+      "p99_ms": 62.21904100004849,
+      "core_peak_rss_bytes": 15204352,
+      "core_cpu_seconds": 0.38,
+      "ffmpeg_peak_rss_bytes": 112611328,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 0,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4265603750000082,
+      "errors": 0,
+      "successful_rps": 4688.668046111788,
+      "p50_ms": 27.087875000006534,
+      "p95_ms": 110.34145799999351,
+      "p99_ms": 157.75487500002328,
+      "core_peak_rss_bytes": 24113152,
+      "core_cpu_seconds": 0.5599999999999999,
+      "ffmpeg_peak_rss_bytes": 112480256,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 4,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2601697089999675,
+      "errors": 0,
+      "successful_rps": 7687.28999116592,
+      "p50_ms": 20.28787500000817,
+      "p95_ms": 41.773583999997754,
+      "p99_ms": 56.75408300004392,
+      "core_peak_rss_bytes": 15073280,
+      "core_cpu_seconds": 0.39999999999999997,
+      "ffmpeg_peak_rss_bytes": 112476160,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 1,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.45130295899997463,
+      "errors": 0,
+      "successful_rps": 4431.612866956878,
+      "p50_ms": 30.294000000026244,
+      "p95_ms": 113.50395800002389,
+      "p99_ms": 167.58637499998486,
+      "core_peak_rss_bytes": 23592960,
+      "core_cpu_seconds": 0.61,
+      "ffmpeg_peak_rss_bytes": 112738304,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.25624795799996036,
+      "errors": 0,
+      "successful_rps": 7804.940244637225,
+      "p50_ms": 15.835041000002548,
+      "p95_ms": 34.634874999994736,
+      "p99_ms": 49.471082999957616,
+      "core_peak_rss_bytes": 14286848,
+      "core_cpu_seconds": 0.38,
+      "ffmpeg_peak_rss_bytes": 112349184,
+      "ffmpeg_cpu_seconds": 0.010000000000000009,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 2,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.24698983400003272,
+      "errors": 0,
+      "successful_rps": 8097.499267924262,
+      "p50_ms": 16.726500000004307,
+      "p95_ms": 33.80712500000982,
+      "p99_ms": 46.571125000014035,
+      "core_peak_rss_bytes": 14548992,
+      "core_cpu_seconds": 0.38,
+      "ffmpeg_peak_rss_bytes": 112480256,
+      "ffmpeg_cpu_seconds": 0.010000000000000009,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4612692910000078,
+      "errors": 0,
+      "successful_rps": 4335.86202034847,
+      "p50_ms": 29.46829200004686,
+      "p95_ms": 115.49850000000106,
+      "p99_ms": 166.71616700000413,
+      "core_peak_rss_bytes": 23986176,
+      "core_cpu_seconds": 0.61,
+      "ffmpeg_peak_rss_bytes": 112738304,
+      "ffmpeg_cpu_seconds": 0.02999999999999997,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 3,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.2656454579999945,
+      "errors": 0,
+      "successful_rps": 7528.83190647303,
+      "p50_ms": 21.31529100000762,
+      "p95_ms": 46.16683400001875,
+      "p99_ms": 67.95879200001309,
+      "core_peak_rss_bytes": 15466496,
+      "core_cpu_seconds": 0.42,
+      "ffmpeg_peak_rss_bytes": 112398336,
+      "ffmpeg_cpu_seconds": 0.019999999999999962,
+      "child_errors": 0,
+      "candidate": "rust",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "query_version": "prefix-nocase-v2",
+        "runtime": "rust",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "f50648262e91a4a94742f79544a3613fee13e71a446969658b8ce4e0530ae967",
+      "background": {
+        "range_requests": 3,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    },
+    {
+      "requests": 2000,
+      "seconds": 0.4456461249999961,
+      "errors": 0,
+      "successful_rps": 4487.865792617444,
+      "p50_ms": 30.768915999999535,
+      "p95_ms": 110.8351660000153,
+      "p99_ms": 161.35787500002152,
+      "core_peak_rss_bytes": 24117248,
+      "core_cpu_seconds": 0.58,
+      "ffmpeg_peak_rss_bytes": 112472064,
+      "ffmpeg_cpu_seconds": 0.03999999999999998,
+      "child_errors": 0,
+      "candidate": "go-cgo",
+      "mode": "mixed-vaapi",
+      "items": 100000,
+      "concurrency": 200,
+      "query": "Movie 0009",
+      "repetition": 4,
+      "candidate_info": {
+        "cpu_count": 4,
+        "driver": "sqlite3",
+        "query_version": "prefix-nocase-v2",
+        "runtime": "go1.27.0",
+        "sqlite_version": "3.54.1"
+      },
+      "binary_sha256": "dfda118be95b51012a132144fe617d62c2e36dfcbdfe40d7e9ad35d50e9f3c1a",
+      "background": {
+        "range_requests": 5,
+        "scan_started": 1,
+        "errors": 0
+      },
+      "sample": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "hevc",
+            "width": 1920,
+            "height": 1080,
+            "color_transfer": "bt709"
+          }
+        ],
+        "format": {
+          "duration": "5682.709000"
+        }
+      }
+    }
+  ],
+  "summary": {
+    "idle/go-cgo/100000/1/": {
+      "p95_median_ms": 1.7000829999997968,
+      "p95_stdev_ms": 0.13079216389360385,
+      "successful_rps_median": 829.3798265694219,
+      "core_peak_rss_median_bytes": 16224256,
+      "core_cpu_median_seconds": 0.95,
+      "errors": 0
+    },
+    "idle/rust/100000/1/": {
+      "p95_median_ms": 1.3801249999971787,
+      "p95_stdev_ms": 0.1034010697408949,
+      "successful_rps_median": 950.5730714885573,
+      "core_peak_rss_median_bytes": 5373952,
+      "core_cpu_median_seconds": 0.39,
+      "errors": 0
+    },
+    "idle/go-cgo/100000/1/Movie 0009": {
+      "p95_median_ms": 1.6244589999985237,
+      "p95_stdev_ms": 0.05636844752884772,
+      "successful_rps_median": 834.6073555497778,
+      "core_peak_rss_median_bytes": 16551936,
+      "core_cpu_median_seconds": 0.81,
+      "errors": 0
+    },
+    "idle/rust/100000/1/Movie 0009": {
+      "p95_median_ms": 1.3559170000050358,
+      "p95_stdev_ms": 0.0653459847555683,
+      "successful_rps_median": 1028.4227996155535,
+      "core_peak_rss_median_bytes": 5505024,
+      "core_cpu_median_seconds": 0.4,
+      "errors": 0
+    },
+    "idle/go-cgo/100000/50/": {
+      "p95_median_ms": 31.33379099999445,
+      "p95_stdev_ms": 3.46484253137459,
+      "successful_rps_median": 3905.1345196806524,
+      "core_peak_rss_median_bytes": 17444864,
+      "core_cpu_median_seconds": 0.55,
+      "errors": 0
+    },
+    "idle/rust/100000/50/": {
+      "p95_median_ms": 18.33541699998875,
+      "p95_stdev_ms": 4.861700308240335,
+      "successful_rps_median": 5476.333170526574,
+      "core_peak_rss_median_bytes": 9830400,
+      "core_cpu_median_seconds": 0.35,
+      "errors": 0
+    },
+    "idle/rust/100000/50/Movie 0009": {
+      "p95_median_ms": 13.019917000008263,
+      "p95_stdev_ms": 5.724318034965469,
+      "successful_rps_median": 7961.7504134395995,
+      "core_peak_rss_median_bytes": 9437184,
+      "core_cpu_median_seconds": 0.33,
+      "errors": 0
+    },
+    "idle/go-cgo/100000/50/Movie 0009": {
+      "p95_median_ms": 33.27737499999728,
+      "p95_stdev_ms": 6.2345723082067925,
+      "successful_rps_median": 4013.8796667494103,
+      "core_peak_rss_median_bytes": 17432576,
+      "core_cpu_median_seconds": 0.57,
+      "errors": 0
+    },
+    "idle/go-cgo/100000/100/": {
+      "p95_median_ms": 63.22645899999202,
+      "p95_stdev_ms": 13.748808194686148,
+      "successful_rps_median": 4161.783793138689,
+      "core_peak_rss_median_bytes": 17821696,
+      "core_cpu_median_seconds": 0.58,
+      "errors": 0
+    },
+    "idle/rust/100000/100/": {
+      "p95_median_ms": 24.96058299999504,
+      "p95_stdev_ms": 9.117075701841733,
+      "successful_rps_median": 7586.214943171492,
+      "core_peak_rss_median_bytes": 11403264,
+      "core_cpu_median_seconds": 0.32,
+      "errors": 0
+    },
+    "idle/rust/100000/100/Movie 0009": {
+      "p95_median_ms": 38.119249999994054,
+      "p95_stdev_ms": 9.90735517500642,
+      "successful_rps_median": 5181.004881801819,
+      "core_peak_rss_median_bytes": 12976128,
+      "core_cpu_median_seconds": 0.35,
+      "errors": 0
+    },
+    "idle/go-cgo/100000/100/Movie 0009": {
+      "p95_median_ms": 78.13654199999576,
+      "p95_stdev_ms": 8.315170967910927,
+      "successful_rps_median": 3405.3230429737973,
+      "core_peak_rss_median_bytes": 17870848,
+      "core_cpu_median_seconds": 0.63,
+      "errors": 0
+    },
+    "idle/rust/100000/200/": {
+      "p95_median_ms": 66.40474999998958,
+      "p95_stdev_ms": 21.631716146077334,
+      "successful_rps_median": 5863.373855324924,
+      "core_peak_rss_median_bytes": 16515072,
+      "core_cpu_median_seconds": 0.36,
+      "errors": 0
+    },
+    "idle/go-cgo/100000/200/": {
+      "p95_median_ms": 144.62483299999462,
+      "p95_stdev_ms": 26.85780034295152,
+      "successful_rps_median": 3513.1852424339713,
+      "core_peak_rss_median_bytes": 22806528,
+      "core_cpu_median_seconds": 0.59,
+      "errors": 0
+    },
+    "idle/rust/100000/200/Movie 0009": {
+      "p95_median_ms": 61.26279200000795,
+      "p95_stdev_ms": 22.627160691676973,
+      "successful_rps_median": 5927.7298526743425,
+      "core_peak_rss_median_bytes": 15728640,
+      "core_cpu_median_seconds": 0.37,
+      "errors": 0
+    },
+    "idle/go-cgo/100000/200/Movie 0009": {
+      "p95_median_ms": 129.6679589999883,
+      "p95_stdev_ms": 17.61650677700558,
+      "successful_rps_median": 3826.354302233342,
+      "core_peak_rss_median_bytes": 22257664,
+      "core_cpu_median_seconds": 0.59,
+      "errors": 0
+    },
+    "mixed-vaapi/rust/100000/1/": {
+      "p95_median_ms": 1.652875000019094,
+      "p95_stdev_ms": 0.27564841058950024,
+      "successful_rps_median": 836.6705885014837,
+      "core_peak_rss_median_bytes": 6553600,
+      "core_cpu_median_seconds": 0.67,
+      "errors": 0
+    },
+    "mixed-vaapi/go-cgo/100000/1/": {
+      "p95_median_ms": 1.8167499999890424,
+      "p95_stdev_ms": 0.23448661342271854,
+      "successful_rps_median": 758.268611158057,
+      "core_peak_rss_median_bytes": 16678912,
+      "core_cpu_median_seconds": 1.03,
+      "errors": 0
+    },
+    "mixed-vaapi/rust/100000/1/Movie 0009": {
+      "p95_median_ms": 1.6153750000000855,
+      "p95_stdev_ms": 0.09750627905085898,
+      "successful_rps_median": 859.5324031471953,
+      "core_peak_rss_median_bytes": 6553600,
+      "core_cpu_median_seconds": 0.67,
+      "errors": 0
+    },
+    "mixed-vaapi/go-cgo/100000/1/Movie 0009": {
+      "p95_median_ms": 1.8767500000080872,
+      "p95_stdev_ms": 0.1813137025289867,
+      "successful_rps_median": 702.3402136050865,
+      "core_peak_rss_median_bytes": 16769024,
+      "core_cpu_median_seconds": 1.24,
+      "errors": 0
+    },
+    "mixed-vaapi/rust/100000/50/": {
+      "p95_median_ms": 15.886749999992844,
+      "p95_stdev_ms": 2.609504109706834,
+      "successful_rps_median": 7045.635748797891,
+      "core_peak_rss_median_bytes": 9437184,
+      "core_cpu_median_seconds": 0.36,
+      "errors": 0
+    },
+    "mixed-vaapi/go-cgo/100000/50/": {
+      "p95_median_ms": 27.68224999999802,
+      "p95_stdev_ms": 2.734354911247541,
+      "successful_rps_median": 4644.269290988268,
+      "core_peak_rss_median_bytes": 17563648,
+      "core_cpu_median_seconds": 0.58,
+      "errors": 0
+    },
+    "mixed-vaapi/rust/100000/50/Movie 0009": {
+      "p95_median_ms": 14.581500000019787,
+      "p95_stdev_ms": 1.9277703072285604,
+      "successful_rps_median": 6920.523965742161,
+      "core_peak_rss_median_bytes": 9306112,
+      "core_cpu_median_seconds": 0.39999999999999997,
+      "errors": 0
+    },
+    "mixed-vaapi/go-cgo/100000/50/Movie 0009": {
+      "p95_median_ms": 30.545334000009916,
+      "p95_stdev_ms": 0.7852679982291183,
+      "successful_rps_median": 4454.5505029686965,
+      "core_peak_rss_median_bytes": 17555456,
+      "core_cpu_median_seconds": 0.59,
+      "errors": 0
+    },
+    "mixed-vaapi/rust/100000/100/": {
+      "p95_median_ms": 22.50987500002566,
+      "p95_stdev_ms": 2.5009315529071126,
+      "successful_rps_median": 8062.870230622669,
+      "core_peak_rss_median_bytes": 11796480,
+      "core_cpu_median_seconds": 0.35,
+      "errors": 0
+    },
+    "mixed-vaapi/go-cgo/100000/100/": {
+      "p95_median_ms": 53.01162499995371,
+      "p95_stdev_ms": 1.7682142962319611,
+      "successful_rps_median": 4870.985851003826,
+      "core_peak_rss_median_bytes": 19218432,
+      "core_cpu_median_seconds": 0.54,
+      "errors": 0
+    },
+    "mixed-vaapi/go-cgo/100000/100/Movie 0009": {
+      "p95_median_ms": 55.40420800002721,
+      "p95_stdev_ms": 2.854229828121688,
+      "successful_rps_median": 4568.319503698199,
+      "core_peak_rss_median_bytes": 19353600,
+      "core_cpu_median_seconds": 0.59,
+      "errors": 0
+    },
+    "mixed-vaapi/rust/100000/100/Movie 0009": {
+      "p95_median_ms": 22.797625000009702,
+      "p95_stdev_ms": 3.1564143674671445,
+      "successful_rps_median": 7930.013664404346,
+      "core_peak_rss_median_bytes": 11665408,
+      "core_cpu_median_seconds": 0.36,
+      "errors": 0
+    },
+    "mixed-vaapi/go-cgo/100000/200/": {
+      "p95_median_ms": 107.36162500001001,
+      "p95_stdev_ms": 4.396147753000955,
+      "successful_rps_median": 4685.714025456567,
+      "core_peak_rss_median_bytes": 23957504,
+      "core_cpu_median_seconds": 0.57,
+      "errors": 0
+    },
+    "mixed-vaapi/rust/100000/200/": {
+      "p95_median_ms": 45.1913750000017,
+      "p95_stdev_ms": 4.5347733967330965,
+      "successful_rps_median": 7832.568417102938,
+      "core_peak_rss_median_bytes": 15073280,
+      "core_cpu_median_seconds": 0.39,
+      "errors": 0
+    },
+    "mixed-vaapi/go-cgo/100000/200/Movie 0009": {
+      "p95_median_ms": 113.50395800002389,
+      "p95_stdev_ms": 2.1327965408187186,
+      "successful_rps_median": 4431.612866956878,
+      "core_peak_rss_median_bytes": 23986176,
+      "core_cpu_median_seconds": 0.61,
+      "errors": 0
+    },
+    "mixed-vaapi/rust/100000/200/Movie 0009": {
+      "p95_median_ms": 41.773583999997754,
+      "p95_stdev_ms": 5.822845862475702,
+      "successful_rps_median": 7735.336752549177,
+      "core_peak_rss_median_bytes": 15073280,
+      "core_cpu_median_seconds": 0.38,
+      "errors": 0
+    }
+  },
+  "complete": true
+}

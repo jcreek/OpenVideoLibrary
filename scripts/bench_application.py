@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Authenticated Rust browse/search benchmark with disposable synthetic databases.
+
+This is a warm loopback API measurement, not LAN, cold-cache, playback or Jellyfin
+acceptance. Never points at an existing application data directory.
+"""
+import argparse
+import concurrent.futures
+import datetime
+import hashlib
+import http.client
+import json
+import os
+from pathlib import Path
+import platform
+import random
+import secrets
+import socket
+import sqlite3
+import statistics
+import subprocess
+import tempfile
+import threading
+import time
+import urllib.parse
+import urllib.request
+from bench_suite import sample
+
+
+def api(port, path, token='', data=None):
+    headers = {'Content-Type': 'application/json', 'X-OVL-Request': '1'}
+    if token:
+        headers['Authorization'] = 'Bearer ' + token
+    request = urllib.request.Request(f'http://127.0.0.1:{port}/api/v1/{path}',
+                                     headers=headers,
+                                     data=None if data is None else json.dumps(data).encode())
+    with urllib.request.urlopen(request, timeout=10) as response:
+        return json.load(response)
+
+
+def seed(data, count):
+    with sqlite3.connect(data / 'library.db', timeout=10) as db:
+        db.execute('PRAGMA foreign_keys=ON')
+        db.execute("INSERT INTO libraries(id,name,path,kind) VALUES(1,'Synthetic','/synthetic','movie')")
+        db.executemany('INSERT INTO items(id,title) VALUES(?,?)',
+                       ((i, f'Movie {i:08d}') for i in range(1, count + 1)))
+        db.executemany('INSERT INTO media_files(item_id,library_id,path,mtime,size) VALUES(?,1,?,0,0)',
+                       ((i, f'/synthetic/{i}.mp4') for i in range(1, count + 1)))
+
+
+def load(port, token, query, count, concurrency):
+    local = threading.local()
+    connections = []
+    lock = threading.Lock()
+
+    def one(index):
+        if not hasattr(local, 'conn'):
+            local.conn = http.client.HTTPConnection('127.0.0.1', port, timeout=30)
+            with lock:
+                connections.append(local.conn)
+        start = time.perf_counter()
+        try:
+            path = '/api/v1/items?' + urllib.parse.urlencode({'q': query, 'limit': 100, 'offset': (index % 10) * 100})
+            local.conn.request('GET', path, headers={'Authorization': 'Bearer ' + token})
+            response = local.conn.getresponse()
+            data = json.loads(response.read())
+            if response.status != 200 or not isinstance(data, list) or len(data) != 100:
+                raise ValueError('invalid response')
+            expected = (index % 10) * 100 + 1
+            if [v['id'] for v in data] != list(range(expected, expected + 100)):
+                raise ValueError('incorrect ordering or results')
+            return (time.perf_counter() - start) * 1000, None
+        except Exception as error:
+            local.conn.close()
+            return (time.perf_counter() - start) * 1000, type(error).__name__
+
+    start = time.perf_counter()
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
+            values = list(pool.map(one, range(count)))
+    finally:
+        for connection in connections:
+            connection.close()
+    elapsed = time.perf_counter() - start
+    latencies = sorted(ms for ms, error in values if error is None)
+    def percentile(p):
+        return latencies[min(len(latencies)-1, int((len(latencies)-1)*p))] if latencies else None
+    errors = {}
+    for _, error in values:
+        if error:
+            errors[error] = errors.get(error, 0) + 1
+    return {'requests': count, 'seconds': elapsed, 'errors': count-len(latencies),
+            'error_types': errors, 'successful_rps': len(latencies)/elapsed,
+            'p50_ms': percentile(.5), 'p95_ms': percentile(.95), 'p99_ms': percentile(.99)}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--binary', default='target/release/ovl-server')
+    parser.add_argument('--items', nargs='+', type=int, choices=[10000, 100000], default=[10000, 100000])
+    parser.add_argument('--requests', type=int, default=10000)
+    parser.add_argument('--repetitions', type=int, default=5)
+    parser.add_argument('--concurrency', nargs='+', type=int, default=[1, 10, 25, 50, 100])
+    parser.add_argument('--output', required=True)
+    args = parser.parse_args()
+    if args.requests < 1 or args.repetitions < 3 or any(c < 1 or c > 1000 for c in args.concurrency):
+        parser.error('positive requests, at least three repetitions and concurrency 1–1000 required')
+    binary = Path(args.binary).resolve()
+    hardware = {'cpu': platform.processor(), 'logical_cpus': os.cpu_count()}
+    if platform.system() == 'Darwin':
+        for field, key in [('cpu_model','machdep.cpu.brand_string'),('model','hw.model'),('ram_bytes','hw.memsize')]:
+            hardware[field] = subprocess.check_output(['sysctl','-n',key],text=True).strip()
+    elif Path('/proc/meminfo').exists():
+        hardware['meminfo'] = Path('/proc/meminfo').read_text().splitlines()[0]
+        hardware['cpu_model'] = next((r.split(':',1)[1].strip() for r in Path('/proc/cpuinfo').read_text().splitlines() if r.startswith('model name')),platform.machine())
+    source = hashlib.sha256()
+    for path in sorted(Path('crates').rglob('*')):
+        if path.is_file():
+            source.update(str(path).encode());source.update(path.read_bytes())
+    source.update(Path('Cargo.lock').read_bytes())
+    runtime = json.loads(subprocess.check_output([str(binary),'--version-json'],text=True))
+    report = {'runtime':runtime,'compiler':subprocess.check_output(['rustc','--version'],text=True).strip(),'hardware':hardware, 'source_sha256':source.hexdigest(), 'kind': 'Rust production authenticated API; warm loopback synthetic browse/search',
+              'utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'host': platform.platform(), 'cpu': platform.processor(),
+              'logical_cpus': os.cpu_count(), 'sqlite_seed_version': sqlite3.sqlite_version,
+              'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+              'configuration': vars(args), 'isolation': 'shared development host; caches not evicted; no media or background FFmpeg',
+              'results': [], 'summary': []}
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    rng = random.Random(42)
+    for size in args.items:
+        trials = [(rep, c, query) for rep in range(args.repetitions) for c in args.concurrency for query in ['', 'Movie']]
+        rng.shuffle(trials)
+        for rep, concurrency, query in trials:
+            with tempfile.TemporaryDirectory(prefix='ovl-app-bench-') as tmp:
+                root = Path(tmp)
+                with socket.socket() as sock:
+                    sock.bind(('127.0.0.1', 0))
+                    port = sock.getsockname()[1]
+                env = {**os.environ, 'OVL_DATA': str(root/'data'), 'OVL_LISTEN': f'127.0.0.1:{port}',
+                       'OVL_SCAN_INTERVAL': '24h', 'OVL_SECURE_COOKIES': 'false', 'RUST_LOG': 'error'}
+                with (root/'server.log').open('w+') as log:
+                    process = subprocess.Popen([str(binary)], env=env, stdout=log, stderr=log)
+                    stop = threading.Event()
+                    monitor = None
+                    try:
+                        deadline = time.monotonic()+15
+                        while True:
+                            try:
+                                api(port, 'status')
+                                break
+                            except OSError:
+                                if process.poll() is not None or time.monotonic() > deadline:
+                                    raise RuntimeError('benchmark server failed to start')
+                                time.sleep(.05)
+                        password = secrets.token_urlsafe(24)
+                        api(port, 'setup', data={'Name': 'benchmark', 'Password': password})
+                        token = api(port, 'login', data={'Name': 'benchmark', 'Password': password})['token']
+                        seed(root/'data', size)
+                        canonical = api(port, 'items?' + urllib.parse.urlencode({'q': query}), token)
+                        before = sample(process.pid)
+                        peak = [before[0]]
+                        def observe():
+                            while not stop.wait(.05):
+                                peak[0] = max(peak[0], sample(process.pid)[0])
+                        monitor = threading.Thread(target=observe)
+                        monitor.start()
+                        result = load(port, token, query, args.requests, concurrency)
+                        after = sample(process.pid)
+                        result.update({'items': size, 'repetition': rep, 'concurrency': concurrency,
+                                       'workload': 'search' if query else 'browse',
+                                       'response_sha256': hashlib.sha256(json.dumps(canonical,sort_keys=True).encode()).hexdigest(),
+                                       'core_peak_rss_bytes': max(peak[0],after[0]),
+                                       'core_cpu_seconds': max(0,after[1]-before[1]), 'ffmpeg_processes': 0})
+                        report['results'].append(result)
+                        output.write_text(json.dumps(report,indent=2)+'\n')
+                        print(size, result['workload'], concurrency, 'errors', result['errors'], flush=True)
+                    finally:
+                        stop.set()
+                        if monitor:
+                            monitor.join(timeout=2)
+                        process.terminate()
+                        try:
+                            process.wait(timeout=15)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                            process.wait()
+    for size in args.items:
+        for concurrency in args.concurrency:
+            for workload in ['browse','search']:
+                rows = [r for r in report['results'] if r['items']==size and r['concurrency']==concurrency and r['workload']==workload]
+                p95s = [r['p95_ms'] for r in rows if r['p95_ms'] is not None]
+                report['summary'].append({'items':size,'concurrency':concurrency,'workload':workload,
+                                          'errors':sum(r['errors'] for r in rows),
+                                          'p95_median_ms':statistics.median(p95s) if p95s else None,
+                                          'p95_run_stdev_ms':statistics.stdev(p95s) if len(p95s)>1 else None})
+    output.write_text(json.dumps(report,indent=2)+'\n')
+    if any(r['errors'] for r in report['results']):
+        raise SystemExit(1)
+
+
+if __name__ == '__main__':
+    main()

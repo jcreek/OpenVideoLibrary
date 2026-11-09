@@ -1,0 +1,16 @@
+# Isolated comparison baseline; never points at an existing Jellyfin config.
+services:
+  jellyfin-baseline:
+    image: jellyfin/jellyfin:12.4@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771
+    ports:
+      - "127.0.0.1:18097:8096"
+    volumes:
+      - baseline-config:/config
+      - baseline-cache:/cache
+      - ${OVL_BENCH_MEDIA_ROOT:?Set OVL_BENCH_MEDIA_ROOT to the same read-only test corpus}:/media:ro
+    # Enable identical GPU access for both servers when measuring hardware paths.
+    # devices:
+    #   - /dev/dri:/dev/dri
+volumes:
+  baseline-config:
+  baseline-cache:

@@ -1,0 +1,19 @@
+{
+  "verified_date": "2026-11-09",
+  "release": "v12.4",
+  "release_url": "https://github.com/jellyfin/jellyfin/releases/tag/v12.4",
+  "published_at": "2026-10-26T21:30:17Z",
+  "image": "jellyfin/jellyfin:12.4@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771",
+  "platforms": [
+    {
+      "architecture": "amd64",
+      "os": "linux"
+    },
+    {
+      "architecture": "arm64",
+      "os": "linux"
+    }
+  ],
+  "pulled": false,
+  "benchmarked": false
+}
