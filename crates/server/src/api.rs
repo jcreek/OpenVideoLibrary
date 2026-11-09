@@ -128,6 +128,12 @@ async fn add_library(
     let path = tokio::fs::canonicalize(b.path)
         .await
         .map_err(|_| Error::new(400, "library directory unavailable"))?;
+    if path.starts_with(&app.config.data) || app.config.data.starts_with(&path) {
+        return Err(Error::new(
+            400,
+            "media and application data directories must be separate",
+        ));
+    }
     if !tokio::fs::metadata(&path).await?.is_dir() {
         return Err(Error::new(400, "library directory unavailable"));
     }
@@ -282,7 +288,7 @@ async fn items(
     Ok(Json(
         app.db
             .call(move |c| {
-                let (sql, args) = item_query(u, &q);
+                let (sql, args) = item_query(c, u, &q)?;
                 let mut s = c.prepare(&sql)?;
                 let rows = s
                     .query_map(params_from_iter(args), item_row)?
@@ -293,7 +299,11 @@ async fn items(
     ))
 }
 /// Shared production query builder, also used by the reproducible SQL profiler.
-pub fn item_query(u: User, q: &HashMap<String, String>) -> (String, Vec<Sql>) {
+pub fn item_query(
+    c: &rusqlite::Connection,
+    u: User,
+    q: &HashMap<String, String>,
+) -> Result<(String, Vec<Sql>)> {
     let mut sql = String::from(
         "SELECT i.id,f.library_id,i.title,i.series,i.season,i.episode,i.overview,coalesce(p.position,0),coalesce(p.watched,0) FROM items i JOIN media_files f ON f.item_id=i.id LEFT JOIN progress p ON p.item_id=i.id AND p.user_id=? WHERE (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=f.library_id AND a.user_id=?))",
     );
@@ -340,18 +350,40 @@ pub fn item_query(u: User, q: &HashMap<String, String>) -> (String, Vec<Sql>) {
     );
     // The measured unfiltered browse plan otherwise scans every media file and
     // sorts the whole library. The title index can stop after offset + limit.
-    // Keep SQLite's selective plans for search, library and progress filters.
-    if ["q", "library", "series", "season"]
+    // A bounded census distinguishes broad FTS matches from selective searches.
+    // Only broad, unfiltered title ordering uses the title index; sparse matches
+    // keep SQLite's rowid plan. The MATCH expression and result ordering stay
+    // identical. Never use correlated FTS: the profile showed a large regression.
+    let broad_search = if ["library", "series", "season"]
         .iter()
         .all(|key| q.get(*key).is_none_or(|v| v.is_empty()))
-        && !q.get("continue").is_some_and(|v| v == "true")
+        && !continuing
+    {
+        if let Some(term) = q.get("q").filter(|v| !v.is_empty()) {
+            let query = format!("\"{}\"*", term.replace('"', "\"\""));
+            c.query_row(
+                "SELECT count(*) FROM (SELECT rowid FROM search WHERE search MATCH ? LIMIT 2049)",
+                [query],
+                |r| r.get::<_, i64>(0),
+            )? > 2048
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    if ["library", "series", "season"]
+        .iter()
+        .all(|key| q.get(*key).is_none_or(|v| v.is_empty()))
+        && !continuing
+        && (q.get("q").is_none_or(|v| v.is_empty()) || broad_search)
     {
         sql = sql.replace(
             "FROM items i JOIN",
             "FROM items i INDEXED BY items_title JOIN",
         );
     }
-    (sql, args)
+    Ok((sql, args))
 }
 async fn series(State(app): State<Arc<App>>, Extension(u): Extension<User>) -> Result<Json<Value>> {
     Ok(Json(app.db.call(move|c|{let mut s=c.prepare("SELECT f.library_id,i.series,count(*),count(DISTINCT i.season),sum(coalesce(p.watched,0)) FROM items i JOIN media_files f ON f.item_id=i.id LEFT JOIN progress p ON p.item_id=i.id AND p.user_id=? WHERE i.series<>'' AND (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=f.library_id AND a.user_id=?)) GROUP BY f.library_id,i.series ORDER BY i.series,f.library_id LIMIT 1000")?;

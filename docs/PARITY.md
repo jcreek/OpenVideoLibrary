@@ -20,10 +20,10 @@ A locally verified slice does not imply parity with every Jellyfin behavior.
 | Local metadata/artwork, manual edits | Partial | NFO and edits tested; artwork routes implemented; broader corpus pending |
 | Online metadata providers | Partial | Explicit TMDB match/cache implemented; provider integration and automated matching pending |
 | Direct play and HTTP ranges | Verified slice | Byte-range/permissions tests; browser codec corpus and LAN startup acceptance pending |
-| Remux and audio track selection | Verified slice | Real-media FFmpeg tests; passthrough/surround and full audio matrix missing |
+| Remux and audio track selection | Verified slice | Six-container/AAC/Opus/MP2/MP3/PCM generated software slice; passthrough/surround and full audio matrix missing |
 | Single/adaptive SDR HLS and seeking | Verified slice | Real-media master/variants and browser transcoding; long playback/stalls/seek matrix pending |
 | Text and burned-in subtitles | Verified slice | Embedded text, external SRT and burn-in tests; bitmap, styling/font and language corpus pending |
-| HDR detection and software tone mapping | Verified slice | Tagged synthetic PQ HEVC converted to BT.709; HLG/Dolby Vision/visual quality corpus pending |
+| HDR detection and software tone mapping | Verified slice | Tagged synthetic PQ and HLG HEVC converted to BT.709; Dolby Vision and visual quality corpus pending |
 | Hardware SDR decode/scale/encode | Verified slice | N100 VAAPI H.264 synthetic graph: decoded SSIM and alternate audio tested; QSV/NVENC, HEVC, broader quality and sustained acceptance pending |
 | Hardware HDR tone mapping | Missing | Separate N100 driver/codec/quality acceptance required |
 | Personal collections and ordered playlists | Verified slice | API ordering/ownership/conflicts plus browser persistence; shared/smart collections missing |
@@ -40,7 +40,7 @@ A locally verified slice does not imply parity with every Jellyfin behavior.
 | Session/device management, synchronized playback | Missing | Concurrent client lifecycle and permission tests |
 | Parental rules, ratings and per-user preferences | Missing | Enforce on every browse, list and media path |
 | Tasks, notifications, reporting and administration | Partial | Bounded scans and structured logs; richer scheduling/dashboard/reporting pending |
-| Deployment and platform packaging | Implemented | Rust Dockerfile/CI; Linux amd64/arm64 images and real Nginx acceptance unrun |
+| Deployment and platform packaging | Implemented | Disposable real Nginx/TLS + live restore passes with macOS Rust backend; Linux amd64/arm64 image and production-host acceptance pending |
 | Plugin-equivalent integrations | Missing | Explicit selection required before implementation; no .NET binary loading |
 
 ## Plugin capability candidates (unselected)

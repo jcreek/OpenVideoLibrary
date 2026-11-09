@@ -97,7 +97,7 @@ measurement; the accepted test uses dominant spectral frequency and signal RMS.
 individual exit codes. Vainfo is not installed; kernel driver and package metadata
 are recorded alongside the actual graph execution.
 
-Current-source SSH validation records 16 passing non-media integration tests, two
+An earlier source snapshot recorded 16 passing non-media integration tests, two
 passing CPU-media tests, a passing physical VAAPI graph, formatting and all-feature
 Clippy. The nine browser workflows were rerun successfully after the playback
 negotiation change.
@@ -107,14 +107,82 @@ clones after shutdown and tracks password hashing. Future schema refusal preserv
 database bytes and does not switch its journal mode. Browser container negotiation
 no longer treats FFprobe's Matroska/WebM demuxer aliases as interchangeable.
 
-The initial N100 warm API diagnostic is still running. It has recorded high-load
-errors and latency gate failures. Some trials overlap acceptance builds/tests;
+The initial N100 warm API diagnostic completed 80 trials / 80,000 requests.
+It recorded high-load errors and latency gate failures; the raw report is
+`benchmarks/rust-production-n100-initial.json`. Some trials overlap acceptance builds/tests;
 it must not be used as clean production acceptance. The bundled-SQLite local
 profile `benchmarks/rust-sql-local-initial.json` identifies a full-library sort in
-unfiltered browse, motivating an order-preserving title-index change. Search
-remains unchanged because forcing that index regresses selective queries.
+unfiltered browse, motivating an order-preserving title-index change. A bounded census now selects the index for broad, unfiltered search while sparse
+searches retain their selective plan. Correlated FTS was profiled and rejected.
 
 Docker's existing VM filesystem was inspected through a read-only container:
 16 GiB total, 100% used, zero free. No pruning was performed. CI now builds and
 runs disposable image acceptance for both Linux architectures, retaining result
 artifacts. Those jobs are not yet evidence of passing builds or deployment.
+
+The expanded local CPU corpus now passes MP4/AAC, Matroska/AAC, WebM/Opus,
+MPEG-TS/MP2, AVI/MP3 and MOV/PCM negotiation, decoded test-pattern pixels and audio
+RMS checks. The synthetic software HDR test now exercises both PQ and HLG inputs
+and verifies BT.709 output tags. This does not establish HDR visual fidelity,
+Dolby Vision, surround passthrough, bitmap subtitles or font coverage.
+
+A real cached ARM64 Nginx 1.30.5 container passed TLS, secure cookies, CSRF,
+byte-range/content-range, request-size limits, live WAL backup/fresh restore,
+restored-session revocation, queue preservation and clean Rust SIGTERM checks.
+`scripts/test_nginx.py` reproduces the disposable drill; `validation-nginx.json`
+records evidence. The backend for the local run is macOS Rust; this is not Linux
+image or production-host deployment certification. Nginx startup initially failed
+because fastcgi/uwsgi/scgi temporary paths used the read-only root; all temporary
+paths are now explicitly on the bounded tmpfs. CI runs the same drill on Linux.
+
+Stopping a session now cancels its owned work even when the source disappears or
+permissions are lost; the API still returns 404 when current access is absent.
+Segment waits also require the session's original library on every check.
+
+A later expanded N100 CPU run exposed a session idle-expiry failure while an
+actively authorized request waited for its playlist during concurrent diagnostic
+load. This is recorded as a failure, not a pass. Segment waits now refresh their
+activity timestamp; a clean N100 rerun is still required for that source. The
+normal local suite passes 17 tests; three explicit CPU-media tests pass locally.
+
+An isolated rootless-runtime check on N100 found no container daemon or uidmap
+helper, and `unshare -Ur true` failed with `Operation not permitted`. No namespace
+policy, OS package, service or shared mount configuration was changed. Pinned
+Jellyfin image and Linux deployment acceptance need an authorized container
+runtime or another isolated equivalent environment.
+
+The VAAPI HDR10 feasibility probe succeeded on N100 using mastering-display/CLL
+metadata and hardware decode, `tonemap_vaapi`, scale and H.264 encode, followed by
+software decode of the result. `validation-n100-hdr-probe.json` records the probe.
+The server still uses software HDR: the probe does not establish visual quality,
+HLG/Dolby Vision handling or a tested production HDR negotiation/fallback path.
+
+Direct/range/artwork/HLS response bodies now end on server cancellation, so a
+stalled media peer cannot retain the response for the rest of a movie during
+shutdown. The local regression holds an unread direct response across shutdown
+and verifies that it ends within one second.
+
+The clean N100 rerun after the active-wait fix passed all recorded checks, including
+three CPU-media tests. The earlier concurrent failure remains in
+`validation-n100-concurrent-failure.json`; it has not been erased or relabeled.
+A subsequent local storage audit rejects symlinked database/cache/workspace roots
+before SQLite or startup cleanup runs, separates library paths from application
+data, and confines cached artwork to its owned directory. Those newest guards
+still require the next source-specific N100 validation after the API profile ends.
+
+Real TCP SIGTERM regression coverage now holds both an incomplete request body and
+an unread 64MiB sparse direct-media response. The listener cancels blocked socket
+reads/writes while preserving actual client addresses for login rate limiting.
+Both cases exit cleanly within the five-second test deadline; response-body-only
+cancellation is not treated as sufficient proof of stalled-peer shutdown.
+
+The latest local stabilization snapshot passes 21 API integration tests plus the
+real-socket shutdown test (two peer-stall scenarios). Three explicit CPU-media
+tests, all-feature Clippy, web install/check/build and nine desktop browser cases
+also pass. The newest storage/transport changes are newer than the last captured
+N100 validation artifact; they are not silently attributed to that earlier run.
+
+The latest real Nginx/TLS restore drill also passes against the cancellation-aware
+server, recorded by binary hash. Docker's cached tag/manifest lookup failed, so
+the rerun used the exact already-cached native Nginx image ID; no image pull,
+prune or unrelated data deletion was used to obtain that result.

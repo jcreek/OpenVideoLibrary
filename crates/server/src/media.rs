@@ -10,6 +10,7 @@ use axum::{
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
+use futures_util::StreamExt;
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -44,12 +45,18 @@ pub async fn item(app: &App, u: User, id: i64) -> Result<(PathBuf, i64)> {
     }
     Ok((real, library))
 }
-pub async fn serve(path: PathBuf, req: Request) -> Result<Response> {
+pub async fn serve(app: &App, path: PathBuf, req: Request) -> Result<Response> {
     let response = tower_http::services::ServeFile::new(path)
         .oneshot(req)
         .await
         .map_err(|_| Error::new(500, "file unavailable"))?;
-    Ok(response.map(Body::new))
+    let (parts, body) = response.into_parts();
+    // Active direct/range/artwork/HLS responses must not hold graceful shutdown
+    // open for the remaining length of a movie or a stalled client connection.
+    let stream = Body::new(body)
+        .into_data_stream()
+        .take_until(app.cancel.clone().cancelled_owned());
+    Ok(Response::from_parts(parts, Body::from_stream(stream)))
 }
 pub async fn file(
     State(app): State<Arc<App>>,
@@ -58,7 +65,7 @@ pub async fn file(
     req: Request,
 ) -> Result<Response> {
     let (path, _) = item(&app, u, id).await?;
-    serve(path, req).await
+    serve(&app, path, req).await
 }
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
 #[serde(default)]
@@ -238,8 +245,13 @@ pub async fn artwork(
 ) -> Result<Response> {
     let (path, _) = item(&app, u, id).await?;
     let cache = app.config.data.join("artwork").join(format!("{id}.jpg"));
-    if tokio::fs::metadata(&cache).await.is_ok() {
-        return serve(cache, req).await;
+    if let Ok(real) = tokio::fs::canonicalize(&cache).await
+        && real.starts_with(app.config.data.join("artwork"))
+        && let Ok(metadata) = tokio::fs::metadata(&real).await
+        && metadata.is_file()
+        && metadata.len() < 20 << 20
+    {
+        return serve(&app, real, req).await;
     }
     let root = path
         .parent()
@@ -257,7 +269,7 @@ pub async fn artwork(
             && m.is_file()
             && m.len() < 20 << 20
         {
-            return serve(real, req).await;
+            return serve(&app, real, req).await;
         }
     }
     Err(Error::new(404, "no local artwork"))

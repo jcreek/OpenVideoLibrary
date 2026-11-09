@@ -56,12 +56,12 @@ Rust Linux image, multi-architecture build or deployment is certified from that 
 - Real N100/SMB cold-cache, mixed/sustained load, LAN first-frame/seek/stall and
   concurrency measurements against the pinned Jellyfin baseline. Initial gates:
   browse/search p95 <150 ms and LAN direct first decoded frame <2 s.
-- Broader Intel and physical AMD/NVIDIA validation, hardware HDR pipelines, HLG/
-  Dolby Vision and broader audio/subtitle/font/container/visual-quality coverage.
+- Broader Intel and physical AMD/NVIDIA validation, hardware HDR pipelines, Dolby Vision and broader audio/subtitle/font/container/visual-quality coverage;
+  synthetic PQ/HLG and a six-container software slice now pass.
 - Real mobile devices, additional desktop/browser codec coverage, accessibility,
   multi-client queue/session coordination and broader security/provider review.
-- Linux amd64/arm64 container builds after storage capacity is available, real
-  Nginx deployment and a backup/rollback drill. No registry publication occurred.
+- Linux amd64/arm64 container builds after storage capacity is available, production-host
+  Nginx deployment and rollback; a disposable real Nginx/TLS + backup/restore drill passes. No registry publication occurred.
 - Music/other media, richer discovery and user controls, live TV/DVR, DLNA/casting,
   selected plugin-equivalent integrations and own native clients remain subsequent
   stages. Recording output will require a dedicated writable destination.
@@ -75,3 +75,11 @@ errors. Queue cursor updates preserve offline/revoked entries and survive restar
 concurrent updates are covered by a Linux N100 regression over SSH. See the
 continuation evidence in `VALIDATION.md`; this does not complete the later parity
 stages or production performance gates.
+
+The N100 production API diagnostic now includes 80 trials / 80,000 requests and
+17,643 errors at high offered concurrency. It is retained with its interference
+limitations and is not release acceptance. Query plans motivated order-preserving
+browse/broad-search changes; their isolated repeated N100 profile is in progress.
+Startup now rejects symlinked owned storage and overlapping media/data paths.
+Actual TCP cancellation is covered by stalled-upload and stalled-direct-reader
+SIGTERM tests, alongside the expanded software container/PQ/HLG corpus.

@@ -35,14 +35,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ("q".to_owned(), query.to_owned()),
             ("offset".into(), "900".into()),
         ]);
-        let (sql, args) = api::item_query(User { id: 1, admin: true }, &q);
+        let planning = Instant::now();
+        let (sql, args) = api::item_query(&c, User { id: 1, admin: true }, &q)?;
+        let planning_ms = planning.elapsed().as_secs_f64() * 1000.0;
+        let indexed = sql.replace(
+            "FROM items i JOIN",
+            "FROM items i INDEXED BY items_title JOIN",
+        );
         let variants = [
             ("production", sql.clone()),
+            ("title-index", indexed.clone()),
             (
-                "title-index",
-                sql.replace(
-                    "FROM items i JOIN",
-                    "FROM items i INDEXED BY items_title JOIN",
+                "title-index-correlated-fts",
+                indexed.replace(
+                    "i.id IN(SELECT rowid FROM search WHERE search MATCH ?)",
+                    "EXISTS(SELECT 1 FROM search WHERE rowid=i.id AND search MATCH ?)",
                 ),
             ),
         ];
@@ -61,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .collect::<Result<Vec<_>, _>>()?;
                 timings.push(start.elapsed().as_secs_f64() * 1000.0);
             }
-            results.push(json!({"variant":label,"query":query,"offset":900,"plan":plan,"milliseconds":timings,"ids":ids}));
+            results.push(json!({"variant":label,"query":query,"offset":900,"planning_ms":planning_ms,"plan":plan,"milliseconds":timings,"ids":ids}));
         }
     }
     println!(

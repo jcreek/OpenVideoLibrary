@@ -1126,7 +1126,8 @@
               "type": "string"
             }
           }
-        ]
+        ],
+        "description": "Cancellation always cleans up an owned session, including when media or library access has been lost. The response still enforces current media access and may return 404 after cleanup."
       }
     },
     "/api/v1/capabilities": {

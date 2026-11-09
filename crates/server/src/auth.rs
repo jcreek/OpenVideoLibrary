@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr},
     sync::Arc,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -175,13 +175,13 @@ struct LoginCredentials {
 }
 pub async fn login(
     State(app): State<Arc<App>>,
-    connection: Option<Extension<ConnectInfo<SocketAddr>>>,
+    connection: Option<Extension<ConnectInfo<crate::transport::PeerAddress>>>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response> {
     request_header(&headers)?;
     let ip = connection
-        .map(|Extension(ConnectInfo(s))| s.ip())
+        .map(|Extension(ConnectInfo(s))| s.0.ip())
         .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
     {
         let mut rates = app.rates.lock().await;

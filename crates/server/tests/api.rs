@@ -770,92 +770,94 @@ async fn real_media_remux_adaptive_audio_subtitles_and_cleanup() {
 #[tokio::test]
 #[ignore = "requires FFmpeg with libx265, zscale and tonemap; this is a software test, not GPU acceptance"]
 async fn real_hdr_software_tone_mapping() {
-    let root = TempDir::new().unwrap();
-    let (app, router, token) = setup(&root).await;
-    let item = add_media(&app, root.path()).await;
-    let path = root.path().join("media/Example.S01E01.mp4");
-    let status = std::process::Command::new("ffmpeg")
-        .args([
-            "-nostdin",
-            "-v",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "testsrc2=size=320x180:rate=12",
-            "-t",
-            "1",
-            "-c:v",
-            "libx265",
-            "-preset",
-            "ultrafast",
-            "-x265-params",
-            "pools=1:frame-threads=1:log-level=error",
-            "-pix_fmt",
-            "yuv420p10le",
-            "-color_primaries",
-            "bt2020",
-            "-color_trc",
-            "smpte2084",
-            "-colorspace",
-            "bt2020nc",
-        ])
-        .arg(path)
-        .status()
-        .unwrap();
-    assert!(status.success());
-    let (_, probe) = request(
-        &router,
-        "GET",
-        &format!("/api/v1/items/{item}/probe"),
-        Some(&token),
-        None,
-    )
-    .await;
-    assert_eq!(probe["streams"][0]["color_transfer"], "smpte2084");
-    let (status, session) = request(
-        &router,
-        "POST",
-        &format!("/api/v1/items/{item}/playback"),
-        Some(&token),
-        Some(json!({"Mode":"auto","CanPlayMP4":true})),
-    )
-    .await;
-    assert_eq!(status, 201, "{session}");
-    assert_eq!(session["mode"], "transcode");
-    let (status, master) = request(
-        &router,
-        "GET",
-        session["url"].as_str().unwrap(),
-        Some(&token),
-        None,
-    )
-    .await;
-    assert_eq!(status, 200, "{master}");
-    let id = session["id"].as_str().unwrap();
-    let output = app.config.data.join("transcodes").join(id).join("v0.m3u8");
-    let out = std::process::Command::new("ffprobe")
-        .args(["-v", "error", "-show_streams", "-of", "json"])
-        .arg(output)
-        .output()
-        .unwrap();
-    assert!(out.status.success());
-    let info: Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(info["streams"][0]["color_transfer"], "bt709");
-    assert_eq!(
-        request(
+    for transfer in ["smpte2084", "arib-std-b67"] {
+        let root = TempDir::new().unwrap();
+        let (app, router, token) = setup(&root).await;
+        let item = add_media(&app, root.path()).await;
+        let path = root.path().join("media/Example.S01E01.mp4");
+        let status = std::process::Command::new("ffmpeg")
+            .args([
+                "-nostdin",
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x180:rate=12",
+                "-t",
+                "1",
+                "-c:v",
+                "libx265",
+                "-preset",
+                "ultrafast",
+                "-x265-params",
+                "pools=1:frame-threads=1:log-level=error",
+                "-pix_fmt",
+                "yuv420p10le",
+                "-color_primaries",
+                "bt2020",
+                "-color_trc",
+                transfer,
+                "-colorspace",
+                "bt2020nc",
+            ])
+            .arg(path)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let (_, probe) = request(
             &router,
-            "DELETE",
-            &format!("/api/v1/playback/{id}"),
+            "GET",
+            &format!("/api/v1/items/{item}/probe"),
             Some(&token),
-            None
+            None,
         )
-        .await
-        .0,
-        200
-    );
-    app.shutdown().await;
+        .await;
+        assert_eq!(probe["streams"][0]["color_transfer"], transfer);
+        let (status, session) = request(
+            &router,
+            "POST",
+            &format!("/api/v1/items/{item}/playback"),
+            Some(&token),
+            Some(json!({"Mode":"auto","CanPlayMP4":true})),
+        )
+        .await;
+        assert_eq!(status, 201, "{session}");
+        assert_eq!(session["mode"], "transcode");
+        let (status, master) = request(
+            &router,
+            "GET",
+            session["url"].as_str().unwrap(),
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, 200, "{master}");
+        let id = session["id"].as_str().unwrap();
+        let output = app.config.data.join("transcodes").join(id).join("v0.m3u8");
+        let out = std::process::Command::new("ffprobe")
+            .args(["-v", "error", "-show_streams", "-of", "json"])
+            .arg(output)
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        let info: Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(info["streams"][0]["color_transfer"], "bt709");
+        assert_eq!(
+            request(
+                &router,
+                "DELETE",
+                &format!("/api/v1/playback/{id}"),
+                Some(&token),
+                None
+            )
+            .await
+            .0,
+            200
+        );
+        app.shutdown().await;
+    }
 }
 
 #[tokio::test]
@@ -1202,16 +1204,16 @@ async fn browse_pagination_preserves_order_search_and_current_grants() {
     app.db.call(|c|{
         let tx=c.transaction()?;
         tx.execute("INSERT INTO libraries(id,name,path,kind) VALUES(1,'Synthetic','/synthetic','movie')",[])?;
-        for id in 1..=1000 {
+        for id in 1..=3000 {
             tx.execute("INSERT INTO items(id,title) VALUES(?,?)",rusqlite::params![id,format!("Movie {:04}",1001-id)])?;
             tx.execute("INSERT INTO media_files(item_id,library_id,path,mtime,size) VALUES(?,1,?,0,0)",rusqlite::params![id,format!("/synthetic/{id}.mp4")])?;
         }
         tx.commit()?;Ok(())
     }).await.unwrap();
     for path in [
-        "/api/v1/items?offset=900",
-        "/api/v1/items?offset=900&q=Movie",
-        "/api/v1/items?offset=900&library=1",
+        "/api/v1/items?offset=2900",
+        "/api/v1/items?offset=2900&q=Movie",
+        "/api/v1/items?offset=2900&library=1",
     ] {
         let (status, items) = request(&router, "GET", path, Some(&token), None).await;
         assert_eq!(status, 200, "{items}");
@@ -1251,7 +1253,7 @@ async fn browse_pagination_preserves_order_search_and_current_grants() {
         request(
             &router,
             "GET",
-            "/api/v1/items?offset=900",
+            "/api/v1/items?offset=2900",
             Some(&viewer),
             None
         )
@@ -1260,6 +1262,350 @@ async fn browse_pagination_preserves_order_search_and_current_grants() {
         .as_array()
         .unwrap()
         .is_empty()
+    );
+    app.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "generated software corpus requires FFmpeg with VP9, Opus, H.264, MPEG4 and MP2"]
+async fn real_media_container_audio_matrix_decodes_negotiated_output() {
+    for (extension, muxer, video, audio, expected_container, expected_mode) in [
+        ("mp4", "mp4", "libx264", "aac", "mp4", "direct"),
+        ("mkv", "matroska", "libx264", "aac", "matroska", "remux"),
+        ("webm", "webm", "libvpx-vp9", "libopus", "webm", "direct"),
+        ("ts", "mpegts", "libx264", "mp2", "mpegts", "remux"),
+        ("avi", "avi", "mpeg4", "libmp3lame", "avi", "transcode"),
+        ("mov", "mov", "libx264", "pcm_s16le", "mov", "remux"),
+    ] {
+        let root = TempDir::new().unwrap();
+        let (app, router, token) = setup(&root).await;
+        let item = add_media(&app, root.path()).await;
+        let path = root
+            .path()
+            .join("media")
+            .join(format!("corpus.{extension}"));
+        let args: Vec<String> = vec![
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=size=320x180:rate=12",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440",
+            "-t",
+            "1",
+            "-c:v",
+            video,
+            "-threads",
+            "2",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            audio,
+            "-ac",
+            "2",
+            "-f",
+            muxer,
+            path.to_str().unwrap(),
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        media::process(
+            &app,
+            "ffmpeg",
+            args,
+            None,
+            Duration::from_secs(30),
+            1024,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        let saved_path = path.to_string_lossy().into_owned();
+        app.db
+            .call(move |c| {
+                c.execute(
+                    "UPDATE media_files SET path=? WHERE item_id=?",
+                    rusqlite::params![saved_path, item],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let info = media::inspect(&app, &path).await.unwrap();
+        assert_eq!(info.format.format_name, expected_container, "{extension}");
+        let (status,session)=request(&router,"POST",&format!("/api/v1/items/{item}/playback"),Some(&token),Some(json!({"Mode":"auto","Capabilities":{"containers":["mp4","webm"],"video_codecs":["h264","vp9"],"audio_codecs":["aac","opus","mp3"],"hdr":false}}))).await;
+        assert!(status == 200 || status == 201, "{extension}: {session}");
+        assert_eq!(session["mode"], expected_mode, "{extension}");
+        let output = if expected_mode == "direct" {
+            path.clone()
+        } else {
+            let (status, master) = request(
+                &router,
+                "GET",
+                session["url"].as_str().unwrap(),
+                Some(&token),
+                None,
+            )
+            .await;
+            assert_eq!(status, 200, "{extension}: {master}");
+            app.config
+                .data
+                .join("transcodes")
+                .join(session["id"].as_str().unwrap())
+                .join("v0.m3u8")
+        };
+        let args: Vec<String> = vec![
+            "-v",
+            "error",
+            "-i",
+            output.to_str().unwrap(),
+            "-map",
+            "0:v:0",
+            "-frames:v",
+            "1",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "gray",
+            "pipe:1",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        let pixels = media::process(
+            &app,
+            "ffmpeg",
+            args,
+            None,
+            Duration::from_secs(15),
+            1 << 20,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(pixels.len(), 320 * 180, "{extension}");
+        assert!(
+            pixels.iter().any(|v| *v > 100) && pixels.iter().any(|v| *v < 40),
+            "{extension}: decoded image lacks expected test pattern"
+        );
+        let args: Vec<String> = vec![
+            "-v",
+            "error",
+            "-i",
+            output.to_str().unwrap(),
+            "-map",
+            "0:a:0",
+            "-t",
+            "0.5",
+            "-ac",
+            "1",
+            "-ar",
+            "48000",
+            "-f",
+            "f32le",
+            "pipe:1",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        let pcm = media::process(
+            &app,
+            "ffmpeg",
+            args,
+            None,
+            Duration::from_secs(15),
+            1 << 20,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        assert!(pcm.len() > 80000, "{extension}: missing decoded audio");
+        let rms = (pcm
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|v| f64::from(f32::from_le_bytes(*v)).powi(2))
+            .sum::<f64>()
+            / (pcm.len() / 4) as f64)
+            .sqrt();
+        assert!(
+            rms > 0.01 && rms < 0.2,
+            "{extension}: unexpected decoded audio RMS {rms}"
+        );
+        app.shutdown().await;
+    }
+}
+
+#[tokio::test]
+async fn stopping_an_owned_unavailable_stream_still_cleans_up() {
+    use std::sync::atomic::{AtomicBool, AtomicI64};
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let id = add_media(&app, root.path()).await;
+    let stream_id = "a".repeat(64);
+    let dir = app.config.data.join("transcodes").join(&stream_id);
+    std::fs::create_dir_all(&dir).unwrap();
+    let (done_tx, done) = tokio::sync::watch::channel(false);
+    let cancel = app.cancel.child_token();
+    let stream = Arc::new(playback::Stream {
+        owner: 1,
+        library: 1,
+        item: id,
+        dir: dir.clone(),
+        cancel: cancel.clone(),
+        done,
+        touched: AtomicI64::new(auth::now()),
+        finished: AtomicBool::new(false),
+        error: tokio::sync::Mutex::new(None),
+    });
+    app.streams.lock().await.insert(stream_id.clone(), stream);
+    app.tasks.spawn({
+        let app = app.clone();
+        let stream_id = stream_id.clone();
+        let dir = dir.clone();
+        async move {
+            cancel.cancelled().await;
+            tokio::fs::remove_dir_all(dir).await.unwrap();
+            app.streams.lock().await.remove(&stream_id);
+            done_tx.send(true).unwrap();
+        }
+    });
+    std::fs::remove_file(root.path().join("media/Example.S01E01.mp4")).unwrap();
+    assert_eq!(
+        request(
+            &router,
+            "DELETE",
+            &format!("/api/v1/playback/{stream_id}"),
+            Some(&token),
+            None
+        )
+        .await
+        .0,
+        404
+    );
+    assert!(!dir.exists());
+    assert!(app.streams.lock().await.is_empty());
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn active_direct_response_body_ends_when_server_stops() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let id = add_media(&app, root.path()).await;
+    let response = router
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/v1/items/{id}/file"))
+                .header("Authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    // Hold the response body without consuming it, as a stalled network peer can.
+    app.shutdown().await;
+    let bytes = tokio::time::timeout(Duration::from_secs(1), response.into_body().collect())
+        .await
+        .unwrap()
+        .unwrap()
+        .to_bytes();
+    assert!(bytes.is_empty());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn owned_storage_symlinks_never_redirect_startup_cleanup_or_database_writes() {
+    for (name, directory) in [
+        ("transcodes", true),
+        ("artwork", true),
+        ("library.db", false),
+        ("library.db-wal", false),
+        ("library.db-shm", false),
+        ("server.lock", false),
+    ] {
+        let root = TempDir::new().unwrap();
+        let cfg = config(root.path());
+        std::fs::create_dir_all(&cfg.data).unwrap();
+        let outside = root.path().join("outside");
+        if directory {
+            let media = outside.join("a".repeat(64));
+            std::fs::create_dir_all(&media).unwrap();
+            std::fs::write(media.join("keep.mp4"), b"preserved").unwrap();
+        } else {
+            std::fs::write(&outside, b"preserved").unwrap();
+        }
+        std::os::unix::fs::symlink(&outside, cfg.data.join(name)).unwrap();
+        assert!(App::open(cfg).is_err(), "{name}");
+        let preserved = if directory {
+            outside.join("a".repeat(64)).join("keep.mp4")
+        } else {
+            outside
+        };
+        assert_eq!(std::fs::read(preserved).unwrap(), b"preserved", "{name}");
+    }
+}
+
+#[tokio::test]
+async fn media_library_cannot_overlap_application_storage() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let nested = app.config.data.join("nested");
+    std::fs::create_dir_all(&nested).unwrap();
+    for path in [root.path(), &app.config.data, &nested] {
+        assert_eq!(
+            request(
+                &router,
+                "POST",
+                "/api/v1/libraries",
+                Some(&token),
+                Some(json!({"Name":"unsafe","Kind":"movie","Path":path}))
+            )
+            .await
+            .0,
+            400
+        );
+    }
+    assert!(
+        request(&router, "GET", "/api/v1/libraries", Some(&token), None)
+            .await
+            .1
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    app.shutdown().await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn cached_artwork_cannot_escape_owned_cache() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let id = add_media(&app, root.path()).await;
+    let artwork = app.config.data.join("artwork");
+    std::fs::create_dir(&artwork).unwrap();
+    let outside = root.path().join("private.jpg");
+    std::fs::write(&outside, b"not public artwork").unwrap();
+    std::os::unix::fs::symlink(&outside, artwork.join(format!("{id}.jpg"))).unwrap();
+    assert_eq!(
+        request(
+            &router,
+            "GET",
+            &format!("/api/v1/items/{id}/artwork"),
+            Some(&token),
+            None
+        )
+        .await
+        .0,
+        404
     );
     app.shutdown().await;
 }

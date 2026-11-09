@@ -7,6 +7,7 @@ pub mod lists;
 pub mod media;
 pub mod playback;
 pub mod scan;
+pub mod transport;
 use crate::{
     db::Db,
     error::{Error, Result},
@@ -91,6 +92,33 @@ impl App {
         {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(&config.data, std::fs::Permissions::from_mode(0o700))?;
+        }
+        // Never follow cache/workspace/database symlinks out of application data.
+        // Startup cleanup must not traverse a transcodes symlink into media and
+        // remove a directory that happens to look like a generated session ID.
+        for (name, directory) in [
+            ("server.lock", false),
+            ("library.db", false),
+            ("library.db-wal", false),
+            ("library.db-shm", false),
+            ("transcodes", true),
+            ("artwork", true),
+        ] {
+            match std::fs::symlink_metadata(config.data.join(name)) {
+                Ok(metadata)
+                    if metadata.file_type().is_symlink()
+                        || (directory && !metadata.is_dir())
+                        || (!directory && !metadata.is_file()) =>
+                {
+                    return Err(Error::new(
+                        500,
+                        "application data paths must be regular files or directories, never symlinks",
+                    ));
+                }
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
         }
         let lock = OpenOptions::new()
             .read(true)

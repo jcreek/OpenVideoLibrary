@@ -88,5 +88,9 @@ records seven per-query timings, query plans and result IDs for browse, broad,
 selective and no-match searches. This isolates SQL behavior; it is not HTTP/LAN,
 SMB or release acceptance. The initial macOS ARM64 profile is retained separately
 in `benchmarks/rust-sql-local-initial.json`. Unfiltered browse now uses the existing
-title index to avoid sorting the whole library; filtered/search plans remain
-selective. N100 end-to-end measurements must be repeated after this change.
+title index to avoid sorting the whole library. Unfiltered broad FTS searches
+use the same index after a census capped at 2,049 matches; sparse searches and
+filtered/progress queries retain their selective plans. The FTS expression and
+ordering are unchanged. A correlated-FTS experiment was rejected after it
+substantially regressed all measured search shapes. N100 end-to-end measurements
+must be repeated after these changes.

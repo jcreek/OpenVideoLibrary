@@ -516,7 +516,7 @@ async fn encode_attempt(
         }
     }
 }
-async fn owned(app: &Arc<App>, u: User, id: &str) -> Result<Arc<Stream>> {
+async fn owner(app: &Arc<App>, u: User, id: &str) -> Result<Arc<Stream>> {
     let st = app
         .streams
         .lock()
@@ -527,6 +527,10 @@ async fn owned(app: &Arc<App>, u: User, id: &str) -> Result<Arc<Stream>> {
     if st.owner != u.id {
         return Err(Error::new(404, "stream not found"));
     }
+    Ok(st)
+}
+async fn owned(app: &Arc<App>, u: User, id: &str) -> Result<Arc<Stream>> {
+    let st = owner(app, u, id).await?;
     let (_, library) = media::item(app, u, st.item).await?;
     if library != st.library {
         return Err(Error::new(404, "stream not found"));
@@ -550,9 +554,15 @@ pub async fn segment(
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
         // Recheck grants while waiting for a segment, not just at admission.
-        media::item(&app, u, st.item).await?;
+        let (_, library) = media::item(&app, u, st.item).await?;
+        if library != st.library {
+            st.cancel.cancel();
+            return Err(Error::new(404, "stream not found"));
+        }
+        // An authorized request actively waiting for output is not idle.
+        st.touched.store(auth::now(), Ordering::Relaxed);
         if tokio::fs::metadata(&path).await.is_ok() {
-            return media::serve(path, req).await;
+            return media::serve(&app, path, req).await;
         }
         if st.finished.load(Ordering::Acquire) {
             return Err(Error::new(
@@ -575,11 +585,17 @@ pub async fn stop(
     Extension(u): Extension<User>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    let st = owned(&app, u, &id).await?;
+    // Always cancel/reap an owned stream, even if its grants or source were
+    // lost. Authorization still controls the response; no media is returned.
+    let st = owner(&app, u, &id).await?;
     let mut done = st.done.clone();
     st.cancel.cancel();
     if !*done.borrow() {
         let _ = done.wait_for(|v| *v).await;
+    }
+    let (_, library) = media::item(&app, u, st.item).await?;
+    if library != st.library {
+        return Err(Error::new(404, "stream not found"));
     }
     Ok(Json(json!({"ok":true})))
 }

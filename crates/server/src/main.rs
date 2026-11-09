@@ -1,4 +1,7 @@
-use ovl_server::{App, Config};
+use ovl_server::{
+    App, Config,
+    transport::{CancellableListener, PeerAddress},
+};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if std::env::args().any(|a| a == "--version-json") {
@@ -22,9 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     app.background();
     let shutdown = app.clone();
     axum::serve(
-        listener,
+        CancellableListener::new(listener, app.cancel.clone()),
         app.router()
-            .into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            .into_make_service_with_connect_info::<PeerAddress>(),
     )
     .with_graceful_shutdown(async move {
         #[cfg(unix)]

@@ -104,6 +104,7 @@ def main():
     parser.add_argument('--requests', type=int, default=10000)
     parser.add_argument('--repetitions', type=int, default=5)
     parser.add_argument('--concurrency', nargs='+', type=int, default=[1, 10, 25, 50, 100])
+    parser.add_argument('--isolation-note', default='Shared host; caches not evicted; no harness media or background FFmpeg workloads')
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     if args.requests < 1 or args.repetitions < 3 or any(c < 1 or c > 1000 for c in args.concurrency):
@@ -121,13 +122,15 @@ def main():
         if path.is_file():
             source.update(str(path).encode());source.update(path.read_bytes())
     source.update(Path('Cargo.lock').read_bytes())
+    source.update(Path('Cargo.toml').read_bytes())
+    source.update(Path('rust-toolchain.toml').read_bytes())
     runtime = json.loads(subprocess.check_output([str(binary),'--version-json'],text=True))
     report = {'runtime':runtime,'compiler':subprocess.check_output(['rustc','--version'],text=True).strip(),'hardware':hardware, 'source_sha256':source.hexdigest(), 'kind': 'Rust production authenticated API; warm loopback synthetic browse/search',
               'utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'host': platform.platform(), 'cpu': platform.processor(),
               'logical_cpus': os.cpu_count(), 'sqlite_seed_version': sqlite3.sqlite_version,
               'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
-              'configuration': vars(args), 'isolation': 'shared development host; caches not evicted; no media or background FFmpeg',
+              'configuration': vars(args), 'isolation': args.isolation_note,
               'results': [], 'summary': []}
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

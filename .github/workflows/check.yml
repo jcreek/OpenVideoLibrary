@@ -25,6 +25,12 @@ jobs:
       - run: OVL_ACCELERATOR=cpu cargo test --locked --workspace -- --ignored
       - run: cargo build --locked --package ovl-server && mkdir -p bin && cp target/debug/ovl-server bin/ovl
       - run: cd web && npx playwright install --with-deps chromium firefox webkit && npm run test:e2e
+      - run: docker pull nginx:stable && python3 scripts/test_nginx.py --output nginx-acceptance.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nginx-acceptance
+          path: nginx-acceptance.json
   images:
     runs-on: ubuntu-latest
     strategy:
