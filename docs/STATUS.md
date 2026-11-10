@@ -116,3 +116,9 @@ isolated N100 SSH checks, with software and physical GPU evidence recorded
 separately in `validation-n100-pixel-formats.json`. The generated corpus has eight
 cases across six containers, adding actual H.264 10-bit and 4:4:4 sources and
 checking converted format plus RGB/audio output.
+
+Bitmap subtitle burn-in now uses a bitmap composition graph rather than a text
+filter. The generated PGS regression covers two tracks, alpha/clear timing,
+seeking, single/adaptive output and an SDR/PQ-black-base slice. DVD/DVB/XSUB
+routing is implemented but lacks accepted fixtures; fonts/styles and broader
+HDR imagery remain incomplete. See `PLAYBACK.md`.

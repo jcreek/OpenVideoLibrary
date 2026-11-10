@@ -300,10 +300,48 @@ pub fn encoding_args(
         "-i".into(),
         path.to_string_lossy().into_owned(),
     ];
+    let bitmap = b.subtitle.filter(|index| {
+        info.tracks("subtitle").get(*index).is_some_and(|track| {
+            matches!(
+                track.codec_name.as_str(),
+                "hdmv_pgs_subtitle" | "dvd_subtitle" | "dvb_subtitle" | "xsub"
+            )
+        })
+    });
+    if let Some(subtitle) = bitmap {
+        let base = if info.hdr() {
+            "[0:v:0]zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p[base];"
+        } else {
+            "[0:v:0]null[base];"
+        };
+        let mut graph = format!(
+            "{base}[base][0:s:{subtitle}]overlay=eof_action=pass:repeatlast=0[burn];[burn]split={}",
+            variants.len()
+        );
+        for i in 0..variants.len() {
+            graph.push_str(&format!("[input{i}]"));
+        }
+        for (i, v) in variants.iter().enumerate() {
+            graph.push_str(&format!(
+                ";[input{i}]scale={}:{}[burn{i}]",
+                v.width, v.height
+            ));
+        }
+        a.extend([
+            "-filter_complex_threads".into(),
+            "2".into(),
+            "-filter_complex".into(),
+            graph,
+        ]);
+    }
     for (i, v) in variants.iter().enumerate() {
         a.extend([
             "-map".into(),
-            "0:v:0".into(),
+            if bitmap.is_some() {
+                format!("[burn{i}]")
+            } else {
+                "0:v:0".into()
+            },
             "-map".into(),
             format!("0:a:{}?", b.audio),
         ]);
@@ -316,9 +354,10 @@ pub fn encoding_args(
                 filters.push(format!("subtitles=filename=source:si={s}"));
             }
             filters.push(format!("scale={}:{}", v.width, v.height));
+            if bitmap.is_none() {
+                a.extend(["-vf".into(), filters.join(",")]);
+            }
             a.extend([
-                "-vf".into(),
-                filters.join(","),
                 "-c:v".into(),
                 "libx264".into(),
                 "-preset".into(),

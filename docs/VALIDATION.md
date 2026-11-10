@@ -407,3 +407,55 @@ not change the system driver or services. The separate negative system-driver
 check is recorded in `validation-n100-pixel-driver-rejection.json`; its result
 must be read independently from positive GPU acceptance. These checks do not
 certify sustained stream capacity, other GPUs, GPU containers or full HDR quality.
+
+## Bitmap subtitle continuation — 2026-11-10
+
+The previous burn-in graph passed all codecs to a text filter. Running that graph
+on the original generated PGS fixture fails with FFmpeg's “Only text based
+subtitles are currently supported”. Bitmap codec routing now composes the decoded
+subtitle once before adaptive scaling, with two complex-filter threads. HDR base
+video receives software SDR tone mapping before bitmap composition. Existing
+process admission, cancellation/reaping, workspace quotas and permission checks
+remain in force; selected subtitles still use CPU encoding.
+
+The new explicitly ignored software test generates original two-track PGS
+display sets, then tests sixteen sessions across SDR and tagged PQ black-base
+HEVC, single/adaptive output and starts at 0, 1.5 and 3.5 seconds. Decoded pixels
+verify opaque and half-transparent cues, wrong-track absence and explicit cue
+clearing in 720p/480p outputs. Audio power, BT.709/yuv420p output for the HDR slice,
+invalid-track rejection without session allocation and DELETE cleanup are checked.
+This is PGS acceptance for a generated slice, not DVD/DVB/XSUB/font/style or broad
+HDR quality acceptance. The frame sampler decodes forward using output-side
+FFmpeg seeking; input-side HLS seeking was found to shift sampled timestamps.
+
+Final local `make verify-local` exited zero: npm ci/check/build; Rust format and
+Clippy including all features; 25 API tests plus socket shutdown; three Python
+regressions; generated-contract consistency; benchmark crate check/format; five
+explicit CPU media/fault tests; twelve full Chromium/Firefox/WebKit scenarios
+(37.4 seconds, no failures/skips/retries); cached ARM64 Nginx TLS/range/CSRF/backup/
+restore/shutdown drill against the local macOS binary. Browser/Nginx reports are
+`validation-browser-bitmap.json` and `validation-nginx-bitmap.json`.
+
+An initial full run failed Clippy on fixed-size audio chunk iteration in the new
+test. It was corrected to the pinned toolchain's array-chunk API. The terminal
+initial SSH snapshot is retained as `validation-n100-bitmap-initial.json`; its
+Clippy check failed even though its other checks passed. It is not acceptance
+of the final source. The corrected source is validated separately.
+
+Independent read-only adversarial review requested distinguishing unverified
+bitmap codecs and the combined HDR branch. Documentation retains the codec
+limits, and the PQ black-base plus subtitle test was added. Alpha and single-
+rendition coverage also pass. No scoped blocking review findings remain.
+Hosted Actions remain disabled; no remote publication was retried. Linux images,
+Linux Chromium, real devices, production deployment, sustained/cold/mixed/LAN
+performance and broader parity still require their recorded remaining evidence.
+
+The corrected `validation-n100-bitmap.json` is terminal: all eight SSH checks
+passed, including format/Clippy, integration, software media and separate physical
+VAAPI SDR/HDR tests using the existing isolated full Intel driver. Its recorded
+Rust source hash matches the final checkout. This does not establish physical
+GPU bitmap rendering; subtitle composition/encoding remains the software path.
+The physical tests revalidate the existing independent SDR/HDR pipeline.
+
+The separate current-source system-driver rejection also passed; see
+`validation-n100-bitmap-driver-rejection.json`. No driver was installed or changed.

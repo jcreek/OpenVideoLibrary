@@ -2057,3 +2057,347 @@ fn negotiation_requires_source_pixel_format_support() {
         .insert("h264".into(), vec![String::new()]);
     assert_eq!(playback::negotiate(&info, &request).0, "transcode");
 }
+
+// Original synthetic PGS display sets: a white rectangle from 1s through 3s.
+// No media or subtitle artwork is copied from an external source.
+fn bitmap_fixture(x: u16, y: u16) -> Vec<u8> {
+    fn segment(out: &mut Vec<u8>, second: u32, kind: u8, payload: &[u8]) {
+        out.extend(b"PG");
+        out.extend((second * 90_000).to_be_bytes());
+        out.extend(0_u32.to_be_bytes());
+        out.push(kind);
+        out.extend(u16::try_from(payload.len()).unwrap().to_be_bytes());
+        out.extend(payload);
+    }
+    fn composition(number: u16, state: u8, position: Option<(u16, u16)>) -> Vec<u8> {
+        let mut bytes = vec![];
+        bytes.extend(1280_u16.to_be_bytes());
+        bytes.extend(720_u16.to_be_bytes());
+        bytes.push(0x10);
+        bytes.extend(number.to_be_bytes());
+        bytes.extend([state, 0, 0, u8::from(position.is_some())]);
+        if let Some((x, y)) = position {
+            bytes.extend([0, 0, 0, 0]);
+            bytes.extend(x.to_be_bytes());
+            bytes.extend(y.to_be_bytes());
+        }
+        bytes
+    }
+    let mut out = vec![];
+    segment(&mut out, 1, 0x16, &composition(0, 0x80, Some((x, y))));
+    let mut window = vec![1, 0];
+    for value in [x, y, 160, 40] {
+        window.extend(value.to_be_bytes());
+    }
+    segment(&mut out, 1, 0x17, &window);
+    segment(
+        &mut out,
+        1,
+        0x14,
+        &[
+            0, 0, 0, 16, 128, 128, 0, 1, 235, 128, 128, 255, 2, 235, 128, 128, 128,
+        ],
+    );
+    let mut rle = vec![];
+    for _ in 0..40 {
+        rle.extend([1; 80]);
+        rle.extend([2; 80]);
+        rle.extend([0, 0]);
+    }
+    let mut object = vec![0, 0, 0, 0xc0];
+    let length = u32::try_from(rle.len() + 4).unwrap().to_be_bytes();
+    object.extend(&length[1..]);
+    object.extend(160_u16.to_be_bytes());
+    object.extend(40_u16.to_be_bytes());
+    object.extend(rle);
+    segment(&mut out, 1, 0x15, &object);
+    segment(&mut out, 1, 0x80, &[]);
+    segment(&mut out, 3, 0x16, &composition(1, 0, None));
+    segment(&mut out, 3, 0x80, &[]);
+    out
+}
+
+#[tokio::test]
+#[ignore = "generated bitmap subtitles require FFmpeg PGS, overlay, libx264/libx265 and tone mapping; software acceptance"]
+async fn real_bitmap_subtitles_select_seek_clear_and_scale() {
+    for hdr in [false, true] {
+        let root = TempDir::new().unwrap();
+        let (app, router, token) = setup(&root).await;
+        let item = add_media(&app, root.path()).await;
+        let first = root.path().join("first.sup");
+        let second = root.path().join("second.sup");
+        std::fs::write(&first, bitmap_fixture(200, 560)).unwrap();
+        std::fs::write(&second, bitmap_fixture(800, 100)).unwrap();
+        let path = root.path().join("media/bitmap.mkv");
+        let mut args: Vec<String> = [
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=black:size=1280x720:rate=12",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440",
+            "-itsoffset",
+            "1",
+            "-i",
+            first.to_str().unwrap(),
+            "-itsoffset",
+            "1",
+            "-i",
+            second.to_str().unwrap(),
+            "-map",
+            "0:v",
+            "-map",
+            "1:a",
+            "-map",
+            "2:s",
+            "-map",
+            "3:s",
+            "-t",
+            "5",
+            "-c:v",
+            if hdr { "libx265" } else { "libx264" },
+            "-preset",
+            "ultrafast",
+            "-threads",
+            "2",
+            "-c:a",
+            "aac",
+            "-c:s",
+            "copy",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        if hdr {
+            args.extend(
+                [
+                    "-pix_fmt",
+                    "yuv420p10le",
+                    "-x265-params",
+                    "pools=1:frame-threads=1:log-level=error",
+                    "-color_trc",
+                    "smpte2084",
+                    "-color_primaries",
+                    "bt2020",
+                    "-colorspace",
+                    "bt2020nc",
+                ]
+                .into_iter()
+                .map(str::to_owned),
+            );
+        }
+        args.push(path.to_string_lossy().into_owned());
+        media::process(
+            &app,
+            "ffmpeg",
+            args,
+            None,
+            Duration::from_secs(30),
+            1024,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        let saved = path.to_string_lossy().into_owned();
+        app.db
+            .call(move |c| {
+                c.execute(
+                    "UPDATE media_files SET path=? WHERE item_id=?",
+                    rusqlite::params![saved, item],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let info = media::inspect(&app, &path).await.unwrap();
+        assert_eq!(info.hdr(), hdr);
+        assert_eq!(info.tracks("subtitle").len(), 2);
+        assert!(
+            info.tracks("subtitle")
+                .iter()
+                .all(|t| t.codec_name == "hdmv_pgs_subtitle")
+        );
+        assert_eq!(
+            request(
+                &router,
+                "POST",
+                &format!("/api/v1/items/{item}/playback"),
+                Some(&token),
+                Some(json!({"Mode":"auto","Subtitle":2}))
+            )
+            .await
+            .0,
+            400
+        );
+        assert!(app.streams.lock().await.is_empty());
+        for subtitle in [0, 1] {
+            for (start, adaptive) in [(0.0, true), (1.5, true), (3.5, true), (0.0, false)] {
+                let (status, session) = request(
+                    &router,
+                    "POST",
+                    &format!("/api/v1/items/{item}/playback"),
+                    Some(&token),
+                    Some(json!({"Mode":"auto","Subtitle":subtitle,"Start":start,"Adaptive":adaptive})),
+                )
+                .await;
+                assert_eq!(status, 201, "{session}");
+                assert_eq!(session["mode"], "transcode");
+                let id = session["id"].as_str().unwrap();
+                let (status, master) = request(
+                    &router,
+                    "GET",
+                    session["url"].as_str().unwrap(),
+                    Some(&token),
+                    None,
+                )
+                .await;
+                assert_eq!(status, 200, "{master}");
+                assert_eq!(
+                    master["text"].as_str().unwrap().contains("v1.m3u8"),
+                    adaptive
+                );
+                let stream = app.streams.lock().await.get(id).unwrap().clone();
+                tokio::time::timeout(Duration::from_secs(30), async {
+                    while !stream.finished.load(std::sync::atomic::Ordering::Acquire) {
+                        tokio::time::sleep(Duration::from_millis(20)).await;
+                    }
+                })
+                .await
+                .unwrap();
+                let failure = stream.error.lock().await.clone();
+                assert!(failure.is_none(), "{failure:?}");
+                let samples: Vec<(f64, bool)> = if start == 0.0 {
+                    vec![(0.25, false), (1.5, true), (3.5, false)]
+                } else if start == 1.5 {
+                    vec![(0.25, true), (1.75, false)]
+                } else {
+                    vec![(0.25, false)]
+                };
+                for (variant, width, height) in [(0, 1280, 720), (1, 852, 480)]
+                    .into_iter()
+                    .take(if adaptive { 2 } else { 1 })
+                {
+                    let output = stream.dir.join(format!("v{variant}.m3u8"));
+                    let converted = media::inspect(&app, &output).await.unwrap();
+                    assert_eq!(converted.video().unwrap().pix_fmt, "yuv420p");
+                    if hdr {
+                        assert!(!converted.hdr());
+                        assert_eq!(converted.video().unwrap().color_transfer, "bt709");
+                    }
+                    for (at, visible) in &samples {
+                        let args = [
+                            "-v",
+                            "error",
+                            "-i",
+                            output.to_str().unwrap(),
+                            "-ss",
+                            &at.to_string(),
+                            "-frames:v",
+                            "1",
+                            "-pix_fmt",
+                            "gray",
+                            "-f",
+                            "rawvideo",
+                            "pipe:1",
+                        ]
+                        .into_iter()
+                        .map(str::to_owned)
+                        .collect();
+                        let pixels = media::process(
+                            &app,
+                            "ffmpeg",
+                            args,
+                            None,
+                            Duration::from_secs(15),
+                            1 << 20,
+                            app.cancel.child_token(),
+                        )
+                        .await
+                        .unwrap();
+                        assert_eq!(pixels.len(), width * height);
+                        for (index, (x, y)) in [(240, 580), (840, 120)].into_iter().enumerate() {
+                            let x = x * width / 1280;
+                            let y = y * height / 720;
+                            let value = pixels[y * width + x];
+                            let translucent = pixels[y * width + x + 80 * width / 1280];
+                            let present = *visible && index == subtitle;
+                            assert!(
+                                if present {
+                                    (90..=160).contains(&translucent)
+                                } else {
+                                    translucent < 20
+                                },
+                                "HDR {hdr}, track {subtitle}, start {start}, sample {at}, alpha pixel {translucent}"
+                            );
+                            let white = *visible && index == subtitle;
+                            assert!(
+                                if white { value > 220 } else { value < 20 },
+                                "track {subtitle}, start {start}, t {at}, variant {variant}, region {index}, pixel {value}"
+                            );
+                        }
+                    }
+                    let args = [
+                        "-v",
+                        "error",
+                        "-i",
+                        output.to_str().unwrap(),
+                        "-map",
+                        "0:a:0",
+                        "-t",
+                        "0.25",
+                        "-ac",
+                        "1",
+                        "-ar",
+                        "48000",
+                        "-f",
+                        "f32le",
+                        "pipe:1",
+                    ]
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect();
+                    let audio = media::process(
+                        &app,
+                        "ffmpeg",
+                        args,
+                        None,
+                        Duration::from_secs(15),
+                        1 << 20,
+                        app.cancel.child_token(),
+                    )
+                    .await
+                    .unwrap();
+                    let samples = audio
+                        .as_chunks::<4>()
+                        .0
+                        .iter()
+                        .map(|b| f32::from_le_bytes(*b))
+                        .collect::<Vec<_>>();
+                    assert!(samples.len() > 8000);
+                    let power = samples.iter().map(|s| f64::from(*s).powi(2)).sum::<f64>()
+                        / samples.len() as f64;
+                    assert!(power > 0.001 && power < 0.1, "audio power {power}");
+                }
+                assert_eq!(
+                    request(
+                        &router,
+                        "DELETE",
+                        &format!("/api/v1/playback/{id}"),
+                        Some(&token),
+                        None
+                    )
+                    .await
+                    .0,
+                    200
+                );
+                assert!(!stream.dir.exists());
+            }
+        }
+        app.shutdown().await;
+    }
+}
