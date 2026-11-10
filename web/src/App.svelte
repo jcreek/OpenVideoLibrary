@@ -6,6 +6,9 @@ let ready=false,setup=false,logged=false,admin=false,name='',password='',error='
 let items:Item[]=[],libraries:Library[]=[],shows:Series[]=[],users:Account[]=[],selected:Item|null=null,info:MediaInfo|null=null;
 let video:HTMLVideoElement,hls:HlsType|undefined,session='',mode='auto',actualMode='',startOffset=0,audio=0,subtitle='off',adaptive=false,busy=false,transition=false,captionURL='',duration=0,seekTo=0;
 let libraryName='',path='',kind='movie',newName='',newPassword='',grants:number[]=[],editUser:Account|null=null,resetPassword='';
+let playerGeneration=0;
+let playerCleanup:Promise<void>=Promise.resolve();
+let pendingPlayback:Promise<void>=Promise.resolve();
 let frameRequestedAt=0,waitingAt=0,seekRequestedAt=0;
 let savedLists:MediaListSummary[]=[],activeList:MediaList|null=null,playingQueue:MediaList|null=null,newListName='',newListKind:'collection'|'playlist'|'queue'='playlist',targetListID='',playbackReason='';
 let editTitle='',editOverview='',tmdbID='',tmdbKind='movie',scanning=false;
@@ -15,12 +18,67 @@ async function load(){items=await api('items?'+new URLSearchParams({q:query,libr
 async function refresh(){const me=await api('me');admin=me.Admin;logged=true;libraries=await api('libraries');shows=await api('series');savedLists=await api('lists');if(admin){users=await api('users');scanning=(await api('scan')).running;}await load();}
 onMount(()=>{guard(async()=>{setup=(await api('status')).setup;if(!setup){try{await refresh()}catch{logged=false;error='';}}ready=true;});const interval=setInterval(()=>{if(selected&&!transition)guard(save);if(admin&&scanning)guard(async()=>{scanning=(await api('scan')).running;if(!scanning){notice='Scan finished.';await refresh();}});},15000);return()=>{clearInterval(interval);hls?.destroy();if(captionURL)URL.revokeObjectURL(captionURL);};});
 async function login(){await guard(async()=>{if(setup)await api('setup','POST',{Name:name,Password:password});await api('login','POST',{Name:name,Password:password});password='';setup=false;await refresh();});}
-async function save(){if(selected&&video&&!transition&&video.readyState>0){const position=video.currentTime+startOffset;await api('items/'+selected.id+'/progress','PUT',{Position:position,Watched:video.ended||selected.watched});selected.position=position;selected.watched=video.ended;}}
-async function stopPlayer(){transition=true;hls?.destroy();hls=undefined;if(video){video.pause();video.removeAttribute('src');video.load();}if(session){const old=session;session='';await api('playback/'+old,'DELETE').catch(()=>{});}if(captionURL){URL.revokeObjectURL(captionURL);captionURL='';}}
-async function close(){await save();await stopPlayer();selected=null;info=null;transition=false;await load();}
-async function open(item:Item,fromQueue=false){if(!fromQueue)playingQueue=null;await guard(async()=>{if(selected)await close();selected={...item};audio=0;subtitle='off';editTitle=item.title;editOverview=item.overview;tmdbID='';info=await api('items/'+item.id+'/probe');duration=Number(info?.format.duration)||0;await start(item.watched?0:item.position);});}
-async function start(position:number){if(!selected||busy)return;if(duration>0&&position>=duration-.25)position=0;busy=true;frameRequestedAt=performance.now();waitingAt=0;try{await stopPlayer();await tick();const probe=document.createElement('video');const request={Capabilities:clientCapabilities(),Mode:subtitle.startsWith('burn:')?'transcode':mode,Start:position,Audio:audio,Adaptive:adaptive,CanPlayMP4:!!probe.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"'),...(subtitle.startsWith('burn:')?{Subtitle:Number(subtitle.slice(5))}:{})};const p=await api('items/'+selected.id+'/playback','POST',request);session=p.id||'';actualMode=p.mode;playbackReason=p.reason||'';startOffset=p.mode==='direct'?0:position;seekTo=position;await tick();if(p.mode!=='direct'){const {default:Hls}=await import('hls.js');if(Hls.isSupported()){hls=new Hls({startPosition:0});hls.on(Hls.Events.ERROR,(_event,data)=>{if(data.fatal){error='Playback failed: '+data.details;}});hls.loadSource(p.url);hls.attachMedia(video);}else video.src=p.url;}else video.src=p.url;transition=false;if(subtitle.startsWith('text:')||subtitle==='external')await captions();}finally{busy=false;transition=false;}}
-async function captions(){if(!selected)return;const r=await fetch('/api/v1/items/'+selected.id+'/subtitles',{method:'POST',headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:JSON.stringify({Index:subtitle==='external'?0:Number(subtitle.slice(5)),External:subtitle==='external'})});if(!r.ok)throw Error((await r.json()).error);let vtt=await r.text();if(startOffset){vtt=vtt.replace(/(\d{2,}):(\d{2}):(\d{2})\.(\d{3})/g,(_all,h,m,s,ms)=>{const t=Math.max(0,(Number(h)*3600+Number(m)*60+Number(s))*1000+Number(ms)-startOffset*1000);return String(Math.floor(t/3600000)).padStart(2,'0')+':'+String(Math.floor(t/60000)%60).padStart(2,'0')+':'+String(Math.floor(t/1000)%60).padStart(2,'0')+'.'+String(Math.floor(t)%1000).padStart(3,'0');});}captionURL=URL.createObjectURL(new Blob([vtt],{type:'text/vtt'}));await tick();const track=video.querySelector('track');if(track){track.src=captionURL;track.track.mode='showing';}}
+async function save(){
+ const item=selected,element=video;
+ if(item&&element&&!transition&&element.readyState>0){
+  const position=element.currentTime+startOffset,watched=element.ended||item.watched;
+  await api('items/'+item.id+'/progress','PUT',{Position:position,Watched:watched});
+  item.position=position;item.watched=watched;
+ }
+}
+function stopPlayer(){
+ transition=true;hls?.destroy();hls=undefined;
+ if(video){video.pause();video.removeAttribute('src');video.load();}
+ const old=session;session='';
+ if(captionURL){URL.revokeObjectURL(captionURL);captionURL='';}
+ const cleanup=old?api('playback/'+old,'DELETE').catch(()=>{}):Promise.resolve();
+ playerCleanup=Promise.all([playerCleanup,cleanup]).then(()=>{});return playerCleanup;
+}
+async function close(){
+ const generation=++playerGeneration,saving=save();
+ const cleanup=stopPlayer();selected=null;info=null;busy=false;
+ await Promise.all([saving,cleanup]);
+ if(generation===playerGeneration){transition=false;await load();}
+}
+async function open(item:Item,fromQueue=false){
+ const generation=++playerGeneration;if(!fromQueue)playingQueue=null;
+ const saving=save(),cleanup=stopPlayer();
+ selected={...item};info=null;busy=true;audio=0;subtitle='off';editTitle=item.title;editOverview=item.overview;tmdbID='';
+ try{
+  await Promise.all([saving,cleanup]);if(generation!==playerGeneration)return;
+  const probed=await api('items/'+item.id+'/probe');if(generation!==playerGeneration)return;
+  info=probed;duration=Number(info?.format.duration)||0;
+  await start(item.watched?0:item.position,generation);
+ }catch(e){if(generation===playerGeneration)error=e instanceof Error?e.message:String(e);}
+ finally{if(generation===playerGeneration){busy=false;transition=false;}}
+}
+async function start(position:number,generation=++playerGeneration){
+ const item=selected;if(!item)return;
+ if(duration>0&&position>=duration-.25)position=0;
+ busy=true;frameRequestedAt=performance.now();waitingAt=0;
+ try{
+  await stopPlayer();await pendingPlayback;if(generation!==playerGeneration)return;
+  await tick();if(generation!==playerGeneration)return;
+  const probe=document.createElement('video');
+  const request={Capabilities:clientCapabilities(),Mode:subtitle.startsWith('burn:')?'transcode':mode,Start:position,Audio:audio,Adaptive:adaptive,CanPlayMP4:!!probe.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"'),...(subtitle.startsWith('burn:')?{Subtitle:Number(subtitle.slice(5))}:{})};
+  // Keep the response observable: a cancelled POST may still create a server session.
+  const creation=api('items/'+item.id+'/playback','POST',request);
+  pendingPlayback=creation.then(async p=>{if(generation!==playerGeneration&&p.id)await api('playback/'+p.id,'DELETE').catch(()=>{});},()=>{});
+  const p=await creation;await pendingPlayback;if(generation!==playerGeneration)return;
+  session=p.id||'';actualMode=p.mode;playbackReason=p.reason||'';startOffset=p.mode==='direct'?0:position;seekTo=position;
+  await tick();if(generation!==playerGeneration)return;
+  if(p.mode!=='direct'){
+   const {default:Hls}=await import('hls.js');if(generation!==playerGeneration)return;
+   if(Hls.isSupported()){
+    const instance=new Hls({startPosition:0});hls=instance;
+    instance.on(Hls.Events.ERROR,(_event,data)=>{if(hls===instance&&data.fatal)error='Playback failed: '+data.details;});
+    instance.loadSource(p.url);instance.attachMedia(video);
+   }else video.src=p.url;
+  }else video.src=p.url;
+  transition=false;if(subtitle.startsWith('text:')||subtitle==='external')await captions(generation);
+ }finally{if(generation===playerGeneration){busy=false;transition=false;}}
+}
+async function captions(generation=playerGeneration){if(!selected)return;const offset=startOffset;const r=await fetch('/api/v1/items/'+selected.id+'/subtitles',{method:'POST',headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:JSON.stringify({Index:subtitle==='external'?0:Number(subtitle.slice(5)),External:subtitle==='external'})});if(!r.ok)throw Error((await r.json()).error);let vtt=await r.text();if(generation!==playerGeneration)return;if(offset){vtt=vtt.replace(/(\d{2,}):(\d{2}):(\d{2})\.(\d{3})/g,(_all,h,m,s,ms)=>{const t=Math.max(0,(Number(h)*3600+Number(m)*60+Number(s))*1000+Number(ms)-offset*1000);return String(Math.floor(t/3600000)).padStart(2,'0')+':'+String(Math.floor(t/60000)%60).padStart(2,'0')+':'+String(Math.floor(t/1000)%60).padStart(2,'0')+'.'+String(Math.floor(t)%1000).padStart(3,'0');});}if(captionURL)URL.revokeObjectURL(captionURL);captionURL=URL.createObjectURL(new Blob([vtt],{type:'text/vtt'}));await tick();if(generation!==playerGeneration)return;const track=video.querySelector('track');if(track){track.src=captionURL;track.track.mode='showing';}}
 function reportPlayback(event:'first_frame'|'seek'|'stall',duration:number){if(selected)api('items/'+selected.id+'/telemetry','POST',{Event:event,DurationMs:duration,Mode:actualMode}).catch(()=>{});}
 function playing(){const now=performance.now();if(frameRequestedAt){reportPlayback('first_frame',now-frameRequestedAt);frameRequestedAt=0;}if(waitingAt){reportPlayback('stall',now-waitingAt);waitingAt=0;}if(seekRequestedAt){reportPlayback('seek',now-seekRequestedAt);seekRequestedAt=0;}}
 function clientCapabilities():ClientCapabilities {
@@ -49,8 +107,9 @@ async function moveCursor(list:MediaList,cursor:number){
  if(activeList?.id===list.id)activeList=updated;
  await loadLists();return updated;
 }
-async function playEntry(list:MediaList,entry:MediaListEntry){if(list.kind==='queue')playingQueue=await moveCursor(list,entry.position);else playingQueue=null;await open(entry.item,list.kind==='queue');}
-async function ended(){await save();if(!playingQueue)return;const queue:MediaList=await api('lists/'+playingQueue.id);if(queue.revision!==playingQueue.revision)throw Error('Queue changed in another client. Resume the queue to continue.');const next=queue.entries.find(e=>e.position>queue.cursor);playingQueue=await moveCursor(queue,next?.position??queue.cursor+1);if(next)await open(next.item,true);else notice='Queue finished.';}
+async function playEntry(list:MediaList,entry:MediaListEntry){const generation=++playerGeneration;const queue=list.kind==='queue'?await moveCursor(list,entry.position):null;if(generation!==playerGeneration)return;playingQueue=queue;await open(entry.item,list.kind==='queue');}
+async function applyPlayback(){const generation=playerGeneration;await save();if(generation===playerGeneration)await start(selected?.position||0);}
+async function ended(){if(transition)return;const generation=playerGeneration,playing=playingQueue;await save();if(generation!==playerGeneration||!playing||playingQueue!==playing)return;const queue:MediaList=await api('lists/'+playingQueue.id);if(generation!==playerGeneration||playingQueue!==playing)return;if(queue.revision!==playing.revision)throw Error('Queue changed in another client. Resume the queue to continue.');const next=queue.entries.find(e=>e.position>queue.cursor);const updated=await moveCursor(queue,next?.position??queue.cursor+1);if(generation!==playerGeneration||playingQueue!==playing)return;playingQueue=updated;if(next)await open(next.item,true);else notice='Queue finished.';}
 function textSubtitle(codec:string){return ['subrip','ass','ssa','webvtt','mov_text','text'].includes(codec);}
 async function browseShow(show:Series){section='library';seriesFilter=show.name;library=String(show.library_id);season='';offset=0;await load();}
 async function mark(item:Item){await api('items/'+item.id+'/progress','PUT',{Position:item.position,Watched:!item.watched});item.watched=!item.watched;await load();}
@@ -69,7 +128,7 @@ function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(M
 <form class="filters" onsubmit={(e)=>{e.preventDefault();offset=0;guard(load);}}><input aria-label="Search" placeholder="Search movies and episodes…" bind:value={query}/><select aria-label="Library" bind:value={library} onchange={()=>{offset=0;seriesFilter='';season='';guard(load);}}><option value="">All libraries</option>{#each libraries as l}<option value={l.id}>{l.name}{l.offline?' · offline':''}</option>{/each}</select><label class="inline"><input type="checkbox" bind:checked={continuing} onchange={()=>{offset=0;guard(load);}}/>Continue watching</label><button>Search</button></form>
 {#if seriesFilter}<div class="toolbar"><button onclick={()=>guard(async()=>{seriesFilter='';season='';offset=0;await load();})}>All titles</button><label>Season<input type="number" min="0" bind:value={season} onchange={()=>{offset=0;guard(load);}} placeholder="All"/></label></div>{/if}
 {#if selected}<section class="player"><div class="heading"><h2>{selected.title}</h2><button onclick={()=>guard(close)}>Close player</button></div><video bind:this={video} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onseeked={()=>{if(seekRequestedAt&&actualMode==='direct'){reportPlayback('seek',performance.now()-seekRequestedAt);seekRequestedAt=0;}}} onloadedmetadata={()=>{if(selected&&actualMode==='direct')video.currentTime=seekTo;}} onpause={()=>{if(!transition)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This media could not be played. Try transcoding.';}}><track kind="subtitles" label="Selected subtitles" srclang="en"/></video>
-<div class="toolbar"><label>Playback<select aria-label="Playback" bind:value={mode}><option value="auto">Automatic</option><option value="direct">Direct play</option><option value="remux">Remux</option><option value="transcode">Transcode to SDR</option></select></label><label>Audio<select aria-label="Audio" bind:value={audio}>{#each info?.streams.filter(t=>t.codec_type==='audio')||[] as t,i}<option value={i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name}</option>{/each}</select></label><label>Subtitles<select aria-label="Subtitles" bind:value={subtitle}><option value="off">Off</option><option value="external">External sibling SRT</option>{#each info?.streams.filter(t=>t.codec_type==='subtitle')||[] as t,i}<option value={(textSubtitle(t.codec_name)?'text:':'burn:')+i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name}{textSubtitle(t.codec_name)?'':' (burn in)'}</option>{/each}</select></label><label class="inline"><input type="checkbox" bind:checked={adaptive}/>Adaptive renditions (transcoding)</label><button disabled={busy} onclick={()=>guard(async()=>{await save();await start(selected?.position||0);})}>{busy?'Preparing…':'Apply playback settings'}</button><button onclick={()=>guard(async()=>{if(selected)await mark(selected);})}>{selected.watched?'Mark unwatched':'Mark watched'}</button></div>
+<div class="toolbar"><label>Playback<select aria-label="Playback" bind:value={mode}><option value="auto">Automatic</option><option value="direct">Direct play</option><option value="remux">Remux</option><option value="transcode">Transcode to SDR</option></select></label><label>Audio<select aria-label="Audio" bind:value={audio}>{#each info?.streams.filter(t=>t.codec_type==='audio')||[] as t,i}<option value={i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name}</option>{/each}</select></label><label>Subtitles<select aria-label="Subtitles" bind:value={subtitle}><option value="off">Off</option><option value="external">External sibling SRT</option>{#each info?.streams.filter(t=>t.codec_type==='subtitle')||[] as t,i}<option value={(textSubtitle(t.codec_name)?'text:':'burn:')+i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name}{textSubtitle(t.codec_name)?'':' (burn in)'}</option>{/each}</select></label><label class="inline"><input type="checkbox" bind:checked={adaptive}/>Adaptive renditions (transcoding)</label><button disabled={busy} onclick={()=>guard(applyPlayback)}>{busy?'Preparing…':'Apply playback settings'}</button><button onclick={()=>guard(async()=>{if(selected)await mark(selected);})}>{selected.watched?'Mark unwatched':'Mark watched'}</button></div>
 {#if duration>0}<label>Jump to {formatTime(Number(seekTo))} / {formatTime(duration)}<input type="range" min="0" max={duration} step="1" bind:value={seekTo} onchange={()=>guard(async()=>{seekRequestedAt=performance.now();if(actualMode==='direct')video.currentTime=Number(seekTo);else await start(Number(seekTo));})}/></label>{/if}<p>{selected.overview}</p><p role="status">{playbackReason}</p><div class="toolbar"><label>Add to list<select aria-label="Add to list" bind:value={targetListID}><option value="">Choose a collection, playlist or queue</option>{#each savedLists as l}<option value={l.id}>{l.name} · {l.kind}</option>{/each}</select></label><button disabled={!targetListID} onclick={()=>guard(addToList)}>Add title</button></div>
 {#if admin}<details><summary>Edit title and metadata</summary><form onsubmit={(e)=>{e.preventDefault();guard(async()=>{if(!selected)return;await api('items/'+selected.id,'PATCH',{Title:editTitle,Overview:editOverview});selected.title=editTitle;selected.overview=editOverview;await load();notice='Metadata saved.';});}}><label>Title<input bind:value={editTitle} required/></label><label>Overview<textarea bind:value={editOverview}></textarea></label><button>Save metadata</button></form><form onsubmit={(e)=>{e.preventDefault();guard(async()=>{if(!selected)return;const result=await api('items/'+selected.id+'/match','POST',{ID:Number(tmdbID),Kind:tmdbKind});selected.title=editTitle=result.title;selected.overview=editOverview=result.overview;await load();notice='TMDB metadata imported.';});}}><label>TMDB ID<input bind:value={tmdbID} type="number" min="1" required/></label><select bind:value={tmdbKind} aria-label="TMDB media type"><option value="movie">Movie</option><option value="tv">TV series</option></select><button>Match TMDB title</button></form></details>{/if}
 </section>{/if}

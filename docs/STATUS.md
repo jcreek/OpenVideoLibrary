@@ -97,3 +97,10 @@ These are warm loopback diagnostics, not complete production acceptance.
 Startup now rejects symlinked owned storage and overlapping media/data paths.
 Actual TCP cancellation is covered by stalled-upload and stalled-direct-reader
 SIGTERM tests, alongside the expanded software container/PQ/HLG corpus.
+
+Player lifecycle operations now reject stale asynchronous continuations and clean
+up obsolete HLS sessions. Twelve local Chrome/Firefox/WebKit scenarios cover
+delayed probe, progress, settings, queue cursor and playback creation. A fresh
+isolated SSH N100 run passes integration/software and separate physical VAAPI
+SDR/HDR checks; see `validation-n100-player.json`. Hosted Actions are disabled by
+user direction; `make verify-local` is the default verification entry point.

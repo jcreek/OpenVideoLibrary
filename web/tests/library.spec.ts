@@ -3,7 +3,8 @@ import {spawn,execFileSync,type ChildProcess} from 'node:child_process';
 import {mkdtempSync,mkdirSync,rmSync,writeFileSync,copyFileSync,renameSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
-let server:ChildProcess,root:string,media:string;
+let server:ChildProcess,root:string,media:string,serverLog='';
+test.afterEach(async({},testInfo)=>{if(testInfo.status!==testInfo.expectedStatus)await testInfo.attach('server-log',{body:serverLog,contentType:'text/plain'});});
 test.beforeEach(async({browser},testInfo)=>{testInfo.annotations.push({type:'browser-version',description:browser.version()});});
 const username='browser-admin',password='browser-test-password-123';
 test.beforeAll(async()=>{
@@ -12,6 +13,7 @@ test.beforeAll(async()=>{
  copyFileSync(join(media,'Example.S01E01.mp4'),join(media,'Example.S01E02.mp4'));
  writeFileSync(join(media,'Example.S01E01.srt'),'1\n00:00:00,000 --> 00:00:04,000\nA local subtitle\n');
  server=spawn(resolve('../bin/ovl'),[],{env:{...process.env,OVL_DATA:join(root,'data'),OVL_WEB:resolve('dist'),OVL_MIN_FREE_BYTES:'1048576',OVL_TRANSCODE_BYTES:'16777216',OVL_LISTEN:'127.0.0.1:18096',OVL_ACCELERATOR:'cpu',OVL_SECURE_COOKIES:'false'},stdio:'pipe'});
+ serverLog='';for(const stream of [server.stdout,server.stderr])stream?.on('data',chunk=>{serverLog=(serverLog+chunk.toString()).slice(-65536);});
  let ready=false;for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:18096/api/v1/status')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,50));}if(!ready)throw Error('test server did not start');
 });
 test.afterAll(async()=>{if(server){const exit=new Promise<void>(r=>server.once('exit',()=>r()));server.kill('SIGTERM');await exit;}rmSync(root,{recursive:true,force:true});});
@@ -78,4 +80,102 @@ test('queue preserves offline entries and saved positions',async({page})=>{
   await page.getByRole('button',{name:'Close player',exact:true}).click();
  }finally{renameSync(offline,original);}
  const recovered=await (await page.request.get('/api/v1/lists/'+id)).json();expect(recovered.entries).toHaveLength(2);expect(recovered.cursor).toBe(1);
+});
+
+test('player lifecycle ignores delayed opening and closing',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length){
+  expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Lifecycle TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+  await page.request.post('/api/v1/scan',{headers});
+  await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ }
+ const items=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).slice(0,2);
+ await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+ const first=page.locator('.card').filter({has:page.getByRole('heading',{name:items[0].title,exact:true})}),second=page.locator('.card').filter({has:page.getByRole('heading',{name:items[1].title,exact:true})});
+ let releaseProbe!:()=>void,probeStarted!:()=>void;
+ const probeGate=new Promise<void>(r=>releaseProbe=r),probeWaiting=new Promise<void>(r=>probeStarted=r);
+ await page.route('**/api/v1/items/'+items[0].id+'/probe',async route=>{probeStarted();await probeGate;await route.continue();});
+ try {
+  await first.click();await probeWaiting;
+  await page.getByRole('button',{name:'Close player',exact:true}).click();
+  await expect(page.locator('.player')).toHaveCount(0);
+  await second.click();await expect(page.locator('.player h2')).toHaveText(items[1].title);
+ } finally {releaseProbe();}
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ await page.unrouteAll({behavior:'wait'});
+ await expect(page.locator('.player h2')).toHaveText(items[1].title);
+ await first.click();
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ let releaseSave!:()=>void,saveStarted!:()=>void;
+ const saveGate=new Promise<void>(r=>releaseSave=r),saveWaiting=new Promise<void>(r=>saveStarted=r);
+ await page.route('**/api/v1/items/'+items[0].id+'/progress',async route=>{if(route.request().method()==='PUT'){saveStarted();await saveGate;}await route.continue();});
+ try {
+  await page.getByRole('button',{name:'Close player',exact:true}).click();await saveWaiting;
+  await expect(page.locator('.player')).toHaveCount(0);
+  await second.click();await expect(page.locator('.player h2')).toHaveText(items[1].title);
+ } finally {releaseSave();}
+ await expect(page.locator('.player h2')).toHaveText(items[1].title);
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ await expect(page.getByRole('alert')).toHaveCount(0);
+ await page.unrouteAll({behavior:'wait'});
+ let firstCreations=0;page.on('request',request=>{if(request.method()==='POST'&&request.url().endsWith('/items/'+items[0].id+'/playback'))firstCreations++;});
+ // A delayed Apply save must not restart a newer title.
+ let releaseApply!:()=>void,applyStarted!:()=>void;
+ const applyGate=new Promise<void>(r=>releaseApply=r),applyWaiting=new Promise<void>(r=>applyStarted=r);
+ await page.route('**/api/v1/items/'+items[1].id+'/progress',async route=>{applyStarted();await applyGate;await route.continue();});
+ try{
+  await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();await applyWaiting;
+  await first.click();await expect(page.locator('.player h2')).toHaveText(items[0].title);
+ }finally{releaseApply();}
+ await page.unrouteAll({behavior:'wait'});
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ expect(firstCreations).toBe(1);
+ // A cursor update begun before Close must not reopen its queue afterwards.
+ const created=await page.request.post('/api/v1/lists',{headers,data:{Kind:'queue',Name:'Delayed lifecycle queue',ItemIDs:[items[1].id]}});
+ expect(created.status()).toBe(201);const queueID=(await created.json()).id;
+ await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();
+ await page.getByRole('button',{name:'Delayed lifecycle queue · queue',exact:true}).click();
+ let releaseCursor!:()=>void,cursorStarted!:()=>void;
+ const cursorGate=new Promise<void>(r=>releaseCursor=r),cursorWaiting=new Promise<void>(r=>cursorStarted=r);
+ await page.route('**/api/v1/lists/'+queueID+'/cursor',async route=>{cursorStarted();await cursorGate;await route.continue();});
+ try{
+  await page.getByRole('button',{name:'Resume queue',exact:true}).click();await cursorWaiting;
+  await page.getByRole('button',{name:'Close player',exact:true}).click();await expect(page.locator('.player')).toHaveCount(0);
+  const refreshed=page.waitForResponse(response=>response.url().endsWith('/api/v1/lists')&&response.request().method()==='GET');
+  const completed=page.waitForResponse(response=>response.url().endsWith('/lists/'+queueID+'/cursor')&&response.request().method()==='PUT');
+  releaseCursor();await completed;await refreshed;
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  await expect(page.locator('.player')).toHaveCount(0);
+ }finally{releaseCursor();}
+ await page.unrouteAll({behavior:'wait'});
+ await page.getByRole('button',{name:'Movies & episodes',exact:true}).click();await second.click();
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ let releasePlayback!:()=>void,playbackStarted!:()=>void,lateSession='';
+ const playbackGate=new Promise<void>(r=>releasePlayback=r),playbackWaiting=new Promise<void>(r=>playbackStarted=r);
+ await page.route('**/api/v1/items/'+items[0].id+'/playback',async route=>{
+  const response=await route.fetch();lateSession=(await response.json()).id;playbackStarted();
+  await playbackGate;await route.fulfill({response});
+ });
+ await page.getByRole('button',{name:'Close player',exact:true}).click();
+ await first.click();await page.getByLabel('Playback',{exact:true}).selectOption('transcode');
+ // The held initial request may be direct; release it, then hold an explicit HLS request.
+ releasePlayback();await playbackWaiting;
+ await page.unrouteAll({behavior:'wait'});
+ await expect(page.getByRole('button',{name:'Apply playback settings',exact:true})).toBeEnabled();
+ const held=new Promise<void>(r=>releasePlayback=r),waiting=new Promise<void>(r=>playbackStarted=r);
+ await page.route('**/api/v1/items/'+items[0].id+'/playback',async route=>{
+  const response=await route.fetch();lateSession=(await response.json()).id;playbackStarted();
+  await held;await route.fulfill({response});
+ });
+ try{
+  await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();await waiting;
+  expect(lateSession).toBeTruthy();
+  await page.getByRole('button',{name:'Close player',exact:true}).click();await second.click();
+ }finally{releasePlayback();}
+ await expect.poll(async()=>(await page.request.get('/api/v1/playback/'+lateSession+'/index.m3u8')).status()).toBe(404);
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+
+ await expect(page.locator('.player h2')).toHaveText(items[1].title);
 });

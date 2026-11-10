@@ -315,3 +315,53 @@ under local investigation. The earlier macOS browser pass does not override it.
 Local Docker storage and N100 container-runtime constraints still block fresh
 local multi-architecture image acceptance. No unrelated data was deleted and no
 hosted replacement run will be started without explicit authorization.
+
+## Playback lifecycle continuation — 2026-11-10
+
+Generation guards now prevent stale probe, progress, close, Apply and queue-cursor
+continuations from replacing newer player intent. Late playback POST responses
+remain observable and their obsolete server sessions are deleted before another
+creation proceeds. Completed cleanup chains discard historical result arrays.
+The browser harness drains stdout/stderr into a bounded 64 KiB tail and attaches
+it on failure.
+
+Local evidence: npm ci/check/build, Rust format, Clippy (including all features),
+24 API tests plus socket shutdown, three Python regressions, generated-contract
+consistency, benchmark crate check/format and four CPU media/fault tests passed.
+The final frontend was checked/built again after review fixes. All twelve browser
+scenarios passed across installed Chrome, Firefox and Playwright WebKit, including
+delayed probe, close-save, Apply-save, queue cursor and late HLS-session cleanup.
+Earlier attempts exposed a WATCHED-badge selector defect and unsafe in-flight
+route teardown in the new test; both were corrected before this passing run.
+The original Linux Chromium failure remains historical evidence, not a claimed
+Linux rerun. Hosted Actions remain disabled.
+
+`validation-n100-player.json` records all eight checks passing over SSH in an
+isolated workspace: environment, driver identity, format, Clippy, integration,
+software media, physical SDR and physical HDR. Physical checks use the existing
+process-local full Intel driver; they are distinct from CPU media tests and do
+not establish production stream capacity. `validation-nginx-player.json` records
+a passing cached ARM64 Nginx TLS/range/CSRF/backup/restore/shutdown drill against
+the local macOS Rust binary. It is not Linux production deployment acceptance.
+
+Independent read-only adversarial review found and verified fixes for delayed
+queue intent, delayed Apply saves and retained cleanup history; no scoped blocking
+finding remains. Fresh local images remain blocked by Docker storage. No
+unrelated data was deleted; no hosted run was dispatched. Broader platform,
+real-device, LAN/cold/mixed-load, pinned-Jellyfin and parity requirements remain
+open as documented in STATUS/PARITY.
+
+The optional macOS bundled Chromium headless-shell attempt failed all four cases
+because its cached bundle cannot find `icudtl.dat` and its GPU process aborts.
+This is not a passing browser result; installed Chrome's four cases pass. The full
+bundled Chromium then passed all four scenarios (13.6 seconds); Linux Chromium
+remains unrun. The headless-shell failure is retained as a separate environment
+defect, not waived or relabelled.
+
+Final end-to-end confirmation: `make verify-local` exited zero using the installed
+full Chromium channel, Firefox, WebKit, FFmpeg/FFprobe and cached Nginx image
+`b972f831f200`. All twelve browser scenarios passed in 37.3 seconds. The explicit
+environment was `PLAYWRIGHT_CHROMIUM_CHANNEL=chromium`,
+`PLAYWRIGHT_BROWSERS_PATH=/Volumes/256 NVMe/Development/ovl-browser-cache`,
+`OVL_NGINX_IMAGE=b972f831f200`, with local FFmpeg/FFprobe tools on PATH.
+`validation-browser-player.json` preserves the terminal browser report.

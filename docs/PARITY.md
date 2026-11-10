@@ -27,7 +27,7 @@ A locally verified slice does not imply parity with every Jellyfin behavior.
 | Hardware SDR decode/scale/encode | Verified slice | N100 VAAPI H.264 synthetic graph: decoded SSIM and alternate audio tested; QSV/NVENC, HEVC, broader quality and sustained acceptance pending |
 | Hardware HDR tone mapping | Verified slice | Opt-in VAAPI limited-range HDR10; N100 calibrated multi-frame picture/seek/audio/API tests with isolated full driver; installed black-output driver rejected. HLG/Dolby Vision, broader visual corpus, devices and container GPU acceptance pending; see HDR.md |
 | Personal collections and ordered playlists | Verified slice | API ordering/ownership/conflicts plus browser persistence; shared/smart collections missing |
-| Persistent playback queues | Verified slice | Atomic cursor conflicts, offline/revoked-entry preservation and restart tested on N100; nine desktop browser cases passed; broader session coordination missing |
+| Persistent playback queues | Verified slice | Atomic cursor conflicts, offline/revoked-entry preservation and restart tested on N100; twelve local Chrome/Firefox/WebKit cases passed, plus four full Chromium cases; delayed lifecycle operations covered; broader session coordination missing |
 | Backup/restore and rollback | Verified slice | Live WAL snapshot preserves list expansion and revokes restored sessions; deployment drill pending |
 | Desktop web | Partial | Automated browser results recorded separately; accessibility and larger codec/device matrix pending |
 | Mobile web | Partial | Responsive UI exists; real iOS/Android acceptance pending |
@@ -72,3 +72,12 @@ required row has scenario evidence. Re-audit this matrix when the target Jellyfi
 version changes. See the [official docs](https://jellyfin.org/docs/),
 [live TV docs](https://jellyfin.org/docs/general/server/live-tv/) and
 [plugin catalog documentation](https://jellyfin.org/docs/general/server/plugins/).
+
+### Player lifecycle acceptance update (2026-11-10)
+
+Local browser coverage now includes stale probe/progress/Apply/cursor responses
+and deletion of obsolete HLS sessions after switching titles. Twelve scenarios
+pass across Chrome, Firefox and WebKit. This strengthens personal queue/player
+correctness; multi-client session coordination and real-device acceptance remain
+open. Physical N100 SDR/HDR evidence is separately recorded in
+`validation-n100-player.json`, without expanding the supported hardware scope.
