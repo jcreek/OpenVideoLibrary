@@ -350,8 +350,21 @@ pub fn encoding_args(
             if info.hdr() {
                 filters.push("zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p".into());
             }
-            if let Some(s) = b.subtitle {
+            if let Some(s) = b.subtitle.filter(|_| bitmap.is_none()) {
+                let origin = info
+                    .format
+                    .start_time
+                    .parse::<f64>()
+                    .ok()
+                    .filter(|t| t.is_finite())
+                    .unwrap_or(0.0);
+                let seek = format!("{:.3}", b.start).parse::<f64>().unwrap_or(b.start);
+                let subtitle_offset = origin + seek;
+                // Input seeking rebases video PTS, while libass reads original cue times.
+                // Restore that timeline only around subtitle rendering, then preserve AV sync.
+                filters.push(format!("setpts=PTS+({subtitle_offset:.6})/TB"));
                 filters.push(format!("subtitles=filename=source:si={s}"));
+                filters.push(format!("setpts=PTS-({subtitle_offset:.6})/TB"));
             }
             filters.push(format!("scale={}:{}", v.width, v.height));
             if bitmap.is_none() {

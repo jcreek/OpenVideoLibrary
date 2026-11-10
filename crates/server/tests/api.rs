@@ -2401,3 +2401,345 @@ async fn real_bitmap_subtitles_select_seek_clear_and_scale() {
         app.shutdown().await;
     }
 }
+
+#[tokio::test]
+#[ignore = "original embedded-font ASS corpus requires FFmpeg libass/libx264; software acceptance"]
+async fn real_styled_subtitles_preserve_embedded_font_and_seek_timing() {
+    for source_offset in [0, 5] {
+        let root = TempDir::new().unwrap();
+        let (app, router, token) = setup(&root).await;
+        let item = add_media(&app, root.path()).await;
+        let font = root.path().join("font.ttf");
+        std::fs::write(&font, include_bytes!("fixtures/OVLFixtureBars.ttf")).unwrap();
+        let mut inputs = vec![];
+        for (index, (x, y)) in [(80, 60), (400, 180)].into_iter().enumerate() {
+            let file = root.path().join(format!("track{index}.ass"));
+            let script = format!(
+                "[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,OVLFixtureBars,100,&H000000FF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,{{\\an7\\pos({x},{y})}}X\n"
+            );
+            std::fs::write(&file, script).unwrap();
+            inputs.push(file);
+        }
+        let path = root.path().join("media/styled.mkv");
+        let mut args: Vec<String> = [
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=black:size=640x360:rate=12",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=48000,volume='if(between(t,1,3),1,0)':eval=frame",
+            "-i",
+            inputs[0].to_str().unwrap(),
+            "-i",
+            inputs[1].to_str().unwrap(),
+            "-map",
+            "0:v",
+            "-map",
+            "1:a",
+            "-map",
+            "2:s",
+            "-map",
+            "3:s",
+            "-t",
+            "5",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-threads",
+            "2",
+            "-c:a",
+            "aac",
+            "-c:s",
+            "ass",
+            "-attach",
+            font.to_str().unwrap(),
+            "-metadata:s:t:0",
+            "mimetype=application/x-truetype-font",
+            "-metadata:s:t:0",
+            "filename=OVLFixtureBars.ttf",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        if source_offset != 0 {
+            args.extend(["-output_ts_offset".into(), source_offset.to_string()]);
+        }
+        args.push(path.to_string_lossy().into_owned());
+        media::process(
+            &app,
+            "ffmpeg",
+            args,
+            None,
+            Duration::from_secs(30),
+            1024,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        let saved = path.to_string_lossy().into_owned();
+        app.db
+            .call(move |c| {
+                c.execute(
+                    "UPDATE media_files SET path=? WHERE item_id=?",
+                    rusqlite::params![saved, item],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        // A fontless control must not accidentally satisfy the distinctive glyph geometry.
+        let fontless = root.path().join("fontless.mkv");
+        let args = [
+            "-nostdin",
+            "-v",
+            "error",
+            "-i",
+            path.to_str().unwrap(),
+            "-map",
+            "0:v",
+            "-map",
+            "0:a",
+            "-map",
+            "0:s",
+            "-c",
+            "copy",
+            fontless.to_str().unwrap(),
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        media::process(
+            &app,
+            "ffmpeg",
+            args,
+            None,
+            Duration::from_secs(15),
+            1024,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        let args = [
+            "-v",
+            "error",
+            "-i",
+            fontless.to_str().unwrap(),
+            "-vf",
+            "subtitles=filename=fontless.mkv:si=0",
+            "-ss",
+            "1.5",
+            "-frames:v",
+            "1",
+            "-pix_fmt",
+            "rgb24",
+            "-f",
+            "rawvideo",
+            "pipe:1",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        let control = media::process(
+            &app,
+            "ffmpeg",
+            args,
+            Some(root.path().to_path_buf()),
+            Duration::from_secs(15),
+            1 << 20,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(control.len(), 640 * 360 * 3);
+        let red = |x: usize| {
+            let p = (90 * 640 + x) * 3;
+            control[p] > 180 && control[p + 1] < 70 && control[p + 2] < 70
+        };
+        assert!(
+            !(red(90) && !red(130) && red(170)),
+            "fontless fallback unexpectedly matches original bars"
+        );
+        let info = media::inspect(&app, &path).await.unwrap();
+        let (status, probe) = request(
+            &router,
+            "GET",
+            &format!("/api/v1/items/{item}/probe"),
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, 200, "{probe}");
+        let origin = probe["format"]["start_time"]
+            .as_str()
+            .unwrap()
+            .parse::<f64>()
+            .unwrap();
+        assert!(
+            (origin - f64::from(source_offset)).abs() < 0.05,
+            "reported origin {origin}"
+        );
+        assert_eq!(info.tracks("subtitle").len(), 2);
+        assert_eq!(info.tracks("attachment").len(), 1);
+        assert!(
+            info.tracks("subtitle")
+                .iter()
+                .all(|t| t.codec_name == "ass")
+        );
+        for subtitle in [0, 1] {
+            for start in [0.0, 1.5, 3.5] {
+                let (status, session) = request(
+                    &router,
+                    "POST",
+                    &format!("/api/v1/items/{item}/playback"),
+                    Some(&token),
+                    Some(json!({"Mode":"auto","Subtitle":subtitle,"Start":start})),
+                )
+                .await;
+                assert_eq!(status, 201, "{session}");
+                let id = session["id"].as_str().unwrap();
+                let (status, master) = request(
+                    &router,
+                    "GET",
+                    session["url"].as_str().unwrap(),
+                    Some(&token),
+                    None,
+                )
+                .await;
+                assert_eq!(status, 200, "{master}");
+                let stream = app.streams.lock().await.get(id).unwrap().clone();
+                tokio::time::timeout(Duration::from_secs(30), async {
+                    while !stream.finished.load(std::sync::atomic::Ordering::Acquire) {
+                        tokio::time::sleep(Duration::from_millis(20)).await;
+                    }
+                })
+                .await
+                .unwrap();
+                let failure = stream.error.lock().await.clone();
+                assert!(failure.is_none(), "{failure:?}");
+                let samples = if start == 0.0 {
+                    vec![(0.25, false), (1.5, true), (3.5, false)]
+                } else if start == 1.5 {
+                    vec![(0.25, true), (1.75, false)]
+                } else {
+                    vec![(0.25, false)]
+                };
+                let output = stream.dir.join("v0.m3u8");
+                for (at, visible) in samples {
+                    let args = [
+                        "-v",
+                        "error",
+                        "-i",
+                        output.to_str().unwrap(),
+                        "-ss",
+                        &at.to_string(),
+                        "-frames:v",
+                        "1",
+                        "-pix_fmt",
+                        "rgb24",
+                        "-f",
+                        "rawvideo",
+                        "pipe:1",
+                    ]
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect();
+                    let rgb = media::process(
+                        &app,
+                        "ffmpeg",
+                        args,
+                        None,
+                        Duration::from_secs(15),
+                        1 << 20,
+                        app.cancel.child_token(),
+                    )
+                    .await
+                    .unwrap();
+                    assert_eq!(rgb.len(), 640 * 360 * 3);
+                    let args = [
+                        "-v",
+                        "error",
+                        "-i",
+                        output.to_str().unwrap(),
+                        "-ss",
+                        &at.to_string(),
+                        "-map",
+                        "0:a:0",
+                        "-t",
+                        "0.15",
+                        "-ac",
+                        "1",
+                        "-ar",
+                        "48000",
+                        "-f",
+                        "f32le",
+                        "pipe:1",
+                    ]
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect();
+                    let audio = media::process(
+                        &app,
+                        "ffmpeg",
+                        args,
+                        None,
+                        Duration::from_secs(15),
+                        1 << 20,
+                        app.cancel.child_token(),
+                    )
+                    .await
+                    .unwrap();
+                    let samples = audio.as_chunks::<4>().0;
+                    assert!(samples.len() > 6000);
+                    let power = samples
+                        .iter()
+                        .map(|b| f64::from(f32::from_le_bytes(*b)).powi(2))
+                        .sum::<f64>()
+                        / samples.len() as f64;
+                    assert!(
+                        if visible {
+                            power > 0.001 && power < 0.1
+                        } else {
+                            power < 0.00001
+                        },
+                        "audio timing at start {start}, sample {at}, power {power}"
+                    );
+                    for (index, (x, y)) in [(80, 60), (400, 180)].into_iter().enumerate() {
+                        for (dx, colored) in [(10, true), (50, false), (90, true)] {
+                            let p = ((y + 30) * 640 + x + dx) * 3;
+                            let pixel = &rgb[p..p + 3];
+                            let red = visible && index == subtitle && colored;
+                            assert!(
+                                if red {
+                                    pixel[0] > 180 && pixel[1] < 70 && pixel[2] < 70
+                                } else {
+                                    pixel.iter().all(|v| *v < 20)
+                                },
+                                "track {subtitle}, start {start}, sample {at}, region {index}, dx {dx}, RGB {pixel:?}"
+                            );
+                        }
+                    }
+                }
+                assert_eq!(
+                    request(
+                        &router,
+                        "DELETE",
+                        &format!("/api/v1/playback/{id}"),
+                        Some(&token),
+                        None
+                    )
+                    .await
+                    .0,
+                    200
+                );
+                assert!(!stream.dir.exists());
+            }
+        }
+        app.shutdown().await;
+    }
+}

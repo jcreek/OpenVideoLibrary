@@ -74,3 +74,29 @@ than downloaded. Their framing was checked against the
 [FFmpeg PGS decoder](https://github.com/FFmpeg/FFmpeg/blob/n7.1/libavcodec/pgssubdec.c).
 No film frames, subtitle artwork or external font files are included. These
 Unix preview tests remain distinct from physical GPU and real-device acceptance.
+
+## Styled text subtitles and source time
+
+Embedded text tracks offer both browser text and software burn-in choices. For
+ASS/SSA, burn-in is the choice intended to preserve source styling. Browser text
+conversion does not preserve embedded font geometry or every source effect.
+External sibling SRT remains browser text in this preview.
+
+Burn-in restores the source cue timeline around text rendering, accounting for
+both the requested seek and `MediaInfo.format.start_time`, then restores the
+playback timeline before encoding. The additive probe field is a raw source
+origin string, empty when unavailable. It is distinct from playback-relative
+`Start`; the existing raw duration field is unchanged.
+
+The generated ASS slice embeds an original 1,240-byte font with a deliberately
+unusual glyph, plus a fontless control that must fail to match it. Tests sample
+red glyph geometry and position, cue clearing and timed audio at starts before,
+during and after a cue, for zero- and five-second source origins. The generator
+is `scripts/generate-font-fixture.py`; fontTools is a regeneration-only tool and
+is not a server/test dependency. No system font is copied or installed.
+
+This slice does not certify SSA, every font/language, animated effects, karaoke,
+VFR, timestamp discontinuities, delayed tracks or external-subtitle burn-in.
+Source-duration interpretation across nonzero-origin containers also needs a
+broader corpus; this fix concerns cue alignment and does not redefine duration.
+Physical GPU subtitle rendering remains outside the software acceptance.

@@ -459,3 +459,53 @@ The physical tests revalidate the existing independent SDR/HDR pipeline.
 
 The separate current-source system-driver rejection also passed; see
 `validation-n100-bitmap-driver-rejection.json`. No driver was installed or changed.
+
+## Styled text subtitle continuation — 2026-11-10
+
+The new generated ASS regression reproduced missing cues when starting playback
+at 1.5 seconds. Restoring the requested seek around rendering fixed zero-based
+sources; an additional real Matroska fixture with a five-second timestamp origin
+then reproduced missing cues at playback start zero. The final fix restores both
+the source origin and rounded input seek only around text rendering, then removes
+that offset before encoding. The additive OpenAPI-owned probe field
+`format.start_time` preserves the raw origin; generated frontend types and actual
+probe endpoint assertions were updated. Raw duration semantics are unchanged.
+
+Twelve generated software sessions cover two source origins, two ASS tracks and
+starts before/during/after a 1–3 second cue. An original 1,240-byte font renders
+red bars with a deliberately empty center; a fontless control must not match.
+Decoded RGB verifies font geometry, styling, position, selection and cue clearing.
+A gated audio tone verifies the corresponding audible/silent intervals after
+seeking. The saved font regenerates byte-identically with fontTools 4.60.2; no
+system font is copied/installed and no generator dependency is needed by the
+server or test runner. This is one static ASS/font/style slice, not universal
+SSA/font/language/effect/VFR/delayed-track/discontinuous-timestamp acceptance.
+
+The Svelte client offers text tracks as browser text or burn-in, with an ASS/SSA
+styling-preservation label. The browser fixture includes a real embedded text
+track; its workflow selects manual direct mode, then burn-in, and verifies a
+transcode request with the selected subtitle plus decoded media readiness.
+This browser scenario is not claimed as a complete ASS visual device matrix.
+
+Final local `make verify-local` exited zero: npm ci/check/build; Rust format and
+Clippy including all features; 25 API tests plus socket shutdown; three Python
+regressions; generated-contract consistency; benchmark crate check/format; six
+explicit CPU media/fault tests; twelve full Chromium/Firefox/WebKit scenarios
+(38.8 seconds, no failures/skips/retries); cached ARM64 Nginx TLS/range/CSRF/backup/
+restore/shutdown drill against the local macOS binary. Reports are
+`validation-browser-styled.json` and `validation-nginx-styled.json`.
+
+Independent read-only review found no scoped blocking findings and highlighted
+nonzero origins and broader timestamp cases. The origin counterexample was
+implemented and fixed; the other limits remain explicit in `PLAYBACK.md`.
+Linux images/Linux Chromium, real devices, deployment, full performance and
+broader parity remain open. Hosted Actions remain disabled; no publication was
+retried while approval is pending.
+
+`validation-n100-styled.json` is terminal with all eight checks passing: environment/
+driver identity, format, Clippy, integration, software media and separate physical
+VAAPI SDR/HDR. Its source hash matches the checkout, including the saved font
+fixture. `validation-n100-styled-driver-rejection.json` separately records a
+passing system-driver rejection. The isolated full driver is used only for the
+positive physical tests; no system driver or service was changed. These GPU
+checks do not claim hardware subtitle rendering or production stream capacity.

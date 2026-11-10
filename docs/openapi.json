@@ -2251,6 +2251,10 @@
               },
               "duration": {
                 "type": "string"
+              },
+              "start_time": {
+                "type": "string",
+                "description": "Raw source timestamp origin in seconds from FFprobe, or empty if unavailable. Playback Start is relative to this origin."
               }
             },
             "required": [

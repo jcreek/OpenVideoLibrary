@@ -122,3 +122,11 @@ filter. The generated PGS regression covers two tracks, alpha/clear timing,
 seeking, single/adaptive output and an SDR/PQ-black-base slice. DVD/DVB/XSUB
 routing is implemented but lacks accepted fixtures; fonts/styles and broader
 HDR imagery remain incomplete. See `PLAYBACK.md`.
+
+Text tracks now offer software burn-in alongside browser text; ASS/SSA labels
+identify the styling-preserving choice. Text burn-in now restores both the
+requested seek and source timestamp origin around rendering. An original-font
+ASS regression covers font fallback discrimination, red glyph geometry, two
+tracks, cue clearing and timed audio at zero/five-second origins. Broader effects,
+languages, SSA, VFR/delayed tracks and duration interpretation remain open; see
+`PLAYBACK.md`.

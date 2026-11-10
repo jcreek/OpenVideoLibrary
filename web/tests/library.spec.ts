@@ -9,9 +9,10 @@ test.beforeEach(async({browser},testInfo)=>{testInfo.annotations.push({type:'bro
 const username='browser-admin',password='browser-test-password-123';
 test.beforeAll(async()=>{
  root=mkdtempSync(join(process.env.OVL_TEST_TMP||tmpdir(),'ovl-browser-'));media=join(root,'media');mkdirSync(media);
- execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440','-t','12','-c:v','libx264','-preset','ultrafast','-g','24','-c:a','aac',join(media,'Example.S01E01.mp4')]);
- copyFileSync(join(media,'Example.S01E01.mp4'),join(media,'Example.S01E02.mp4'));
  writeFileSync(join(media,'Example.S01E01.srt'),'1\n00:00:00,000 --> 00:00:04,000\nA local subtitle\n');
+ execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440','-i',join(media,'Example.S01E01.srt'),'-t','12','-c:v','libx264','-preset','ultrafast','-g','24','-c:a','aac','-c:s','mov_text',join(media,'Example.S01E01.mp4')]);
+ copyFileSync(join(media,'Example.S01E01.mp4'),join(media,'Example.S01E02.mp4'));
+
  server=spawn(resolve('../bin/ovl'),[],{env:{...process.env,OVL_DATA:join(root,'data'),OVL_WEB:resolve('dist'),OVL_MIN_FREE_BYTES:'1048576',OVL_TRANSCODE_BYTES:'16777216',OVL_LISTEN:'127.0.0.1:18096',OVL_ACCELERATOR:'cpu',OVL_SECURE_COOKIES:'false'},stdio:'pipe'});
  serverLog='';for(const stream of [server.stdout,server.stderr])stream?.on('data',chunk=>{serverLog=(serverLog+chunk.toString()).slice(-65536);});
  let ready=false;for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:18096/api/v1/status')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,50));}if(!ready)throw Error('test server did not start');
@@ -25,6 +26,13 @@ test('household workflow and viewer authorization',async({page,browserName})=>{
  await page.getByRole('button',{name:/TV ▶ Example S01E01/}).click();await expect(page.getByLabel('Audio',{exact:true}).locator('option')).toHaveCount(1);
  // Engine codec support differs; run transcoding and validate media readiness where H.264 is supported.
  await page.getByLabel('Playback',{exact:true}).selectOption('transcode');await page.getByRole('button',{name:'Apply playback settings'}).click();
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ await expect(page.getByLabel('Subtitles',{exact:true}).locator('option[value="burn:0"]')).toContainText('burn in');
+ await page.getByLabel('Playback',{exact:true}).selectOption('direct');
+ await page.getByLabel('Subtitles',{exact:true}).selectOption('burn:0');
+ const burned=page.waitForRequest(r=>r.url().endsWith('/playback')&&r.method()==='POST'&&r.postDataJSON().Subtitle===0);
+ await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();
+ expect((await burned).postDataJSON().Mode).toBe('transcode');
  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
  await page.getByText('Edit title and metadata',{exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('Edited episode');await page.getByLabel('Overview',{exact:true}).fill('Local metadata survives a refresh.');await page.getByRole('button',{name:'Save metadata',exact:true}).click();await expect(page.getByRole('heading',{name:'Edited episode',exact:true}).first()).toBeVisible();
  await page.getByRole('button',{name:'Close player',exact:true}).click();

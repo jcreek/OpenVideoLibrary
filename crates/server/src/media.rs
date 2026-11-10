@@ -95,6 +95,7 @@ pub struct SideData {
 #[serde(default)]
 pub struct Format {
     pub format_name: String,
+    pub start_time: String,
     pub duration: String,
 }
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
