@@ -7,6 +7,7 @@
 - Bound scans, subprocesses, provider calls and temporary storage. Cancellation must terminate and reap subprocesses; shutdown waits for tracked tasks.
 - docs/openapi.json owns public types. Run python3 scripts/generate-types.py after changes and update endpoint tests.
 - Keep existing SQLite v1/v2 data, bcrypt passwords, sessions, grants and backups compatible. Test on copied/disposable databases.
+- Run verification locally and over SSH on N100. Hosted GitHub Actions are disabled by user direction; do not re-enable or dispatch them without explicit approval to spend Actions minutes. Keep blocked platform checks explicit rather than substituting a hosted run.
 - Verify with npm run check --prefix web, npm run build --prefix web, cargo fmt --all -- --check, cargo clippy --locked --workspace --all-targets -- -D warnings and cargo test --locked --workspace.
 - Run generated-media tests explicitly with OVL_ACCELERATOR=cpu cargo test --locked --workspace -- --ignored. GPU and real-device tests are separate acceptance.
 - Never label unrun browser/GPU/platform benchmarks as passing. No fabricated speed or concurrency claims.

@@ -298,3 +298,20 @@ HLG hardware, Dolby Vision, other physical GPUs, real displays, sustained HDR
 performance or GPU-in-container deployment. Existing native Linux image and Linux
 Nginx artifacts still apply to their recorded earlier source; current-source CI
 has not yet run at this checkpoint. The full parity roadmap remains incomplete.
+
+## Local-only verification policy — 10 November 2026
+
+Hosted workflow 412257201 is disabled by user direction, and automatic push/PR
+triggers have been removed. No run was active when disabled. `make verify-local`
+preserves the verification inventory without hosted execution or image pulls;
+physical N100 and image checks remain separate. See `LOCAL-VERIFICATION.md`.
+The workflow syntax passes actionlint, the local script passes `bash -n`, and an
+independent read-only review found no issue in this configuration change.
+
+The last hosted run, 42657120330 at `9572feb`, passed native amd64/ARM64 image
+checks but failed the Chromium persistent-queue case; eight browser cases passed.
+The Linux Nginx step was therefore unrun. This failure is preserved and remains
+under local investigation. The earlier macOS browser pass does not override it.
+Local Docker storage and N100 container-runtime constraints still block fresh
+local multi-architecture image acceptance. No unrelated data was deleted and no
+hosted replacement run will be started without explicit authorization.

@@ -1,4 +1,4 @@
-.PHONY: build test web rust browser
+.PHONY: build test web rust browser verify-local
 web:
 	npm ci --prefix web
 	npm run check --prefix web
@@ -15,3 +15,8 @@ test: web rust
 	python3 -m unittest discover -s scripts -p 'test_*.py'
 browser: build
 	npm run test:e2e --prefix web
+
+# Full hosted verify-job equivalent on this machine. FFmpeg/FFprobe, browser
+# engines and an already-cached Nginx image are prerequisites; no image pull.
+verify-local:
+	bash scripts/verify-local.sh

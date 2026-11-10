@@ -1,8 +1,7 @@
 name: Verify Rust
+# Local/N100 verification is the default. Re-enable and dispatch only with
+# explicit approval to spend hosted Actions minutes.
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read

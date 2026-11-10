@@ -80,6 +80,9 @@ cd web && npx playwright install chromium firefox webkit && cd ..
 make browser
 ```
 
+Hosted GitHub Actions are disabled by user direction. Use `make verify-local`
+for the full local verification job; see [prerequisites and platform checks](docs/LOCAL-VERIFICATION.md).
+
 The repository has no Go source or Go build jobs. Historical benchmark reports
 retain their original candidate labels and are not Rust production validation.
 Browser engines do not certify every real mobile/TV device. Current evidence and
