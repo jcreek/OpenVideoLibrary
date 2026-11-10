@@ -55,12 +55,24 @@ composition rather than the text-subtitle filter. Hardware encoding remains
 excluded for selected subtitles in this preview. Media access and session checks
 use the existing current permissions and resolved source paths.
 
-The verified generated PGS slice includes two tracks, opaque and half-transparent
-white cues, explicit clear events, starts before/during/after a cue, single HLS
-and adaptive 720p/480p output, audio and deletion cleanup. A tagged PQ black-base
-fixture also checks that white cues retain their brightness after software SDR
-conversion and that output is BT.709 `yuv420p`. This is not broad HDR imagery or
-font/style acceptance. DVD, DVB and XSUB routing has no accepted real fixture yet.
+The generated native PGS, DVD, DVB and XSUB corpus checks 70 application
+sessions across two tracks, starts before/during/after cues, single HLS and
+adaptive 720p/480p output, decoded picture/audio, invalid selection and deletion
+cleanup. PGS/DVD/DVB cover SDR and tagged PQ black-base sources with BT.709
+`yuv420p` output; XSUB covers SDR only. Native controls establish cue visibility,
+clearing and alpha behavior before application playback. The XSUB DXSB-style
+fixture has opaque cues; extended alpha/DXSA remains unverified. This is generated
+media acceptance, not broad HDR imagery, language or real-device acceptance.
+
+Frequent keyframes exposed a lost-cue bug after input seeking. Indexed Matroska
+and AVI now use a second input from the same resolved source to preroll subtitle
+decoding, with subtitle timestamps shifted by the seek offset and composition
+before rendition scaling. Other second-input streams are unmapped beyond initial
+probing. MPEG-TS uses sequential decoding from the source origin and output-side
+trimming because independent input timestamp origins did not preserve timing.
+These approaches retain active cues and clear them correctly. Subtitle preroll
+still reads earlier container data; long-file/SMB seek I/O and latency are not
+accepted, especially for sequential MPEG-TS.
 
 Reproduce the software slice with:
 

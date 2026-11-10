@@ -509,3 +509,37 @@ fixture. `validation-n100-styled-driver-rejection.json` separately records a
 passing system-driver rejection. The isolated full driver is used only for the
 positive physical tests; no system driver or service was changed. These GPU
 checks do not claim hardware subtitle rendering or production stream capacity.
+
+## Expanded bitmap corpus and keyframe seek regression (2026-11-10)
+
+The current native generated PGS/DVD/DVB/XSUB test exercises 70 application
+playback sessions inside one ignored API test. Frequent source keyframes first
+reproduced a lost active cue after seeking; native controls also exposed XSUB
+stale-overlay behavior and divergent MPEG-TS input origins. Indexed Matroska/AVI
+now prerolls subtitles independently; MPEG-TS retains sequential decode-and-trim.
+Native alpha/timing controls, decoded output pixels/audio, cue clearing, two
+tracks, single/adaptive outputs and session cleanup pass. PQ black-base covers
+PGS/DVD/DVB; XSUB is SDR/opaque DXSB-style only. Extended alpha, real-language
+coverage and long-file/SMB seek I/O/latency remain unaccepted.
+
+`make verify-local` exited zero with npm ci/check/build, workspace fmt/Clippy/tests,
+all-features Clippy, generated-type consistency and benchmark-crate checks;
+25 ordinary API tests and the socket shutdown test; six explicitly ignored CPU
+media/failure tests; five Python regressions; 12 browser scenarios across
+Chromium/Firefox/WebKit (38.7 seconds); and cached real Nginx TLS/range/CSRF/queue/
+backup/restore/shutdown acceptance. Browser and Nginx results are retained in
+`validation-browser-bitmap-expanded.json` and
+`validation-nginx-bitmap-expanded.json`. Software is distinct from GPU acceptance.
+
+`validation-n100-bitmap-expanded.json` is terminal with eight successful SSH
+checks: environment, isolated driver override, formatting, Clippy, integration,
+software media, physical SDR and physical HDR. Its source hash matches the
+current crates snapshot. The separate installed-driver negative guard also
+passes in `validation-n100-bitmap-expanded-driver-rejection.json`; no system
+driver was changed. These results do not certify production concurrency, LAN
+first-frame latency, SMB seeking, native clients or full Jellyfin parity.
+
+The diagnostic subprocess runner additionally has timeout and output-limit
+regressions verifying killed children are reaped. See `BENCHMARKS.md` for the
+bounded synthetic seek profile and its limitations. Hosted Actions remain
+manual-only; these checks used local hardware and SSH, not Actions minutes.

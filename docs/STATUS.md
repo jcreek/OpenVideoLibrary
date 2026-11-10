@@ -118,10 +118,13 @@ cases across six containers, adding actual H.264 10-bit and 4:4:4 sources and
 checking converted format plus RGB/audio output.
 
 Bitmap subtitle burn-in now uses a bitmap composition graph rather than a text
-filter. The generated PGS regression covers two tracks, alpha/clear timing,
-seeking, single/adaptive output and an SDR/PQ-black-base slice. DVD/DVB/XSUB
-routing is implemented but lacks accepted fixtures; fonts/styles and broader
-HDR imagery remain incomplete. See `PLAYBACK.md`.
+filter. The generated PGS/DVD/DVB/XSUB regression covers 70 playback sessions with two
+tracks, cue timing, seeks across frequent keyframes and single/adaptive output.
+PGS/DVD/DVB include an SDR/PQ-black-base slice; XSUB covers SDR and opaque
+DXSB-style cues. Indexed Matroska/AVI uses subtitle-only preroll; MPEG-TS uses
+sequential decode-and-trim for correct timing. Long-file/SMB seek I/O and latency,
+extended XSUB alpha, broader fonts/styles and HDR imagery remain unaccepted.
+See `PLAYBACK.md`.
 
 Text tracks now offer software burn-in alongside browser text; ASS/SSA labels
 identify the styling-preserving choice. Text burn-in now restores both the

@@ -137,3 +137,29 @@ takes 21.55 ms, followed by six total query timings of 0.64–0.66 ms. Initial
 term classification costs 3.03 ms before that repeat. This seven-sample SQL
 profile has disposable in-memory data and does not include HTTP/auth/LAN latency;
 it complements rather than replaces the five-repeat application measurement.
+
+## Bitmap seek diagnostic (2026-11-10)
+
+Run `python3 scripts/profile_bitmap_seek.py --ffmpeg /path/to/ffmpeg --output /path/to/report.json`
+on the selected host. A generated 64-second black 1280x720/12fps H.264/AAC+PGS
+source with one-second keyframes is sought to 60 seconds, encoding two seconds
+at equivalent quality. Correct sequential video/subtitle preroll is compared
+with indexed video seeking plus subtitle-only preroll. Both check visible and
+cleared cues. Three randomized warm-file repetitions have zero errors.
+This FFmpeg-only diagnosis is not Rust/API, LAN, SMB, cold-cache, saturation,
+Jellyfin or production acceptance. MPEG-TS sequential fallback is not profiled.
+
+| Host / strategy | Wall median (min–max; sample σ), seconds | FFmpeg CPU median (min–max; sample σ), seconds |
+| --- | --- | --- |
+| Apple M4 / decode_video_preroll | 0.4473 (0.4446–0.4473; 0.0015) | 0.9675 (0.9637–0.9685; 0.0025) |
+| Apple M4 / subtitle_only_preroll | 0.0665 (0.0659–0.0670; 0.0005) | 0.1174 (0.1172–0.1182; 0.0005) |
+| N100 / decode_video_preroll | 1.2666 (1.2547–1.3307; 0.0409) | 2.6079 (2.6074–2.7088; 0.0584) |
+| N100 / subtitle_only_preroll | 0.2644 (0.2558–0.2860; 0.0155) | 0.4316 (0.4075–0.4463; 0.0196) |
+
+Reports `benchmarks/bitmap-seek-local.json` and `benchmarks/bitmap-seek-n100.json`
+retain hardware/RAM, FFmpeg version/binary identity, fixture/script hashes,
+quality controls and individual trials. Child peak RSS includes fixture
+generation and quality runs; it is not per-strategy RAM. Fixture storage is
+capped at 8 MiB; output and duration are bounded, with kill/reap on failure.
+This supports avoiding video preroll for the indexed synthetic PGS case.
+Long real-media/SMB seek latency and I/O remain unaccepted.

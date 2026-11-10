@@ -1,0 +1,10 @@
+{
+  "source_sha256": "02ce766abfcbb6c41dcd40e4f81906c4371ebce06d11848b8c5ed84a0b8b06d6",
+  "recorded_utc": "2026-11-10T20:56:40.159854+00:00",
+  "command": "cd /home/ovlbench/ovl-rust-bitmap-expanded-acceptance/source && export PATH=\"$HOME/.cargo/bin:$PATH\" && env -u LIBVA_DRIVER_NAME -u LIBVA_DRIVERS_PATH OVL_EXPECT_HDR_REJECTION=true cargo test --locked --features gpu-tests --test hdr_driver_rejection -- --ignored --nocapture",
+  "exit_code": 0,
+  "stdout": "\nrunning 1 test\ntest physical_rejects_black_hdr_driver ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s\n\n",
+  "stderr": "   Compiling ovl-server v0.1.0 (/home/ovlbench/ovl-rust-bitmap-expanded-acceptance/source/crates/server)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.18s\n     Running tests/hdr_driver_rejection.rs (target/debug/deps/hdr_driver_rejection-7b5763b0d2cc837b)\n",
+  "complete": true,
+  "scope": "Separate negative physical guard against installed driver; no system driver changes"
+}

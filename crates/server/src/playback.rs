@@ -289,17 +289,6 @@ pub fn encoding_args(
     info: &Info,
     variants: &[Rendition],
 ) -> Vec<String> {
-    let mut a = vec![
-        "-nostdin".into(),
-        "-hide_banner".into(),
-        "-loglevel".into(),
-        "error".into(),
-        "-y".into(),
-        "-ss".into(),
-        format!("{:.3}", b.start),
-        "-i".into(),
-        path.to_string_lossy().into_owned(),
-    ];
     let bitmap = b.subtitle.filter(|index| {
         info.tracks("subtitle").get(*index).is_some_and(|track| {
             matches!(
@@ -308,14 +297,37 @@ pub fn encoding_args(
             )
         })
     });
+    // MPEG-TS input seeks/probed origins can discard DVB state or yield no frames.
+    // Its correctness path composes sequentially and trims the complete output.
+    let sequential_bitmap =
+        bitmap.is_some() && info.format.format_name.split(',').any(|f| f == "mpegts");
+    let mut a = vec![
+        "-nostdin".into(),
+        "-hide_banner".into(),
+        "-loglevel".into(),
+        "error".into(),
+        "-y".into(),
+        "-ss".into(),
+        format!("{:.3}", if sequential_bitmap { 0.0 } else { b.start }),
+        "-i".into(),
+        path.to_string_lossy().into_owned(),
+    ];
     if let Some(subtitle) = bitmap {
+        if !sequential_bitmap {
+            // Only the second input's subtitle is mapped, leaving its other streams
+            // undecoded. Preserve full probing so both inputs retain the same origin.
+            // Both inputs use the same permission-checked canonical path.
+            a.extend(["-i".into(), path.to_string_lossy().into_owned()]);
+        }
         let base = if info.hdr() {
             "[0:v:0]zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p[base];"
         } else {
             "[0:v:0]null[base];"
         };
         let mut graph = format!(
-            "{base}[base][0:s:{subtitle}]overlay=eof_action=pass:repeatlast=0[burn];[burn]split={}",
+            "[{}:s:{subtitle}]setpts=PTS-{:.3}/TB[subs];{base}[base][subs]overlay=eof_action=pass:repeatlast=0[burn];[burn]split={}",
+            if sequential_bitmap { 0 } else { 1 },
+            if sequential_bitmap { 0.0 } else { b.start },
             variants.len()
         );
         for i in 0..variants.len() {
@@ -335,6 +347,9 @@ pub fn encoding_args(
         ]);
     }
     for (i, v) in variants.iter().enumerate() {
+        if sequential_bitmap {
+            a.extend(["-ss".into(), format!("{:.3}", b.start)]);
+        }
         a.extend([
             "-map".into(),
             if bitmap.is_some() {
