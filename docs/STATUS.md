@@ -104,3 +104,15 @@ delayed probe, progress, settings, queue cursor and playback creation. A fresh
 isolated SSH N100 run passes integration/software and separate physical VAAPI
 SDR/HDR checks; see `validation-n100-player.json`. Hosted Actions are disabled by
 user direction; `make verify-local` is the default verification entry point.
+
+Automatic playback now considers per-codec source pixel formats. Conservative
+clients transcode H.264 10-bit/4:4:4 instead of receiving an incompatible copied
+stream; explicit native-client reports can admit additional formats. Unknown
+source formats fall back to transcoding. See `PLAYBACK.md` for the contract and
+remaining profile/level/device limitations.
+
+The pixel-format increment passes the full local verification command and eight
+isolated N100 SSH checks, with software and physical GPU evidence recorded
+separately in `validation-n100-pixel-formats.json`. The generated corpus has eight
+cases across six containers, adding actual H.264 10-bit and 4:4:4 sources and
+checking converted format plus RGB/audio output.

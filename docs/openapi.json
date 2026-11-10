@@ -2318,6 +2318,16 @@
           },
           "hdr": {
             "type": "boolean"
+          },
+          "video_pixel_formats": {
+            "type": "object",
+            "description": "Optional per-codec FFprobe pixel format allowlists. An omitted codec uses the conservative 8-bit 4:2:0 baseline; an empty list rejects all source pixel formats for that codec. Unknown source pixel formats require transcoding. This does not establish profile/level, resolution, frame-rate or device acceptance.",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
         "required": [

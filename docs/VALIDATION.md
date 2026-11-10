@@ -365,3 +365,45 @@ environment was `PLAYWRIGHT_CHROMIUM_CHANNEL=chromium`,
 `PLAYWRIGHT_BROWSERS_PATH=/Volumes/256 NVMe/Development/ovl-browser-cache`,
 `OVL_NGINX_IMAGE=b972f831f200`, with local FFmpeg/FFprobe tools on PATH.
 `validation-browser-player.json` preserves the terminal browser report.
+
+## Pixel-format negotiation continuation — 2026-11-10
+
+Automatic playback now checks source pixel format as well as codec. The optional
+OpenAPI `Capabilities.video_pixel_formats` map permits explicit per-codec native
+client reports. Absent reports retain a conservative 8-bit 4:2:0 baseline; empty
+allowlists reject copying and unknown source pixel formats require conversion.
+Manual modes remain overrides. The generated frontend contract and Svelte
+capability reports were updated together; see `PLAYBACK.md`.
+
+The expanded generated software corpus has eight cases across six containers,
+including actual H.264 `yuv420p10le` and `yuv444p` sources. Conservative automatic
+requests convert these to H.264 `yuv420p`. Tests probe that output, compare decoded
+source/output RGB (mean absolute byte error <12), and retain decoded audio checks.
+Unit regressions cover old request payloads, legacy `CanPlayMP4`, unknown formats,
+empty per-codec lists and explicit native-client formats for direct/remux. This
+is a synthetic quality slice, not a full profile/level/real-device certification.
+
+The full local `make verify-local` command exited zero: npm ci/check/build; Rust
+format and Clippy including all features; 25 API tests and socket shutdown; three
+Python regressions; generated-type consistency; benchmark crate check/format;
+four explicitly run CPU media/fault tests; twelve full Chromium/Firefox/WebKit
+scenarios (37.4 seconds, no failures/skips/retries); cached ARM64 Nginx TLS/range/
+CSRF/backup/restore/shutdown acceptance against the local macOS binary. Browser
+and Nginx reports are `validation-browser-pixel-formats.json` and
+`validation-nginx-pixel-formats.json`. This does not rerun Linux images, Linux
+Chromium, real mobile devices, production deployment or performance acceptance.
+The cached headless-shell defect from the previous slice remains separate.
+
+Independent read-only review requested probing the converted output format; that
+regression was added and passed, with no remaining scoped blocking findings.
+Hosted Actions remain disabled. Publishing remains subject to the pending user
+approval; no remote push or PR edit was retried.
+
+`validation-n100-pixel-formats.json` is terminal with all eight SSH checks passing:
+environment/driver identity, format, Clippy, integration, software media, physical
+SDR and physical HDR. The current source hash is recorded in the artifact. The
+positive physical tests use the existing process-local full Intel driver and do
+not change the system driver or services. The separate negative system-driver
+check is recorded in `validation-n100-pixel-driver-rejection.json`; its result
+must be read independently from positive GPU acceptance. These checks do not
+certify sustained stream capacity, other GPUs, GPU containers or full HDR quality.

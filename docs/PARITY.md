@@ -19,7 +19,7 @@ A locally verified slice does not imply parity with every Jellyfin behavior.
 | Search and continue watching | Partial | FTS prefix search and per-user progress; richer discovery/filtering and full-scale acceptance pending |
 | Local metadata/artwork, manual edits | Partial | NFO and edits tested; artwork routes implemented; broader corpus pending |
 | Online metadata providers | Partial | Explicit TMDB match/cache implemented; provider integration and automated matching pending |
-| Direct play and HTTP ranges | Verified slice | Byte-range/permissions tests; browser codec corpus and LAN startup acceptance pending |
+| Direct play and HTTP ranges | Verified slice | Byte-range/permissions tests and pixel-format-aware automatic negotiation; generated H.264 10-bit/4:4:4 conversion slice; profile/level/device corpus and LAN startup acceptance pending |
 | Remux and audio track selection | Verified slice | Six-container/AAC/Opus/MP2/MP3/PCM generated software slice; passthrough/surround and full audio matrix missing |
 | Single/adaptive SDR HLS and seeking | Verified slice | Real-media master/variants and browser transcoding; long playback/stalls/seek matrix pending |
 | Text and burned-in subtitles | Verified slice | Embedded text, external SRT and burn-in tests; bitmap, styling/font and language corpus pending |

@@ -397,7 +397,7 @@ async fn symlink_escape_is_denied_on_all_media_paths() {
 }
 #[test]
 fn negotiation_handles_hdr_audio_container_and_subtitles() {
-    let mut info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"hevc","color_transfer":"smpte2084","width":3840,"height":2160},{"codec_type":"audio","codec_name":"truehd"}],"format":{"format_name":"matroska","duration":"60"}})).unwrap();
+    let mut info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"hevc","pix_fmt":"yuv420p10le","color_transfer":"smpte2084","width":3840,"height":2160},{"codec_type":"audio","codec_name":"truehd"}],"format":{"format_name":"matroska","duration":"60"}})).unwrap();
     let mut request = Playback {
         mode: "auto".into(),
         capabilities: Some(ClientCapabilities {
@@ -405,6 +405,7 @@ fn negotiation_handles_hdr_audio_container_and_subtitles() {
             video_codecs: vec!["hevc".into()],
             audio_codecs: vec!["truehd".into()],
             hdr: true,
+            video_pixel_formats: [("hevc".into(), vec!["yuv420p10le".into()])].into(),
         }),
         ..Default::default()
     };
@@ -424,6 +425,7 @@ fn negotiation_handles_hdr_audio_container_and_subtitles() {
     assert!(args.iter().any(|a| a.contains("tonemap=tonemap=hable")));
     assert_eq!(variants.len(), 3);
     info.streams[0].codec_name = "h264".into();
+    info.streams[0].pix_fmt = "yuv420p".into();
     info.streams[0].color_transfer.clear();
     request.capabilities = None;
     assert_eq!(playback::negotiate(&info, &request).0, "remux");
@@ -1185,13 +1187,14 @@ async fn database_shutdown_drains_admitted_work_and_rejects_clones() {
 
 #[test]
 fn demuxer_aliases_do_not_claim_webm_compatibility_for_matroska() {
-    let info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"vp9"},{"codec_type":"audio","codec_name":"opus"}],"format":{"format_name":"matroska,webm"}})).unwrap();
+    let info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"vp9","pix_fmt":"yuv420p"},{"codec_type":"audio","codec_name":"opus"}],"format":{"format_name":"matroska,webm"}})).unwrap();
     let request = Playback {
         capabilities: Some(ClientCapabilities {
             containers: vec!["webm".into()],
             video_codecs: vec!["vp9".into()],
             audio_codecs: vec!["opus".into()],
             hdr: false,
+            video_pixel_formats: Default::default(),
         }),
         ..Default::default()
     };
@@ -1273,13 +1276,59 @@ async fn browse_pagination_preserves_order_search_and_current_grants() {
 #[tokio::test]
 #[ignore = "generated software corpus requires FFmpeg with VP9, Opus, H.264, MPEG4 and MP2"]
 async fn real_media_container_audio_matrix_decodes_negotiated_output() {
-    for (extension, muxer, video, audio, expected_container, expected_mode) in [
-        ("mp4", "mp4", "libx264", "aac", "mp4", "direct"),
-        ("mkv", "matroska", "libx264", "aac", "matroska", "remux"),
-        ("webm", "webm", "libvpx-vp9", "libopus", "webm", "direct"),
-        ("ts", "mpegts", "libx264", "mp2", "mpegts", "remux"),
-        ("avi", "avi", "mpeg4", "libmp3lame", "avi", "transcode"),
-        ("mov", "mov", "libx264", "pcm_s16le", "mov", "remux"),
+    for (extension, muxer, video, pixel_format, audio, expected_container, expected_mode) in [
+        ("mp4", "mp4", "libx264", "yuv420p", "aac", "mp4", "direct"),
+        (
+            "mp4",
+            "mp4",
+            "libx264",
+            "yuv420p10le",
+            "aac",
+            "mp4",
+            "transcode",
+        ),
+        (
+            "mp4",
+            "mp4",
+            "libx264",
+            "yuv444p",
+            "aac",
+            "mp4",
+            "transcode",
+        ),
+        (
+            "mkv", "matroska", "libx264", "yuv420p", "aac", "matroska", "remux",
+        ),
+        (
+            "webm",
+            "webm",
+            "libvpx-vp9",
+            "yuv420p",
+            "libopus",
+            "webm",
+            "direct",
+        ),
+        (
+            "ts", "mpegts", "libx264", "yuv420p", "mp2", "mpegts", "remux",
+        ),
+        (
+            "avi",
+            "avi",
+            "mpeg4",
+            "yuv420p",
+            "libmp3lame",
+            "avi",
+            "transcode",
+        ),
+        (
+            "mov",
+            "mov",
+            "libx264",
+            "yuv420p",
+            "pcm_s16le",
+            "mov",
+            "remux",
+        ),
     ] {
         let root = TempDir::new().unwrap();
         let (app, router, token) = setup(&root).await;
@@ -1307,7 +1356,7 @@ async fn real_media_container_audio_matrix_decodes_negotiated_output() {
             "-threads",
             "2",
             "-pix_fmt",
-            "yuv420p",
+            pixel_format,
             "-c:a",
             audio,
             "-ac",
@@ -1343,7 +1392,8 @@ async fn real_media_container_audio_matrix_decodes_negotiated_output() {
             .unwrap();
         let info = media::inspect(&app, &path).await.unwrap();
         assert_eq!(info.format.format_name, expected_container, "{extension}");
-        let (status,session)=request(&router,"POST",&format!("/api/v1/items/{item}/playback"),Some(&token),Some(json!({"Mode":"auto","Capabilities":{"containers":["mp4","webm"],"video_codecs":["h264","vp9"],"audio_codecs":["aac","opus","mp3"],"hdr":false}}))).await;
+        assert_eq!(info.video().unwrap().pix_fmt, pixel_format, "{extension}");
+        let (status,session)=request(&router,"POST",&format!("/api/v1/items/{item}/playback"),Some(&token),Some(json!({"Mode":"auto","Capabilities":{"containers":["mp4","webm"],"video_codecs":["h264","vp9"],"video_pixel_formats":{"h264":["yuv420p","yuvj420p"],"vp9":["yuv420p"]},"audio_codecs":["aac","opus","mp3"],"hdr":false}}))).await;
         assert!(status == 200 || status == 201, "{extension}: {session}");
         assert_eq!(session["mode"], expected_mode, "{extension}");
         let output = if expected_mode == "direct" {
@@ -1364,6 +1414,59 @@ async fn real_media_container_audio_matrix_decodes_negotiated_output() {
                 .join(session["id"].as_str().unwrap())
                 .join("v0.m3u8")
         };
+        if expected_mode == "transcode" {
+            let converted = media::inspect(&app, &output).await.unwrap();
+            let track = converted.video().unwrap();
+            assert_eq!(track.codec_name, "h264", "{extension}/{pixel_format}");
+            assert_eq!(track.pix_fmt, "yuv420p", "{extension}/{pixel_format}");
+        }
+        // Compare decoded RGB, not merely encoder exit status or a nonblack frame.
+        let mut pictures = Vec::new();
+        for picture_path in [&path, &output] {
+            let args = [
+                "-v",
+                "error",
+                "-i",
+                picture_path.to_str().unwrap(),
+                "-map",
+                "0:v:0",
+                "-frames:v",
+                "1",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "pipe:1",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+            pictures.push(
+                media::process(
+                    &app,
+                    "ffmpeg",
+                    args,
+                    None,
+                    Duration::from_secs(15),
+                    1 << 20,
+                    app.cancel.child_token(),
+                )
+                .await
+                .unwrap(),
+            );
+        }
+        assert_eq!(pictures[0].len(), 320 * 180 * 3);
+        assert_eq!(pictures[1].len(), pictures[0].len());
+        let difference = pictures[0]
+            .iter()
+            .zip(&pictures[1])
+            .map(|(a, b)| f64::from(a.abs_diff(*b)))
+            .sum::<f64>()
+            / pictures[0].len() as f64;
+        assert!(
+            difference < 12.0,
+            "{extension}/{pixel_format}: RGB mean absolute error {difference}"
+        );
         let args: Vec<String> = vec![
             "-v",
             "error",
@@ -1900,4 +2003,57 @@ fn hdr_hardware_selection_requires_verified_color_metadata_and_opt_in() {
     for hdr in ["", "auto", "cpu", "qsv", "nvenc"] {
         assert!(!ovl_server::hardware::wants_vaapi_hdr("auto", hdr));
     }
+}
+
+#[test]
+fn negotiation_requires_source_pixel_format_support() {
+    let mut info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p"},{"codec_type":"audio","codec_name":"aac"}],"format":{"format_name":"mp4"}})).unwrap();
+    let mut request:Playback=serde_json::from_value(json!({"Mode":"auto","CanPlayMP4":true,"Capabilities":{"containers":["mp4"],"video_codecs":["h264"],"audio_codecs":["aac"],"hdr":false}})).unwrap();
+    assert_eq!(playback::negotiate(&info, &request).0, "direct");
+    for format in ["yuv420p10le", "yuv444p", "yuv444p10le", ""] {
+        info.streams[0].pix_fmt = format.into();
+        assert_eq!(
+            playback::negotiate(&info, &request).0,
+            "transcode",
+            "{format}"
+        );
+        let mut legacy = request.clone();
+        legacy.capabilities = None;
+        assert_eq!(
+            playback::negotiate(&info, &legacy).0,
+            "transcode",
+            "legacy {format}"
+        );
+        legacy.can_play_mp4 = false;
+        assert_eq!(
+            playback::negotiate(&info, &legacy).0,
+            "transcode",
+            "legacy remux {format}"
+        );
+    }
+    info.streams[0].pix_fmt = "yuv420p10le".into();
+    request
+        .capabilities
+        .as_mut()
+        .unwrap()
+        .video_pixel_formats
+        .insert("h264".into(), vec!["yuv420p10le".into()]);
+    assert_eq!(playback::negotiate(&info, &request).0, "direct");
+    info.format.format_name = "matroska".into();
+    assert_eq!(playback::negotiate(&info, &request).0, "remux");
+    request
+        .capabilities
+        .as_mut()
+        .unwrap()
+        .video_pixel_formats
+        .insert("h264".into(), vec![]);
+    assert_eq!(playback::negotiate(&info, &request).0, "transcode");
+    info.streams[0].pix_fmt.clear();
+    request
+        .capabilities
+        .as_mut()
+        .unwrap()
+        .video_pixel_formats
+        .insert("h264".into(), vec![String::new()]);
+    assert_eq!(playback::negotiate(&info, &request).0, "transcode");
 }

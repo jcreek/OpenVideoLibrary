@@ -14,6 +14,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
+    collections::HashMap,
     path::PathBuf,
     sync::{
         Arc,
@@ -29,6 +30,8 @@ pub struct ClientCapabilities {
     pub containers: Vec<String>,
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
+    #[serde(default)]
+    pub video_pixel_formats: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub hdr: bool,
 }
@@ -91,6 +94,18 @@ pub fn ladder(width: u32, height: u32, adaptive: bool) -> Vec<Rendition> {
     }
     out
 }
+// Codec-only reports describe the conservative 8-bit 4:2:0 browser baseline.
+// Native clients may explicitly report additional formats for each codec.
+fn pixel_format_supported(track: &media::Track, capabilities: Option<&ClientCapabilities>) -> bool {
+    if track.pix_fmt.is_empty() {
+        return false;
+    }
+    if let Some(formats) = capabilities.and_then(|c| c.video_pixel_formats.get(&track.codec_name)) {
+        return formats.contains(&track.pix_fmt);
+    }
+    matches!(track.codec_name.as_str(), "h264" | "hevc" | "vp9" | "av1")
+        && matches!(track.pix_fmt.as_str(), "yuv420p" | "yuvj420p")
+}
 pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
     if b.subtitle.is_some() {
         return (
@@ -103,7 +118,9 @@ pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
     };
     let audio = info.tracks("audio");
     if let Some(c) = &b.capabilities {
-        let video_ok = c.video_codecs.contains(&v.codec_name) && (!info.hdr() || c.hdr);
+        let video_ok = c.video_codecs.contains(&v.codec_name)
+            && pixel_format_supported(v, Some(c))
+            && (!info.hdr() || c.hdr);
         let audio_ok = audio
             .get(b.audio)
             .is_none_or(|a| c.audio_codecs.contains(&a.codec_name));
@@ -129,7 +146,7 @@ pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
             if info.hdr() && !c.hdr {
                 "Client requires HDR to SDR tone mapping"
             } else {
-                "Source video codec is unsupported by client"
+                "Source video codec or pixel format is unsupported by client"
             }
             .into(),
         );
@@ -140,6 +157,7 @@ pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
     if b.can_play_mp4
         && info.format.format_name.contains("mp4")
         && v.codec_name == "h264"
+        && pixel_format_supported(v, None)
         && !info.hdr()
         && audio_ok
         && b.audio == 0
@@ -149,7 +167,7 @@ pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
             "Client supports H.264 MP4 and source audio".into(),
         );
     }
-    if v.codec_name == "h264" && !info.hdr() {
+    if v.codec_name == "h264" && pixel_format_supported(v, None) && !info.hdr() {
         return (
             "remux".into(),
             "Video can be copied into HLS with compatible audio".into(),
