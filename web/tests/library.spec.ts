@@ -17,7 +17,7 @@ test.beforeAll(async()=>{
  execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','sine=frequency=440','-t','4',
   '-c:a','libmp3lame','-metadata','artist=Fixture Artist','-metadata','album=Fixture Album',join(music,'First track.mp3')]);
  copyFileSync(join(music,'First track.mp3'),join(music,'Second track.mp3'));
- writeFileSync(join(music,'First track.lrc'),'[00:00.10]Opening line\n[00:02.00]Jump here\n');
+ writeFileSync(join(music,'First track.lrc'),'[00:00.10]Opening line\n[00:01.50]Jump here\n[offset:+500]\n');
 
  server=spawn(resolve('../bin/ovl'),[],{env:{...process.env,OVL_DATA:join(root,'data'),OVL_WEB:resolve('dist'),OVL_MIN_FREE_BYTES:'1048576',OVL_TRANSCODE_BYTES:'16777216',OVL_LISTEN:'127.0.0.1:18096',OVL_ACCELERATOR:'cpu',OVL_SECURE_COOKIES:'false'},stdio:'pipe'});
  serverLog='';for(const stream of [server.stdout,server.stderr])stream?.on('data',chunk=>{serverLog=(serverLog+chunk.toString()).slice(-65536);});
@@ -223,9 +223,10 @@ test('music library tags and decoded audio queue playback',async({page})=>{
  await expect(page.getByText('Fixture Artist · Fixture Album',{exact:true})).toBeVisible();
  await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeGreaterThan(.25);
  await page.getByRole('button',{name:'Show lyrics',exact:true}).click();
+ await player.evaluate((a:HTMLAudioElement)=>a.pause());
  await page.getByRole('button',{name:'Jump here',exact:true}).click();
- await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeGreaterThanOrEqual(2);
- await player.evaluate((a:HTMLAudioElement)=>{a.currentTime=a.duration-.15;});
+ await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeCloseTo(2, 2);
+ await player.evaluate(async(a:HTMLAudioElement)=>{a.currentTime=a.duration-.15;await a.play();});
  await expect(page.locator('.player h2')).toHaveText('Second track');
  await expect(page.getByRole('list',{name:'Lyrics',exact:true})).toHaveCount(0);
  await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeGreaterThan(.25);

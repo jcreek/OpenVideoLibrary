@@ -850,3 +850,25 @@ frontend/Rust checks, type consistency, benchmark-crate checks, 15 browser
 scenarios and cached Nginx. The Rust source is unchanged from the eight-check
 N100 root validation. GPU and production deployment were not rerun, and no
 hosted Actions ran.
+
+## Global LRC timing offsets (2026-11-11)
+
+The parser applies the last valid global signed offset to each timed line.
+Positive values delay lines, following the convention used by
+[Rockbox](https://github.com/Rockbox/rockbox/blob/master/apps/plugins/lrcplayer.c).
+The unit regression covers a tag after cues, both signs, zero clamping,
+invalid offsets and unchanged plain text. Review identified a browser
+test that could pass through normal playback after an incorrect seek.
+The revised check pauses the player, selects an offset lyric and verifies
+the corrected time before resuming. All three browser engines passed it.
+
+Full local verification passed, including 15 browser scenarios, the
+parser unit test, 30 API tests plus socket shutdown, nine explicit CPU
+media/failure tests, ten Python tests, frontend/Rust checks, generated
+types, benchmark-crate checks and cached Nginx. See
+`validation-browser-lyrics-offset.json`. No GitHub Actions ran.
+
+All eight source-matched N100 checks passed over SSH, including the parser
+test, software media and separate physical VAAPI SDR/HDR. See
+`validation-n100-lyrics-offset.json`. Production benchmarks, current images,
+installed-driver rejection and real-device checks were not rerun.

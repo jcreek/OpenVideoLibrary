@@ -35,11 +35,23 @@ pub struct Lyrics {
 fn parse(input: &str, timed: bool) -> Result<Lyrics> {
     let mut lines = Vec::new();
     let mut expanded_bytes = 0;
+    let mut offset_ms = 0_i32;
     let input = input.trim_start_matches('\u{feff}');
     for line in input.lines().map(str::trim).filter(|l| !l.is_empty()) {
         let mut rest = line;
         let mut stamps = Vec::new();
         if timed {
+            if let Some(value) = line
+                .strip_prefix("[offset:")
+                .and_then(|s| s.strip_suffix(']'))
+            {
+                if let Ok(value) = value.trim().parse::<i32>()
+                    && value.unsigned_abs() <= 86_400_000
+                {
+                    offset_ms = value;
+                }
+                continue;
+            }
             while let Some(c) = STAMP.captures(rest) {
                 if stamps.len() + lines.len() >= MAX_LINES {
                     return Err(Error::new(422, "too many lyric lines"));
@@ -83,6 +95,12 @@ fn parse(input: &str, timed: bool) -> Result<Lyrics> {
                 time_ms: Some(time_ms),
                 text: text.clone(),
             }));
+        }
+    }
+    // Apply the last valid global offset even when it follows the cues.
+    for line in &mut lines {
+        if let Some(time) = &mut line.time_ms {
+            *time = time.saturating_add_signed(i64::from(offset_ms));
         }
     }
     lines.sort_by_key(|l| l.time_ms.unwrap_or(u64::MAX));
@@ -191,4 +209,32 @@ pub async fn get(
         .map_err(|_| Error::new(504, "lyrics read timed out"))?
         .map_err(|_| Error::new(500, "lyrics worker failed"))??;
     Ok(Json(lyrics))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lrc_offset_moves_all_cues_and_clamps_at_zero() {
+        for (tag, first, second) in [("+500", 600, 2500), ("-500", 0, 1500)] {
+            let input = format!(
+                "[00:02]Second\n[00:00.10]First\n[offset:{tag}]\n[offset:999999999999]\nPlain"
+            );
+            let lyrics = parse(&input, true).unwrap();
+            assert_eq!(
+                lyrics
+                    .lines
+                    .iter()
+                    .map(|line| line.time_ms)
+                    .collect::<Vec<_>>(),
+                vec![Some(first), Some(second), None]
+            );
+            assert_eq!(lyrics.lines[0].text, "First");
+            assert_eq!(lyrics.lines[2].text, "Plain");
+        }
+        let plain = parse("[offset:+500]", false).unwrap();
+        assert_eq!(plain.lines[0].time_ms, None);
+        assert_eq!(plain.lines[0].text, "[offset:+500]");
+    }
 }
