@@ -210,6 +210,15 @@ pub(crate) async fn probe_lyrics(
     file: std::fs::File,
     slot: tokio::sync::OwnedSemaphorePermit,
 ) -> Result<Vec<u8>> {
+    probe_music_tags(app, file, slot, "mp3,flac,ogg").await
+}
+
+pub(crate) async fn probe_music_tags(
+    app: &Arc<App>,
+    file: std::fs::File,
+    slot: tokio::sync::OwnedSemaphorePermit,
+    formats: &str,
+) -> Result<Vec<u8>> {
     run_process(
         app,
         "ffprobe",
@@ -219,9 +228,9 @@ pub(crate) async fn probe_lyrics(
             "-protocol_whitelist",
             "pipe",
             "-format_whitelist",
-            "mp3,flac,ogg",
+            formats,
             "-show_entries",
-            "format_tags:stream=codec_type:stream_tags",
+            "format_tags:stream=codec_type:stream_tags:stream_disposition=attached_pic,timed_thumbnails",
             "-of",
             "json",
             "pipe:0",

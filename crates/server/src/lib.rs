@@ -6,6 +6,7 @@ pub mod hardware;
 pub mod lists;
 mod lyrics;
 pub mod media;
+mod music;
 pub mod playback;
 pub mod scan;
 pub mod search;

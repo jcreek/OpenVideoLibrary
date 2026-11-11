@@ -939,3 +939,37 @@ All eight source-matched N100 checks passed over SSH, including the
 generated MP3/FLAC software cases and separate physical VAAPI SDR/HDR
 checks. See `validation-n100-embedded-cover.json`. Installed-driver rejection,
 production benchmarks, current images and real devices were not rerun.
+
+## Indexed music album browsing (2026-11-11)
+
+Generated music fixtures verify album-artist grouping, embedded display
+titles, numeric track ordering, query bounds and immediate grant revocation.
+A disguised playlist is admitted as a filename by the scanner but yields
+no indexed album. Independent review caught unrestricted automatic probing;
+the final scanner uses an anchored file, a pipe-only protocol, the expected
+demuxer and a held inspection permit. It bounds probe admission per scan and
+does not rewrite manual item metadata. Follow-up review found no blockers.
+
+Full local verification passed: parser unit test, 31 API tests plus socket
+shutdown, nine explicit CPU media/failure tests, ten Python tests,
+frontend/Rust checks, type consistency, benchmark-crate checks, 15 browser
+scenarios and cached Nginx. Chromium, Firefox and WebKit each opened a scanned
+album and showed its tracks. See `validation-browser-music-albums.json`.
+Large-library indexing cost, seek-dependent M4A layouts and standalone
+artist browsing remain open. No GitHub Actions ran.
+
+The initial N100 album snapshot passed the music case but failed the existing
+styled-subtitle media case with an intermittent 502. Its report is retained
+as `validation-n100-music-albums-initial.json`. A playlist could be published
+between the request's failed filesystem lookup and its observation of
+encoder completion. The handler now samples completion before checking
+the file, so publication during the lookup cannot produce that false
+missing-output result. Review confirmed the ordering fix; the original
+failure is consistent with this race, but its cause was not proven.
+
+Final full local verification and all eight source-matched N100 checks
+passed. The N100 software run includes both the music case and the
+styled-subtitle case that failed initially. Physical VAAPI SDR/HDR were
+verified separately. See `validation-n100-music-albums.json`.
+Installed-driver rejection, production benchmarks, current container
+images and real devices were not rerun.

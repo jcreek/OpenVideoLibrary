@@ -151,13 +151,29 @@ async fn library(app: &Arc<App>, id: i64, root: PathBuf, music: bool) -> Result<
     let producer =
         tokio::task::spawn_blocking(move || discover(&root, music, &producer_cancel, tx));
     let result:Result<()>=async{
+        let mut probes = 0;
+        let metadata_deadline = Instant::now() + Duration::from_secs(60);
         loop{let found=tokio::select!{_=cancel.cancelled()=>return Err(Error::new(499,"scan cancelled")),next=rx.recv()=>next};
             let Some(f)=found else{break;};
+            let tags = if music && probes < 256 && Instant::now() < metadata_deadline {
+                let (path, mtime, size) = (f.path.clone(), f.mtime, f.size);
+                let indexed = app.db.call(move |c| Ok(c.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM media_files f JOIN ovl_music_tags t ON t.file_id=f.id
+                      WHERE f.path=? AND t.mtime=? AND t.size=?)",
+                    rusqlite::params![path, mtime, size], |r| r.get::<_, bool>(0))?)).await?;
+                if indexed { None } else {
+                    probes += 1;
+                    crate::music::inspect(app, Path::new(&f.path)).await
+                }
+            } else { None };
             app.db.call(move|c|{
                 let tx=c.transaction()?;
                 let known=tx.query_row("SELECT item_id,mtime,size FROM media_files WHERE path=?",[&f.path],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,i64>(1)?,r.get::<_,i64>(2)?))).optional()?;
                 if let Some((_,mtime,size))=known{if mtime!=f.mtime||size!=f.size{tx.execute("UPDATE media_files SET mtime=?,size=? WHERE path=?",params![f.mtime,f.size,f.path])?;}}
                 else {tx.execute("INSERT INTO items(title,series,season,episode,overview) VALUES(?,?,?,?,?)",params![f.title,f.series,f.season,f.episode,f.overview])?;let item=tx.last_insert_rowid();tx.execute("INSERT INTO media_files(item_id,library_id,path,mtime,size) VALUES(?,?,?,?,?)",params![item,id,f.path,f.mtime,f.size])?;}
+                if let Some(tags) = tags {
+                    crate::music::save(&tx, &f.path, f.mtime, f.size, tags)?;
+                }
                 tx.commit()?;Ok(())
             }).await?;
         }Ok(())

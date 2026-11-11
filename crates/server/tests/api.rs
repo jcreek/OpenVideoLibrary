@@ -3411,6 +3411,18 @@ async fn real_music_library_tags_playback_and_current_grants() {
                 "attached_pic",
             ]);
         }
+        if matches!(extension, "mp3" | "flac") {
+            args.extend([
+                "-metadata",
+                "album_artist=Fixture band",
+                "-metadata",
+                if extension == "mp3" {
+                    "track=2/2"
+                } else {
+                    "track=1/2"
+                },
+            ]);
+        }
         args.extend([
             "-t",
             "1",
@@ -3442,6 +3454,7 @@ async fn real_music_library_tags_playback_and_current_grants() {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o444)).unwrap();
     }
+    std::fs::write(dir.join("Disguised.mp3"), b"#EXTM3U\n#EXT-X-VERSION:3\n").unwrap();
     std::fs::write(dir.join("ignore.mp4"), b"not in the music library").unwrap();
     let outside = root.path().join("outside.mp3");
     std::fs::write(&outside, b"outside media").unwrap();
@@ -3473,7 +3486,7 @@ async fn real_music_library_tags_playback_and_current_grants() {
     .await
     .unwrap();
     let (_, items) = request(&router, "GET", "/api/v1/items", Some(&token), None).await;
-    assert_eq!(items.as_array().unwrap().len(), cases.len());
+    assert_eq!(items.as_array().unwrap().len(), cases.len() + 1);
     let (_, series) = request(&router, "GET", "/api/v1/series", Some(&token), None).await;
     assert_eq!(
         series,
@@ -3484,6 +3497,50 @@ async fn real_music_library_tags_playback_and_current_grants() {
         Some(json!({"Name":"music-viewer","Password":"test-password-123","Libraries":[library["id"]]}))).await;
     assert_eq!(status, 201, "{viewer}");
     let listener = account(&router, "music-viewer").await;
+    assert_eq!(
+        request(
+            &router,
+            "GET",
+            "/api/v1/music/albums?offset=100001",
+            Some(&listener),
+            None
+        )
+        .await
+        .0,
+        400
+    );
+    let albums = request(
+        &router,
+        "GET",
+        "/api/v1/music/albums?q=Fixture%20band",
+        Some(&listener),
+        None,
+    )
+    .await
+    .1;
+    assert_eq!(
+        albums,
+        json!([{"library_id":library["id"],"artist":"Fixture band","album":"Fixture album","tracks":2}])
+    );
+    let group_url = format!(
+        "/api/v1/music/tracks?library={}&artist=Fixture%20band&album=Fixture%20album",
+        library["id"]
+    );
+    let tracks = request(&router, "GET", &group_url, Some(&listener), None)
+        .await
+        .1;
+    let file_id = |name: &str| {
+        items
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["title"] == name)
+            .unwrap()["id"]
+            .clone()
+    };
+    assert_eq!(tracks[0]["id"], file_id("S01E01 Music flac"));
+    assert_eq!(tracks[1]["id"], file_id("S01E01 Music mp3"));
+    assert_eq!(tracks[0]["title"], "Tagged track");
     for (extension, _, container, codec) in cases {
         let item = items
             .as_array()
@@ -3630,6 +3687,24 @@ async fn real_music_library_tags_playback_and_current_grants() {
         .await
         .0,
         200
+    );
+    assert_eq!(
+        request(&router, "GET", &group_url, Some(&listener), None)
+            .await
+            .1,
+        json!([])
+    );
+    assert_eq!(
+        request(
+            &router,
+            "GET",
+            "/api/v1/music/albums",
+            Some(&listener),
+            None
+        )
+        .await
+        .1,
+        json!([])
     );
     let id = items[0]["id"].as_i64().unwrap();
     for (method, suffix) in [

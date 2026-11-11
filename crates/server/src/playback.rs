@@ -785,10 +785,13 @@ pub async fn segment(
         }
         // An authorized request actively waiting for output is not idle.
         st.touched.store(auth::now(), Ordering::Relaxed);
+        // Observe completion before checking the path. The encoder can publish
+        // between a failed lookup and the completion load.
+        let finished = st.finished.load(Ordering::Acquire);
         if tokio::fs::metadata(&path).await.is_ok() {
             return media::serve(&app, path, req).await;
         }
-        if st.finished.load(Ordering::Acquire) {
+        if finished {
             return Err(Error::new(
                 502,
                 st.error

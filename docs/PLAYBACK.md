@@ -166,7 +166,7 @@ The scanner uses filenames and existing NFO import for browse titles; it
 does not interpret episode-like names as TV episodes. Opening a track reads
 a bounded subset of embedded tags (title, artist, album, album artist,
 track and disc), including stream-level audio tags when container tags
-are absent. It does not index those tags for album or artist browsing.
+are absent. A bounded scan also indexes tags for the Music albums view.
 
 The web player uses native audio controls and shares progress and queues
 with video. Automatic music playback checks the actual audio container,
@@ -176,11 +176,11 @@ allocate FFmpeg conversion sessions. Explicit direct mode checks that
 the input has audio and no playable video; embedded artwork is allowed.
 Current grants and resolved paths still gate probing and byte ranges.
 
-Music classification uses an additive table and preserves the v2 library
+Music classification and tag indexing use additive tables and preserve the v2 library
 rows, IDs and legacy kind constraint. Older binaries can preserve the
 database but see these libraries as movies and do not offer this music
-workflow. Audio conversion, tag indexing, album/artist grouping, artwork
-extraction and broader lyrics support remain open.
+workflow. Audio conversion, standalone artist browsing and broader artwork and lyrics
+support remain open.
 
 ### Local lyrics
 
@@ -231,3 +231,23 @@ and retains the inspection permit through process cleanup. The filesystem
 open has its own deadline and holds the permit until it returns. No image
 is written to the media or cache. Embedded artwork in other formats and
 artist-level images remain open.
+
+### Music albums
+
+The Music albums view groups indexed tracks by library, album artist
+(or track artist when absent) and album title. Select an album to see
+tracks sorted by numeric disc and track, then stored title and ID.
+The album track view prefers embedded title tags; ordinary library
+titles and manual metadata are not overwritten. Album search matches
+album or artist text. Groups and tracks are paged in sets of 100 and
+filtered by current grants.
+
+A music scan admits up to 256 tag attempts per library during its
+first 60 seconds. Each probe opens a regular file through no-follow
+directory handles and uses a pipe-only protocol and the expected
+demuxer. It holds the inspection permit through cleanup. The last
+admitted probe can finish after the admission window. Unchanged file
+fingerprints reuse tags; busy or timed-out probes can retry on a later
+scan. Rows with mismatched recorded fingerprints are hidden. Larger
+libraries may need repeated scans. Seek-dependent M4A metadata layouts,
+standalone artist browsing and large-library performance remain open.

@@ -217,6 +217,11 @@ test('music library tags and decoded audio queue playback',async({page})=>{
  const library=libraries.find((l:{name:string})=>l.name==='Music fixture');
  const tracks=await (await page.request.get('/api/v1/items?library='+library.id)).json();
  expect(tracks.map((t:{title:string})=>t.title)).toEqual(['First track','Second track']);
+ await page.getByRole('button',{name:'Music albums',exact:true}).click();
+ await page.getByRole('button',{name:/ALBUM Fixture Album Fixture Artist · 2 tracks/}).click();
+ await expect(page.locator('h1')).toHaveText('Fixture Album');
+ await expect(page.getByRole('button',{name:/MUSIC ▶ First track/})).toBeVisible();
+ await page.getByRole('button',{name:'Back to albums',exact:true}).click();
  const cover=await page.evaluate(async id=>{
   const image=new Image();image.src='/api/v1/items/'+id+'/artwork';await image.decode();
   return [image.naturalWidth,image.naturalHeight];

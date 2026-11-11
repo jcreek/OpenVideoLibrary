@@ -156,8 +156,7 @@ graceful shutdown. Current images and production cutover remain unaccepted.
 
 Music libraries now have a direct audio preview with bounded tag display,
 native web controls and shared progress/queues. Classification preserves
-the legacy SQLite schema version through an additive table. Album/artist
-grouping and audio conversion remain open. Local UTF-8 LRC/TXT lyrics
+the legacy SQLite schema version through an additive table. Standalone artist browsing and audio conversion remain open. Local UTF-8 LRC/TXT lyrics
 are supported with click-to-seek for timed lines.
 
 Media resolution and scanning now reject a library root whose resolved
@@ -168,3 +167,6 @@ recovery. This does not eliminate every concurrent pathname-open race.
 When a music track has no sidecar, embedded MP3, FLAC and Ogg lyrics can
 use the same bounded display and timing parser. Ordinary probe responses
 continue to omit lyric text.
+
+Music scans now build a bounded tag index for album browsing, with
+album artist grouping, disc/track ordering and current grant checks.

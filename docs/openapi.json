@@ -1906,6 +1906,127 @@
           }
         }
       }
+    },
+    "/api/v1/music/albums": {
+      "get": {
+        "operationId": "get__music_albums",
+        "summary": "Browse indexed music albums",
+        "parameters": [
+          {
+            "name": "library",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "At most 800 UTF-8 bytes."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "At most 100 current matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MusicAlbum"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "400": {
+            "description": "Invalid query"
+          }
+        }
+      }
+    },
+    "/api/v1/music/tracks": {
+      "get": {
+        "operationId": "get__music_tracks",
+        "summary": "Browse indexed music tracks",
+        "parameters": [
+          {
+            "name": "library",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "artist",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "At most 800 UTF-8 bytes."
+          },
+          {
+            "name": "album",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "At most 800 UTF-8 bytes."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "At most 100 current matches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Item"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "400": {
+            "description": "Invalid query"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2730,6 +2851,30 @@
         },
         "required": [
           "lines"
+        ],
+        "additionalProperties": false
+      },
+      "MusicAlbum": {
+        "type": "object",
+        "properties": {
+          "library_id": {
+            "type": "integer"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "album": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "library_id",
+          "artist",
+          "album",
+          "tracks"
         ],
         "additionalProperties": false
       }

@@ -1,7 +1,7 @@
 <script lang="ts">
 import {onMount,tick} from 'svelte';
 import type HlsType from 'hls.js';
-import type {Item,Library,Account,Series,MediaInfo,Lyrics,MediaList,MediaListSummary,MediaListEntry,ClientCapabilities} from './api.generated';
+import type {Item,Library,Account,Series,MediaInfo,Lyrics,MusicAlbum,MediaList,MediaListSummary,MediaListEntry,ClientCapabilities} from './api.generated';
 let ready=false,setup=false,logged=false,admin=false,name='',password='',error='',notice='',query='',library='',offset=0,continuing=false,section='library',seriesFilter='',season='';
 let items:Item[]=[],libraries:Library[]=[],shows:Series[]=[],users:Account[]=[],selected:Item|null=null,info:MediaInfo|null=null;
 let video:HTMLMediaElement,hls:HlsType|undefined,session='',mode='auto',actualMode='',startOffset=0,audio=0,subtitle='off',adaptive=false,busy=false,transition=false,captionURL='',duration=0,seekTo=0;
@@ -13,11 +13,27 @@ let frameRequestedAt=0,waitingAt=0,seekRequestedAt=0;
 let savedLists:MediaListSummary[]=[],activeList:MediaList|null=null,playingQueue:MediaList|null=null,newListName='',newListKind:'collection'|'playlist'|'queue'='playlist',targetListID='',playbackReason='';
 let editTitle='',editOverview='',tmdbID='',tmdbKind='movie',scanning=false;
 let musicSelected=false;
+let albums:MusicAlbum[]=[],activeAlbum:MusicAlbum|null=null;
 let lyrics:Lyrics|null=null,lyricPosition=0;
 $: musicSelected=!!selected&&libraries.some(l=>l.id===selected?.library_id&&l.kind==='music');
 async function api(url:string,method='GET',body?:unknown){const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok){if(r.status===401)logged=false;throw Error(data.error||'Request failed');}return data;}
 async function guard(fn:()=>Promise<void>){error='';try{await fn()}catch(e){error=e instanceof Error?e.message:String(e)}}
-async function load(){items=await api('items?'+new URLSearchParams({q:query,library,offset:String(offset),continue:String(continuing),series:seriesFilter,season}));}
+let browseGeneration=0;
+async function load(){
+ const generation=++browseGeneration;
+ if(section==='music'){
+  if(activeAlbum){
+   const tracks=await api('music/tracks?'+new URLSearchParams({library:String(activeAlbum.library_id),artist:activeAlbum.artist,album:activeAlbum.album,offset:String(offset)}));
+   if(generation===browseGeneration)items=tracks;
+  }else{
+   const groups=await api('music/albums?'+new URLSearchParams({...(library?{library}:{}),q:query,offset:String(offset)}));
+   if(generation===browseGeneration)albums=groups;
+  }
+  return;
+ }
+ const rows=await api('items?'+new URLSearchParams({q:query,library,offset:String(offset),continue:String(continuing),series:seriesFilter,season}));
+ if(generation===browseGeneration)items=rows;
+}
 async function refresh(){const me=await api('me');admin=me.Admin;logged=true;libraries=await api('libraries');shows=await api('series');savedLists=await api('lists');if(admin){users=await api('users');scanning=(await api('scan')).running;}await load();}
 onMount(()=>{guard(async()=>{setup=(await api('status')).setup;if(!setup){try{await refresh()}catch{logged=false;error='';}}ready=true;});const interval=setInterval(()=>{if(selected&&!transition)guard(save);if(admin&&scanning)guard(async()=>{scanning=(await api('scan')).running;if(!scanning){notice='Scan finished.';await refresh();}});},15000);return()=>{clearInterval(interval);hls?.destroy();if(captionURL)URL.revokeObjectURL(captionURL);};});
 async function login(){await guard(async()=>{if(setup)await api('setup','POST',{Name:name,Password:password});await api('login','POST',{Name:name,Password:password});password='';setup=false;await refresh();});}
@@ -142,8 +158,9 @@ function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(M
 {#if !ready}<p>Opening your library…</p>{:else if !logged}
 <section class="login"><p class="eyebrow">YOUR OWN MEDIA SERVER</p><h1>{setup?'Make yourself at home.':'Welcome back.'}</h1><p>{setup?'Create your administrator account to get started.':'Sign in to your library.'}</p><form onsubmit={(e)=>{e.preventDefault();login();}}><label>Username<input bind:value={name} autocomplete="username" required/></label><label>Password<input bind:value={password} type="password" autocomplete={setup?'new-password':'current-password'} minlength={setup?12:1} required/></label><button class="primary">{setup?'Create library':'Sign in'}</button></form></section>
 {:else}
-<div class="heading"><div><p class="eyebrow">AT HOME, ANYWHERE</p><h1>{seriesFilter||'Your library'}</h1></div><div class="toolbar"><button class:active={section==='library'} onclick={()=>{section='library';}}>All media</button><button class:active={section==='lists'} onclick={()=>{section='lists';guard(loadLists);}}>Collections & playlists</button><button class:active={section==='series'} onclick={()=>{section='series';}}>TV series</button></div></div>
-<form class="filters" onsubmit={(e)=>{e.preventDefault();offset=0;guard(load);}}><input aria-label="Search" placeholder="Search your library…" bind:value={query}/><select aria-label="Library" bind:value={library} onchange={()=>{offset=0;seriesFilter='';season='';guard(load);}}><option value="">All libraries</option>{#each libraries as l}<option value={l.id}>{l.name}{l.offline?' · offline':''}</option>{/each}</select><label class="inline"><input type="checkbox" bind:checked={continuing} onchange={()=>{offset=0;guard(load);}}/>Continue playing</label><button>Search</button></form>
+<div class="heading"><div><p class="eyebrow">AT HOME, ANYWHERE</p><h1>{activeAlbum?.album||seriesFilter||'Your library'}</h1></div><div class="toolbar"><button class:active={section==='library'} onclick={()=>{section='library';activeAlbum=null;offset=0;guard(load);}}>All media</button><button class:active={section==='music'} onclick={()=>{section='music';activeAlbum=null;seriesFilter='';offset=0;guard(load);}}>Music albums</button><button class:active={section==='lists'} onclick={()=>{section='lists';activeAlbum=null;guard(loadLists);}}>Collections & playlists</button><button class:active={section==='series'} onclick={()=>{section='series';activeAlbum=null;}}>TV series</button></div></div>
+<form class="filters" onsubmit={(e)=>{e.preventDefault();offset=0;guard(load);}}><input aria-label="Search" placeholder="Search your library…" bind:value={query}/><select aria-label="Library" bind:value={library} onchange={()=>{offset=0;activeAlbum=null;seriesFilter='';season='';guard(load);}}><option value="">All libraries</option>{#each libraries as l}<option value={l.id}>{l.name}{l.offline?' · offline':''}</option>{/each}</select><label class="inline"><input type="checkbox" bind:checked={continuing} onchange={()=>{offset=0;guard(load);}}/>Continue playing</label><button>Search</button></form>
+{#if activeAlbum}<button onclick={()=>{activeAlbum=null;offset=0;guard(load);}}>Back to albums</button>{/if}
 {#if seriesFilter}<div class="toolbar"><button onclick={()=>guard(async()=>{seriesFilter='';season='';offset=0;await load();})}>All titles</button><label>Season<input type="number" min="0" bind:value={season} onchange={()=>{offset=0;guard(load);}} placeholder="All"/></label></div>{/if}
 {#if selected}<section class="player"><div class="heading"><h2>{selected.title}</h2><button onclick={()=>guard(close)}>Close player</button></div>{#if musicSelected}
 {#key selected.id}<img width="160" height="160" alt="" src={'/api/v1/items/'+selected.id+'/artwork?embedded=true'} onerror={e=>{e.currentTarget.setAttribute("hidden","");}}/>{/key}
@@ -166,6 +183,11 @@ function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(M
 </section>{/if}
 {#if section==='lists'}<section><h2>Collections, playlists & queues</h2><form class="toolbar" onsubmit={(e)=>{e.preventDefault();guard(createList);}}><label>List name<input bind:value={newListName} maxlength="200" required/></label><label>List type<select aria-label="List type" bind:value={newListKind}><option value="collection">Collection</option><option value="playlist">Playlist</option><option value="queue">Playback queue</option></select></label><button>Create list</button></form><div class="toolbar">{#each savedLists as l}<button onclick={()=>guard(()=>selectList(l.id))}>{l.name} · {l.kind}</button>{/each}</div>
 {#if activeList}<h3>{activeList.name}</h3>{#if activeList.kind==='queue'}<button disabled={!activeList.entries.some(e=>e.position>=activeList!.cursor)} onclick={()=>guard(async()=>{if(!activeList)return;const entry=activeList.entries.find(e=>e.position>=activeList!.cursor);if(entry)await playEntry(activeList,entry);})}>Resume queue</button>{/if}<p>Only currently accessible titles are shown.</p><button onclick={()=>guard(async()=>{if(!activeList)return;const list=activeList;await api('lists/'+list.id,'DELETE');activeList=null;if(playingQueue?.id===list.id)playingQueue=null;await loadLists();})}>Delete list</button>{#if activeList.entries.length===0}<p>Open a title from your library and use “Add to list”.</p>{/if}<ol>{#each activeList.entries as entry,index}<li class="toolbar"><span>{entry.item.title}</span><button onclick={()=>guard(async()=>{if(activeList)await playEntry(activeList,entry);})}>Play{activeList.kind==='queue'?' queue from here':''}</button><button aria-label={'Move '+entry.item.title+' up'} disabled={index===0} onclick={()=>guard(()=>moveEntry(index,-1))}>↑</button><button aria-label={'Move '+entry.item.title+' down'} disabled={index===activeList.entries.length-1} onclick={()=>guard(()=>moveEntry(index,1))}>↓</button><button onclick={()=>guard(()=>removeEntry(index))}>Remove</button></li>{/each}</ol>{/if}</section>
+{:else if section==='music'&&!activeAlbum}
+<div class="grid">{#each albums as album}<button class="show" onclick={()=>{activeAlbum=album;offset=0;guard(load);}}>
+<span class="eyebrow">ALBUM</span><h2>{album.album}</h2><p>{album.artist||'Unknown artist'} · {album.tracks} tracks</p></button>{/each}</div>
+{#if albums.length===0}<p>No indexed albums found.</p>{/if}
+<nav><button disabled={offset===0} onclick={()=>{offset=Math.max(0,offset-100);guard(load);}}>Previous</button><button disabled={albums.length<100} onclick={()=>{offset+=100;guard(load);}}>Next</button></nav>
 {:else if section==='series'}<div class="grid">{#each shows.filter(s=>!library||String(s.library_id)===library).filter(s=>s.name.toLowerCase().includes(query.toLowerCase())) as show}<button class="show" onclick={()=>guard(()=>browseShow(show))}><span class="eyebrow">TV SERIES</span><h2>{show.name}</h2><p>{show.seasons} seasons · {show.episodes} episodes · {show.watched} watched</p></button>{/each}</div>{:else}<div class="grid">{#each items as item}<button class="card" onclick={()=>open(item)}><div class="poster" style:background-image={"linear-gradient(0deg,rgba(0,0,0,.6),transparent),url(/api/v1/items/"+item.id+"/artwork)"}><span>{libraries.some(l=>l.id===item.library_id&&l.kind==='music')?'MUSIC':item.series?'TV':'FILM'}</span><b>▶</b>{#if item.watched}<span>WATCHED</span>{/if}</div><h2>{item.title}</h2>{#if item.series}<p>{item.series} · S{item.season} E{item.episode}</p>{:else}<p>{item.position>0?'Continue watching':'Ready to play'}</p>{/if}</button>{/each}</div>
 {#if items.length===0}<section class="empty"><h2>{libraries.length?'No titles found.':'Bring your collection.'}</h2><p>{libraries.length?'Try another search, or scan your libraries.':'Add a media folder below, then start a scan.'}</p></section>{/if}
 <nav><button disabled={offset===0} onclick={()=>{offset=Math.max(0,offset-100);guard(load);}}>Previous</button><button disabled={items.length<100} onclick={()=>{offset+=100;guard(load);}}>Next</button></nav>{/if}

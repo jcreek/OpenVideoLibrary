@@ -16,3 +16,10 @@ CREATE TABLE IF NOT EXISTS ovl_list_entries (
 CREATE TABLE IF NOT EXISTS ovl_music_libraries (
  library_id INTEGER PRIMARY KEY REFERENCES libraries(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS ovl_music_tags (
+ file_id INTEGER PRIMARY KEY REFERENCES media_files(id) ON DELETE CASCADE,
+ mtime INTEGER NOT NULL, size INTEGER NOT NULL,
+ title TEXT NOT NULL, artist TEXT NOT NULL, album TEXT NOT NULL,
+ disc INTEGER NOT NULL, track INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ovl_music_tags_album ON ovl_music_tags(album,artist,disc,track,file_id);
