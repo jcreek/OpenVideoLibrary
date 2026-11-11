@@ -826,3 +826,27 @@ software media and physical VAAPI SDR/HDR. See
 `validation-n100-library-root.json`, `validation-browser-library-root.json`
 and `validation-nginx-library-root.json`. Installed-driver rejection,
 production benchmarks, current containers and real devices were not rerun.
+
+## Offline legacy library path repair (2026-11-11)
+
+The repair command works on a fresh restore of a verified v2 snapshot.
+Three Python regressions use the real schema and verify preserved file/item
+IDs, grants, progress, queues, credentials and music classification, plus
+session revocation, source snapshot preservation, rejected symlink/size
+mismatches and refusal to overwrite a destination. Independent review
+found no blocker for the documented offline, trusted-directory scope.
+The command verifies paths and sizes, not content identity.
+
+All three regressions passed over SSH on N100. A disposable restored Rust
+runtime also accepted the repaired paths: login worked, the old token was
+rejected, rescan preserved the original item ID and progress, the queue
+resolved the item, byte ranges returned the expected content, and shutdown
+was clean. No household data or media were used. See
+`validation-n100-path-repair.json` for source and tool identity.
+
+Full local verification passed with ten Python tests, 30 ordinary API
+tests plus socket shutdown, nine explicit CPU media/failure tests,
+frontend/Rust checks, type consistency, benchmark-crate checks, 15 browser
+scenarios and cached Nginx. The Rust source is unchanged from the eight-check
+N100 root validation. GPU and production deployment were not rerun, and no
+hosted Actions ran.

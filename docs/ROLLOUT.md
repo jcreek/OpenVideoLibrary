@@ -72,12 +72,28 @@ Restore the directory or read-only mount at the recorded path. Queue entries
 and library rows are preserved.
 
 An older database can contain a deliberately symlinked or otherwise
-noncanonical root. The preview keeps the records but does not automatically
-trust the current symlink target. For recovery, stop the server and take a
-backup, then work on a restored copy. Verify the intended canonical root
-and the existing media file paths before editing. A path-only repair must
-update the affected `libraries.path` and corresponding `media_files.path`
-values together in a transaction, retaining the library, file and item IDs.
-Run a scan and verify the original item IDs, grants, progress and lists on
-the copy before using it. There is no automatic repair command in this
-preview. Deleting and recreating the library is not an equivalent repair.
+noncanonical root. The preview keeps its records but does not automatically
+trust the current symlink target. Take a verified backup, then identify the
+library ID and independently confirm the intended canonical media root.
+Repair into a new data directory under a private, user-owned parent:
+
+```sh
+python3 scripts/repair_library_path.py --backup /backups/pre-switch \
+  --output /private/staging/repaired --library-id 4 --root /media/canonical
+```
+
+The command takes a format-1 backup of a v2 database. It restores privately,
+verifies each relative file path under the target root, then updates only
+the library and file paths in one transaction. The IDs, grants, progress,
+lists and credentials survive; restored sessions are revoked. It does not
+touch the source data, backup or media. It refuses an existing destination
+and stops on missing or redirected files, size changes or unique-path
+conflicts. Size matching does not verify content identity. The operator must
+verify the mapping and keep the media tree stable while repairing it.
+
+Only start the server after the command succeeds; publishing the new
+directory is not atomic. The path checks admit up to one million records
+and have a cooperative 30-minute budget after restore; a kernel-blocked
+filesystem call can still depend on mount timeouts. Start the repaired copy,
+scan and verify the original IDs, grants, progress and lists before cutover.
+Deleting and recreating the library is not an equivalent repair.
