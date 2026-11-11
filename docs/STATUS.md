@@ -140,3 +140,8 @@ HLS converts to AAC stereo or reported mono. Generated 5.1 channel-tone and
 alternate-track decoding tests cover downmix routing and a seeked conversion.
 Surround passthrough, layout/profile/sample-rate negotiation and real devices
 remain unaccepted; see `PLAYBACK.md`.
+
+Automatic HLS fallback now rejects explicitly incompatible H.264, output
+pixel format or AAC capability reports before allocating a session. This
+validates codec and pixel format support, with transport and device
+acceptance still separate.

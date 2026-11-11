@@ -128,8 +128,13 @@ HLS audio uses AAC, with stereo output or mono when the reported limit is one.
 A larger limit permits suitable source multichannel direct playback; HLS does
 not currently preserve surround or provide passthrough. Manual direct mode is
 an explicit override. Channel counts do not prove support for layouts, codec
-profiles, sample rates, object audio or a physical device. General conversion
-target capability negotiation remains incomplete.
+profiles, sample rates, object audio or a physical device. When automatic mode needs HLS and a capability report is present, the
+server requires H.264 support and, for newly encoded video, support for the
+8-bit `yuv420p` output. Remux keeps the already checked source pixel format.
+AAC support is required only if the source has audio. Incompatible reports
+receive HTTP 422 before session allocation. Manual modes and legacy requests
+without capability reports keep their previous fallback behavior. The report
+does not negotiate HLS transport, codec profiles/levels or hardware decoding.
 
 The software corpus generates AAC 5.1 with distinct front, center, surround and
 LFE frequencies and a separate stereo track. Decoded mono/stereo assertions

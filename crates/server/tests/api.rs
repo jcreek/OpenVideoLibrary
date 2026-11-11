@@ -3029,6 +3029,28 @@ async fn real_surround_audio_negotiates_and_downmixes_selected_channels() {
             .collect::<Vec<_>>(),
         vec![6, 2]
     );
+    // The source is valid H.264/AAC, but these clients cannot decode the
+    // conversion that automatic mode would otherwise allocate.
+    for (video, formats, audio, expected) in [
+        (json!([]), json!({}), json!(["aac"]), "H.264"),
+        (json!(["h264"]), json!({"h264":[]}), json!(["aac"]), "H.264"),
+        (json!(["h264"]), json!({}), json!(["opus"]), "AAC"),
+    ] {
+        let (status, body) = request(
+            &router,
+            "POST",
+            &format!("/api/v1/items/{item}/playback"),
+            Some(&token),
+            Some(
+                json!({"Mode":"auto","Capabilities":{"containers":[],"video_codecs":video,
+                "video_pixel_formats":formats,"audio_codecs":audio,"hdr":false}}),
+            ),
+        )
+        .await;
+        assert_eq!(status, 422, "{body}");
+        assert!(body.to_string().contains(expected), "{body}");
+        assert!(app.streams.lock().await.is_empty());
+    }
     // Mono and stereo conversion, legacy default, explicit six-channel direct,
     // secondary-track selection and a seeked full-video conversion.
     for (limit, audio, mode, start, expected) in [

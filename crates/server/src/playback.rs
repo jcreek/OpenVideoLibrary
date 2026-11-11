@@ -235,6 +235,29 @@ pub async fn start(
         }
         if b.mode == "auto" {
             (b.mode, reason) = negotiate(&info, &b);
+            if b.mode != "direct"
+                && let Some(c) = &b.capabilities
+            {
+                let h264_supported = c.video_codecs.iter().any(|codec| codec == "h264");
+                let output_format_supported = b.mode == "remux"
+                    || c.video_pixel_formats
+                        .get("h264")
+                        .is_none_or(|formats| formats.iter().any(|format| format == "yuv420p"));
+                if !h264_supported || !output_format_supported {
+                    return Err(Error::new(
+                        422,
+                        "Client does not support the H.264 playback fallback",
+                    ));
+                }
+                if !info.tracks("audio").is_empty()
+                    && !c.audio_codecs.iter().any(|codec| codec == "aac")
+                {
+                    return Err(Error::new(
+                        422,
+                        "Client does not support the AAC playback fallback",
+                    ));
+                }
+            }
         }
     }
     if b.subtitle.is_some() && b.mode != "transcode" {

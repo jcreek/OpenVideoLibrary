@@ -974,6 +974,16 @@
               }
             }
           },
+          "422": {
+            "description": "No video track or no compatible automatic playback fallback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "400": {
             "description": "Invalid request",
             "content": {

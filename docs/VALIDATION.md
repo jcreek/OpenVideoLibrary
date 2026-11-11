@@ -567,3 +567,24 @@ its source hash matches the Rust checkout. CPU media and physical VAAPI SDR/HDR
 are separate checks. This run did not repeat the installed-driver negative
 test, production benchmarks, multi-architecture builds or real-device acceptance.
 No hosted Actions minutes were used.
+
+## Automatic fallback capability checks (2026-11-11)
+
+A generated H.264/AAC fixture verifies that an incompatible automatic
+fallback returns HTTP 422 without allocating a session. The regression checks
+clients that omit H.264 or AAC support and clients that explicitly reject all
+H.264 pixel formats. Existing successful direct and conversion cases still
+pass. Independent review confirmed the distinction between remuxed source
+formats and encoded output, and the scope of the AAC check.
+
+`make verify-local` passed: frontend checks/build, Rust formatting/Clippy,
+27 ordinary API tests plus socket shutdown, seven explicit CPU media/failure
+tests, seven Python tests, type consistency, benchmark-crate checks,
+12 Chromium/Firefox/WebKit scenarios and disposable real Nginx acceptance.
+Browser and proxy evidence is in `validation-browser-fallback.json` and
+`validation-nginx-fallback.json`. No hosted Actions ran.
+
+All eight source-matched checks in `validation-n100-fallback.json` passed
+over SSH, including separate CPU media and physical VAAPI SDR/HDR runs.
+Installed-driver rejection, production benchmarks, multi-architecture images
+and real-device acceptance were not rerun for this increment.
