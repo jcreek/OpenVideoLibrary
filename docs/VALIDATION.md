@@ -990,3 +990,9 @@ the final frontend, all 15 browser scenarios passed across Chromium,
 Firefox and Playwright WebKit. See `validation-browser-music-artists.json`.
 Hosted Actions were not used. Artist artwork, contributor-level grouping and
 large-library performance were outside this validation.
+
+The final Rust source also passed all eight checks in the isolated N100 SSH
+matrix, including the CPU-only media suite and separate physical VAAPI SDR
+and HDR graph checks with the process-local driver override. See
+`validation-n100-music-artists.json`. This run did not benchmark production
+performance or rerun the installed-driver rejection, image or device suites.
