@@ -199,7 +199,7 @@ test('player lifecycle ignores delayed opening and closing',async({page})=>{
  await expect(page.locator('.player h2')).toHaveText(items[1].title);
 });
 
-test('music library tags and decoded audio queue playback',async({page})=>{
+test('music library tags and decoded audio queue playback',async({page,browserName})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)
   expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
@@ -254,4 +254,23 @@ test('music library tags and decoded audio queue playback',async({page})=>{
  await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeGreaterThan(.25);
  await page.getByRole('button',{name:'Close player',exact:true}).click();
  await expect(player).toHaveCount(0);
+ if(browserName==='chromium'){
+  const playback='**/api/v1/items/'+tracks[0].id+'/playback';
+  await page.route(playback,async route=>{
+   const body=route.request().postDataJSON();
+   expect(body.Capabilities.containers).toContain('hls');
+   body.Capabilities.containers=['hls'];
+   await route.continue({postData:JSON.stringify(body)});
+  },{times:1});
+  const created=page.waitForResponse(response=>response.url().endsWith('/items/'+tracks[0].id+'/playback')&&response.request().method()==='POST');
+  await page.getByRole('button',{name:'Play queue from here',exact:true}).first().click();
+  const response=await created;
+  expect(response.status()).toBe(201);
+  const session=await response.json();
+  await expect(page.getByText('AAC HLS music conversion',{exact:true})).toBeVisible();
+  await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeGreaterThan(.25);
+  await page.getByRole('button',{name:'Close player',exact:true}).click();
+  await expect.poll(async()=> (await page.request.get(session.url)).status()).toBe(404);
+ }
+
 });

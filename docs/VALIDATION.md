@@ -1014,3 +1014,21 @@ drill. All eight source-matched SSH checks passed on N100, with CPU
 media and physical VAAPI SDR/HDR recorded separately in
 `validation-n100-albumless.json`. This was a compatibility check, with no
 new container, device or production performance acceptance.
+
+## AAC HLS music fallback
+
+The generated music regression requests fallback for a FLAC file, follows
+the authenticated master and variant playlists, decodes the MPEG-TS segment
+and verifies mono AAC, non-silent samples and the expected shortened output
+after a 250 ms seek. Session deletion removes the stream. Chromium forces
+fallback through the web player, verifies media time advances and checks
+the session URL returns 404 after closing. Firefox and Playwright WebKit
+cover the direct music path in the same workflow.
+
+Final local verification passed the frontend checks and build, OpenAPI type
+consistency, Rust formatting and Clippy, the parser unit test, 31 API tests,
+socket shutdown, nine explicit CPU media/failure tests, ten Python tests,
+benchmark crate checks, 15 browser scenarios and the disposable Nginx drill.
+See `validation-browser-music-aac.json`. Independent review confirmed the
+shared stream guards and verified the added playlist/browser coverage and
+lazy HLS loading. No hosted Actions ran.

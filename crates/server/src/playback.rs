@@ -218,14 +218,16 @@ pub async fn start(
     if !["auto", "direct", "remux", "transcode"].contains(&b.mode.as_str()) {
         return Err(Error::new(400, "invalid playback mode"));
     }
+    let mut info = Info::default();
+    let mut reason = "Playback mode selected manually".to_owned();
     if kind == "music" {
         if b.audio != 0 || b.subtitle.is_some() {
             return Err(Error::new(400, "music playback uses the first audio track"));
         }
-        if !matches!(b.mode.as_str(), "auto" | "direct") {
-            return Err(Error::new(422, "music conversion is unavailable"));
+        if b.mode == "remux" {
+            return Err(Error::new(422, "music remux is unavailable"));
         }
-        let info = media::inspect(&app, &path).await?;
+        info = media::inspect(&app, &path).await?;
         let audio = info.streams.iter().find(|t| t.codec_type == "audio");
         let Some(audio) = audio.filter(|_| info.video().is_none()) else {
             return Err(Error::new(422, "expected an audio-only music track"));
@@ -247,24 +249,23 @@ pub async fn start(
                     && audio.codec_name == "mp3"
                     && channels_supported(audio, None)
             };
-            if !supported {
+            b.mode = if supported { "direct" } else { "transcode" }.into();
+        }
+        if b.mode == "direct" {
+            reason = "Direct music playback".into();
+        } else {
+            if b.capabilities.as_ref().is_none_or(|c| {
+                !c.containers.iter().any(|container| container == "hls")
+                    || !c.audio_codecs.iter().any(|codec| codec == "aac")
+            }) {
                 return Err(Error::new(
                     422,
-                    "client does not support this music track; music conversion is unavailable",
+                    "client does not support AAC HLS music playback",
                 ));
             }
+            reason = "AAC HLS music conversion".into();
         }
-        return Ok((
-            StatusCode::OK,
-            Json(json!({
-                "url":format!("/api/v1/items/{item_id}/file"), "mode":"direct", "start":b.start,
-                "reason":"Direct music playback"
-            })),
-        ));
-    }
-    let mut info = Info::default();
-    let mut reason = "Playback mode selected manually".to_owned();
-    if b.mode != "direct" {
+    } else if b.mode != "direct" {
         info = media::inspect(&app, &path).await?;
         if info.video().is_none() {
             return Err(Error::new(422, "no video track"));
@@ -398,6 +399,11 @@ pub fn encoding_args(
         "-i".into(),
         path.to_string_lossy().into_owned(),
     ];
+    if info.video().is_none() {
+        a.extend(["-map".into(), "0:a:0".into(), "-vn".into()]);
+        a.extend(hls_audio_args(b, 0));
+        return a;
+    }
     if let Some(subtitle) = bitmap {
         if !sequential_bitmap {
             // Only the second input's subtitle is mapped, leaving its other streams
@@ -506,31 +512,34 @@ pub fn encoding_args(
         } else {
             a.extend(["-c:v".into(), "copy".into()]);
         }
-        a.extend([
-            "-c:a".into(),
-            "aac".into(),
-            "-ac".into(),
-            channel_limit(b.capabilities.as_ref())
-                .clamp(1, 2)
-                .to_string(),
-            "-b:a".into(),
-            "128k".into(),
-            "-f".into(),
-            "hls".into(),
-            "-hls_time".into(),
-            "4".into(),
-            "-hls_list_size".into(),
-            "0".into(),
-            "-hls_playlist_type".into(),
-            "event".into(),
-            "-hls_flags".into(),
-            "temp_file".into(),
-            "-hls_segment_filename".into(),
-            format!("v{i}-%d.ts"),
-            format!("v{i}.m3u8"),
-        ]);
+        a.extend(hls_audio_args(b, i));
     }
     a
+}
+fn hls_audio_args(b: &Playback, i: usize) -> [String; 19] {
+    [
+        "-c:a".into(),
+        "aac".into(),
+        "-ac".into(),
+        channel_limit(b.capabilities.as_ref())
+            .clamp(1, 2)
+            .to_string(),
+        "-b:a".into(),
+        "128k".into(),
+        "-f".into(),
+        "hls".into(),
+        "-hls_time".into(),
+        "4".into(),
+        "-hls_list_size".into(),
+        "0".into(),
+        "-hls_playlist_type".into(),
+        "event".into(),
+        "-hls_flags".into(),
+        "temp_file".into(),
+        "-hls_segment_filename".into(),
+        format!("v{i}-%d.ts"),
+        format!("v{i}.m3u8"),
+    ]
 }
 pub fn hardware_args(mut args: Vec<String>, name: &str, variants: &[Rendition]) -> Vec<String> {
     let input = args
@@ -613,6 +622,8 @@ async fn publish(dir: &std::path::Path, variants: &[Rendition]) -> bool {
     for (i, v) in variants.iter().enumerate() {
         let bw = if v.kbps == 0 {
             8_000_000
+        } else if v.width == 0 {
+            v.kbps * 1250
         } else {
             (v.kbps + 128) * 1200
         };
@@ -641,7 +652,8 @@ async fn encode(
 ) -> Result<()> {
     let accelerator = if vaapi_hdr_eligible(&info, &b) {
         crate::hardware::select_hdr(app, &st.dir, &st.cancel).await?
-    } else if b.mode == "transcode" && !info.hdr() && b.subtitle.is_none() {
+    } else if b.mode == "transcode" && info.video().is_some() && !info.hdr() && b.subtitle.is_none()
+    {
         crate::hardware::select(app).await?
     } else {
         None
@@ -684,14 +696,13 @@ async fn encode_attempt(
     info: Info,
     accelerator: Option<&str>,
 ) -> Result<()> {
-    let v = info.video().expect("video checked");
-    let variants = if b.mode == "transcode" {
+    let variants = if let Some(v) = info.video().filter(|_| b.mode == "transcode") {
         ladder(v.width, v.height, b.adaptive)
     } else {
         vec![Rendition {
             width: 0,
             height: 0,
-            kbps: 0,
+            kbps: if info.video().is_none() { 128 } else { 0 },
         }]
     };
     if b.subtitle.is_some() {

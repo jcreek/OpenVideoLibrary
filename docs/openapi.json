@@ -2620,6 +2620,7 @@
         "type": "object",
         "properties": {
           "containers": {
+            "description": "Playable direct containers. Include hls alongside aac to accept AAC HLS music conversion.",
             "type": "array",
             "items": {
               "type": "string"

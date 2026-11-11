@@ -3732,6 +3732,103 @@ async fn real_music_library_tags_playback_and_current_grants() {
             std::fs::read(dir.join(format!("S01E01 Music {extension}.{extension}"))).unwrap();
         assert_eq!(&content[..], &original[..64]);
     }
+    let (status, converted) = request(
+        &router, "POST", &format!("/api/v1/items/{}/playback", file_id("S01E01 Music flac")),
+        Some(&listener), Some(json!({"Mode":"auto","Start":0.25,"Capabilities":{
+            "containers":["hls"],"video_codecs":[],"audio_codecs":["aac"],"max_audio_channels":1}})),
+    ).await;
+    assert_eq!(status, 201, "{converted}");
+    assert_eq!(converted["mode"], "transcode");
+    let id = converted["id"].as_str().unwrap();
+    let base = format!("/api/v1/playback/{id}");
+    for (playlist, entry) in [
+        (converted["url"].as_str().unwrap().to_owned(), "v0.m3u8"),
+        (format!("{base}/v0.m3u8"), "v0-0.ts"),
+    ] {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(playlist)
+                    .header("Authorization", format!("Bearer {listener}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        assert!(
+            std::str::from_utf8(&bytes)
+                .unwrap()
+                .lines()
+                .any(|line| line == entry)
+        );
+    }
+    let segment = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("{base}/v0-0.ts"))
+                .header("Authorization", format!("Bearer {listener}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(segment.status(), 200);
+    let sample = root.path().join("converted.ts");
+    std::fs::write(
+        &sample,
+        segment.into_body().collect().await.unwrap().to_bytes(),
+    )
+    .unwrap();
+    let info = media::inspect(&app, &sample).await.unwrap();
+    assert!(info.video().is_none());
+    assert_eq!(info.tracks("audio")[0].codec_name, "aac");
+    assert_eq!(info.tracks("audio")[0].channels, 1);
+    let decoded = media::process(
+        &app,
+        "ffmpeg",
+        [
+            "-v",
+            "error",
+            "-i",
+            sample.to_str().unwrap(),
+            "-f",
+            "s16le",
+            "-ar",
+            "8000",
+            "pipe:1",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        None,
+        Duration::from_secs(10),
+        64_000,
+        app.cancel.child_token(),
+    )
+    .await
+    .unwrap();
+    assert!(
+        (11_000..=14_000).contains(&decoded.len()),
+        "unexpected seeked audio length: {}",
+        decoded.len()
+    );
+    assert!(
+        decoded
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .any(|b| i16::from_le_bytes(*b).unsigned_abs() > 1000)
+    );
+    assert_eq!(
+        request(&router, "DELETE", &base, Some(&listener), None)
+            .await
+            .0,
+        200
+    );
     assert!(app.streams.lock().await.is_empty());
     assert_eq!(
         request(

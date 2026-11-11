@@ -94,6 +94,7 @@ async function start(position:number,generation=++playerGeneration){
   await tick();if(generation!==playerGeneration)return;
   const probe=document.createElement('video');
   const request=musicSelected?{Mode:'auto',Start:position,Capabilities:musicCapabilities()}:{Capabilities:clientCapabilities(),Mode:subtitle.startsWith('burn:')?'transcode':mode,Start:position,Audio:audio,Adaptive:adaptive,CanPlayMP4:!!probe.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"'),...(subtitle.startsWith('burn:')?{Subtitle:Number(subtitle.slice(5))}:{})};
+  if(generation!==playerGeneration)return;
   // Keep the response observable: a cancelled POST may still create a server session.
   const creation=api('items/'+item.id+'/playback','POST',request);
   pendingPlayback=creation.then(async p=>{if(generation!==playerGeneration&&p.id)await api('playback/'+p.id,'DELETE').catch(()=>{});},()=>{});
@@ -134,6 +135,7 @@ function musicCapabilities():ClientCapabilities {
   ['ogg','vorbis','audio/ogg; codecs="vorbis"'],['ogg','opus','audio/ogg; codecs="opus"'],
   ['wav','pcm_s16le','audio/wav; codecs="1"']
  ])if(element.canPlayType(mime)){containers.add(container);audio_codecs.add(codec);}
+ if(audio_codecs.has('aac')&&(element.canPlayType('application/vnd.apple.mpegurl')||globalThis.MediaSource?.isTypeSupported('audio/mp4; codecs="mp4a.40.2"')))containers.add('hls');
  return {containers:[...containers],video_codecs:[],audio_codecs:[...audio_codecs],max_audio_channels:2,hdr:false};
 }
 async function loadLists(){savedLists=await api('lists');}
@@ -180,7 +182,7 @@ function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(M
 {#if seriesFilter}<div class="toolbar"><button onclick={()=>guard(async()=>{seriesFilter='';season='';offset=0;await load();})}>All titles</button><label>Season<input type="number" min="0" bind:value={season} onchange={()=>{offset=0;guard(load);}} placeholder="All"/></label></div>{/if}
 {#if selected}<section class="player"><div class="heading"><h2>{selected.title}</h2><button onclick={()=>guard(close)}>Close player</button></div>{#if musicSelected}
 {#key selected.id}<img width="160" height="160" alt="" src={'/api/v1/items/'+selected.id+'/artwork?embedded=true'} onerror={e=>{e.currentTarget.setAttribute("hidden","");}}/>{/key}
-<audio aria-label="Music player" bind:this={video} ontimeupdate={()=>{lyricPosition=video.currentTime*1000;}} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onloadedmetadata={()=>{if(selected&&actualMode==='direct')video.currentTime=seekTo;}} onpause={()=>{if(!transition)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This music track could not be played.';}}></audio>
+<audio aria-label="Music player" bind:this={video} ontimeupdate={()=>{lyricPosition=(video.currentTime+startOffset)*1000;}} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onloadedmetadata={()=>{if(selected&&actualMode==='direct')video.currentTime=seekTo;}} onpause={()=>{if(!transition)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This music track could not be played.';}}></audio>
 {#if info?.format.tags}{@const tags=info.format.tags}<p>{[tags.title,tags.artist,tags.album].filter(Boolean).join(' · ')}</p>
 {#if tags.disc||tags.track}<p>{[tags.disc?'Disc '+tags.disc:'',tags.track?'Track '+tags.track:''].filter(Boolean).join(' · ')}</p>{/if}{/if}
 {#if lyrics}
@@ -188,7 +190,7 @@ function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(M
 <ol aria-label="Lyrics">{#each lyrics.lines as line,i}
 <li>{#if line.time_ms!==null}
 <button aria-current={lyricPosition>=line.time_ms&&(lyrics.lines[i+1]?.time_ms??Infinity)>lyricPosition?'true':undefined}
- onclick={()=>{if(video&&line.time_ms!==null)video.currentTime=Math.min(line.time_ms/1000,video.duration||Infinity);}}>{line.text}</button>
+ onclick={()=>guard(async()=>{if(!video||line.time_ms===null)return;const position=line.time_ms/1000;if(actualMode==='direct')video.currentTime=Math.min(position,video.duration||Infinity);else await start(position);})}>{line.text}</button>
 {:else}{line.text}{/if}</li>
 {/each}</ol>{/if}
 {:else}<button onclick={()=>guard(loadLyrics)}>Show lyrics</button>{/if}

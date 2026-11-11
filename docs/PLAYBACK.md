@@ -171,10 +171,13 @@ are absent. A bounded scan also indexes tags for the Music albums view.
 The web player uses native audio controls and shares progress and queues
 with video. Automatic music playback checks the actual audio container,
 codec and channel count against the client report. Without a capability
-report, it accepts known mono/stereo MP3 only. Music playback does not
-allocate FFmpeg conversion sessions. Explicit direct mode checks that
-the input has audio and no playable video; embedded artwork is allowed.
-Current grants and resolved paths still gate probing and byte ranges.
+report, it accepts known mono/stereo MP3 only. If direct playback is
+unsupported, a client advertising AAC and HLS can receive an audio-only
+AAC HLS session. Conversion uses the first audio track and outputs one
+or two channels according to the reported limit. It shares stream
+admission, storage, cancellation and current-grant checks with video.
+Explicit direct mode checks for audio and allows embedded artwork.
+Music remux remains unavailable.
 
 Music classification and tag indexing use additive tables and preserve the v2 library
 rows, IDs and legacy kind constraint. Older binaries can preserve the
