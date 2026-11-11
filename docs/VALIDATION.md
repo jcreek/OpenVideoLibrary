@@ -872,3 +872,25 @@ All eight source-matched N100 checks passed over SSH, including the parser
 test, software media and separate physical VAAPI SDR/HDR. See
 `validation-n100-lyrics-offset.json`. Production benchmarks, current images,
 installed-driver rejection and real-device checks were not rerun.
+
+## Embedded music lyrics (2026-11-11)
+
+The generated music fixture verifies embedded timed text in MP3, FLAC,
+Vorbis and Opus, local sidecar precedence, empty fallback for unsupported
+M4A/WAV and no lyric text in ordinary probe responses. The lyrics probe
+consumes the already-open source descriptor through stdin and holds the
+inspection permit through process cleanup. Independent review found no
+blockers in this scope. See `PLAYBACK.md` for demuxer, timeout and output
+limits.
+
+Full local verification passed: parser unit test, 30 API tests plus
+socket shutdown, nine explicit CPU media/failure tests, ten Python tests,
+frontend/Rust checks, type consistency, benchmark-crate checks, 15 browser
+scenarios and cached Nginx. The browser scenarios exercise the existing
+music/sidecar UI, while the embedded format coverage comes from the API
+fixture. See `validation-browser-embedded-lyrics.json`. No Actions ran.
+
+All eight source-matched N100 checks passed over SSH, with generated software
+media and physical VAAPI SDR/HDR recorded separately. See
+`validation-n100-embedded-lyrics.json`. Installed-driver rejection, current
+container builds, real devices and production benchmarks were not rerun.

@@ -3380,6 +3380,8 @@ async fn real_music_library_tags_playback_and_current_grants() {
             "ALBUM=Fixture album",
             "-metadata",
             "comment=private comment",
+            "-metadata",
+            "LYRICS=[00:00.10]Embedded lyric",
             path.to_str().unwrap(),
         ];
         media::process(
@@ -3461,6 +3463,25 @@ async fn real_music_library_tags_playback_and_current_grants() {
         if extension == "mp3" || extension == "opus" {
             assert_eq!(probe["format"]["tags"]["artist"], "Fixture artist");
             assert_eq!(probe["format"]["tags"]["album"], "Fixture album");
+        }
+        assert!(!probe.to_string().contains("Embedded lyric"));
+        let lyrics = format!("/api/v1/items/{id}/lyrics");
+        let (status, body) = request(&router, "GET", &lyrics, Some(&listener), None).await;
+        assert_eq!(status, 200, "{extension}: {body}");
+        let expected = if ["mp3", "flac", "ogg", "opus"].contains(&extension) {
+            json!({"lines":[{"time_ms":100,"text":"Embedded lyric"}]})
+        } else {
+            json!({"lines":[]})
+        };
+        assert_eq!(body, expected, "{extension}");
+        if extension == "mp3" {
+            std::fs::write(dir.join("S01E01 Music mp3.txt"), "Local override").unwrap();
+            assert_eq!(
+                request(&router, "GET", &lyrics, Some(&listener), None)
+                    .await
+                    .1,
+                json!({"lines":[{"time_ms":null,"text":"Local override"}]})
+            );
         }
         let path = format!("/api/v1/items/{id}/playback");
         let (status, session) = request(

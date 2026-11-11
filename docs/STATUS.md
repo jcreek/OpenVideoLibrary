@@ -164,3 +164,7 @@ Media resolution and scanning now reject a library root whose resolved
 path differs from its registered path. A replaced root becomes unavailable
 without deleting media or queue records. See `ROLLOUT.md` for legacy path
 recovery. This does not eliminate every concurrent pathname-open race.
+
+When a music track has no sidecar, embedded MP3, FLAC and Ogg lyrics can
+use the same bounded display and timing parser. Ordinary probe responses
+continue to omit lyric text.

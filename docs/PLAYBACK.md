@@ -189,8 +189,7 @@ LRC. Timed LRC lines support multiple leading timestamps and seek the
 track when selected; plain text stays untimed. The player renders lyrics
 as text. The last valid signed LRC offset shifts every timestamp in milliseconds;
 a positive value delays lyrics and a negative value advances them, clamped
-at zero. Malformed offsets or offsets beyond 24 hours are ignored. Embedded
-lyrics and enhanced word timing are not supported.
+at zero. Malformed offsets or offsets beyond 24 hours are ignored. Enhanced word timing is not supported.
 
 The endpoint checks current grants and opens the stored music source
 and sibling without following symlinks in any path component on Unix.
@@ -199,3 +198,13 @@ characters per line. An admitted filesystem worker retains its inspection
 permit even after a disconnected client or a five-second HTTP deadline.
 Shutdown waits for tracked work; kernel-blocked filesystem I/O still
 depends on mount timeouts.
+
+When there is no usable sidecar, MP3, FLAC and Ogg (Vorbis or Opus) can
+display embedded text from FFprobe's `lyrics` or `unsyncedlyrics` fields.
+Timed text uses the same LRC parser. The probe reads the already-open
+source on stdin, with a pipe-only protocol whitelist, three permitted
+demuxers, a five-second deadline and a 1 MiB output cap. That is an output
+limit, not a source byte-read limit. The inspection permit remains held
+through process cleanup. Ordinary media probes do not expose this lyric
+text. Embedded M4A/WAV lyrics, binary synchronized tags and enhanced word
+timing remain unsupported.

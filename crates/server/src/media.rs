@@ -202,6 +202,53 @@ pub async fn process(
     limit: usize,
     cancel: tokio_util::sync::CancellationToken,
 ) -> Result<Vec<u8>> {
+    run_process(app, program, args, cwd, timeout, limit, (cancel, None)).await
+}
+
+pub(crate) async fn probe_lyrics(
+    app: &Arc<App>,
+    file: std::fs::File,
+    slot: tokio::sync::OwnedSemaphorePermit,
+) -> Result<Vec<u8>> {
+    run_process(
+        app,
+        "ffprobe",
+        [
+            "-v",
+            "error",
+            "-protocol_whitelist",
+            "pipe",
+            "-format_whitelist",
+            "mp3,flac,ogg",
+            "-show_entries",
+            "format_tags:stream=codec_type:stream_tags",
+            "-of",
+            "json",
+            "pipe:0",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        None,
+        Duration::from_secs(5),
+        1 << 20,
+        (app.cancel.child_token(), Some((file, slot))),
+    )
+    .await
+}
+
+async fn run_process(
+    app: &Arc<App>,
+    program: &str,
+    args: Vec<String>,
+    cwd: Option<PathBuf>,
+    timeout: Duration,
+    limit: usize,
+    (cancel, input): (
+        tokio_util::sync::CancellationToken,
+        Option<(std::fs::File, tokio::sync::OwnedSemaphorePermit)>,
+    ),
+) -> Result<Vec<u8>> {
     let request_cancel = cancel.child_token();
     let _guard = request_cancel.clone().drop_guard();
     let global = app.cancel.clone();
@@ -209,7 +256,11 @@ pub async fn process(
     let (tx, rx) = tokio::sync::oneshot::channel();
     app.tasks.spawn(async move {
         let result=async {
-            let mut command=Command::new(program);command.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
+            let (stdin, _slot) = match input {
+                Some((file, slot)) => (Stdio::from(file), Some(slot)),
+                None => (Stdio::null(), None),
+            };
+            let mut command=Command::new(program);command.args(args).stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
             if let Some(cwd)=cwd{command.current_dir(cwd);}
             let mut child=command.spawn().map_err(|_|Error::new(503,"media tool unavailable"))?;
             let stdout=child.stdout.take().expect("piped stdout");let stderr=child.stderr.take().expect("piped stderr");

@@ -148,7 +148,7 @@ fn open_sibling(_: &std::path::Path) -> std::io::Result<std::fs::File> {
     Err(std::io::Error::other("local lyrics require Unix"))
 }
 
-fn read_lyrics(path: &std::path::Path) -> Result<Lyrics> {
+fn read_lyrics(path: &std::path::Path) -> Result<Option<Lyrics>> {
     for extension in ["lrc", "txt"] {
         let Ok(file) = open_sibling(&path.with_extension(extension)) else {
             continue;
@@ -167,9 +167,9 @@ fn read_lyrics(path: &std::path::Path) -> Result<Lyrics> {
         }
         let text =
             std::str::from_utf8(&bytes).map_err(|_| Error::new(422, "lyrics must be UTF-8"))?;
-        return parse(text, extension == "lrc");
+        return parse(text, extension == "lrc").map(Some);
     }
-    Ok(Lyrics { lines: Vec::new() })
+    Ok(None)
 }
 
 pub async fn get(
@@ -188,26 +188,66 @@ pub async fn get(
         .map_err(|_| Error::new(429, "media inspection busy"))?;
     // Timeout or disconnect stops waiting, not the underlying filesystem I/O.
     let work = app.tasks.spawn_blocking(move || {
-        let _slot = slot;
         let unavailable = |_| Error::new(404, "media unavailable");
-        // New music libraries persist a canonical root, and scanning only
-        // records regular files under it. Do not re-resolve a replaced root.
         let real = std::path::PathBuf::from(path);
-        if !real.starts_with(root)
-            || !open_sibling(&real)
-                .map_err(unavailable)?
-                .metadata()
-                .map_err(unavailable)?
-                .is_file()
-        {
+        if !real.starts_with(root) {
             return Err(Error::new(404, "media unavailable"));
         }
-        read_lyrics(&real)
+        let file = open_sibling(&real).map_err(unavailable)?;
+        if !file.metadata().map_err(unavailable)?.is_file() {
+            return Err(Error::new(404, "media unavailable"));
+        }
+        let embedded = real.extension().and_then(|v| v.to_str()).is_some_and(|v| {
+            ["mp3", "flac", "ogg", "opus"]
+                .iter()
+                .any(|kind| v.eq_ignore_ascii_case(kind))
+        });
+        let sidecar = read_lyrics(&real)?;
+        Ok((sidecar, embedded, file, slot))
     });
-    let lyrics = tokio::time::timeout(Duration::from_secs(5), work)
+    let (sidecar, embedded, file, slot) = tokio::time::timeout(Duration::from_secs(5), work)
         .await
         .map_err(|_| Error::new(504, "lyrics read timed out"))?
         .map_err(|_| Error::new(500, "lyrics worker failed"))??;
+    let lyrics = if let Some(sidecar) = sidecar {
+        sidecar
+    } else if embedded {
+        let data = media::probe_lyrics(&app, file, slot).await?;
+        let info: serde_json::Value = serde_json::from_slice(&data)
+            .map_err(|_| Error::new(503, "invalid lyrics probe response"))?;
+        let tags = std::iter::once(&info["format"]["tags"]).chain(
+            info["streams"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|s| s["codec_type"] == "audio")
+                .map(|s| &s["tags"]),
+        );
+        let mut text = None;
+        for group in tags.filter_map(serde_json::Value::as_object) {
+            if let Some(value) = group.iter().find_map(|(key, value)| {
+                ["lyrics", "unsyncedlyrics"]
+                    .iter()
+                    .any(|k| key.eq_ignore_ascii_case(k))
+                    .then(|| value.as_str())
+                    .flatten()
+                    .filter(|s| !s.trim().is_empty())
+            }) {
+                text = Some(value);
+                break;
+            }
+        }
+        if let Some(text) = text {
+            if text.len() > MAX_BYTES {
+                return Err(Error::new(422, "lyrics exceed size limit"));
+            }
+            parse(text, true)?
+        } else {
+            Lyrics { lines: Vec::new() }
+        }
+    } else {
+        Lyrics { lines: Vec::new() }
+    };
     Ok(Json(lyrics))
 }
 
