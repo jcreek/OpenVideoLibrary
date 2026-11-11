@@ -3350,6 +3350,34 @@ async fn real_music_library_tags_playback_and_current_grants() {
     let (app, router, token) = setup(&root).await;
     let dir = root.path().join("music");
     std::fs::create_dir(&dir).unwrap();
+    let cover = root.path().join("fixture-cover.png");
+    media::process(
+        &app,
+        "ffmpeg",
+        [
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=red:size=640x320",
+            "-frames:v",
+            "1",
+            "-threads",
+            "1",
+            cover.to_str().unwrap(),
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        None,
+        Duration::from_secs(20),
+        1024,
+        app.cancel.child_token(),
+    )
+    .await
+    .unwrap();
     let cases = [
         ("mp3", "libmp3lame", "mp3", "mp3"),
         ("m4a", "aac", "m4a", "aac"),
@@ -3360,7 +3388,7 @@ async fn real_music_library_tags_playback_and_current_grants() {
     ];
     for (extension, encoder, _, _) in cases {
         let path = dir.join(format!("S01E01 Music {extension}.{extension}"));
-        let args = [
+        let mut args = vec![
             "-nostdin",
             "-v",
             "error",
@@ -3368,6 +3396,22 @@ async fn real_music_library_tags_playback_and_current_grants() {
             "lavfi",
             "-i",
             "sine=frequency=440:sample_rate=48000",
+        ];
+        if matches!(extension, "mp3" | "flac") {
+            args.extend([
+                "-i",
+                cover.to_str().unwrap(),
+                "-map",
+                "0:a:0",
+                "-map",
+                "1:v:0",
+                "-c:v",
+                "copy",
+                "-disposition:v",
+                "attached_pic",
+            ]);
+        }
+        args.extend([
             "-t",
             "1",
             "-c:a",
@@ -3383,7 +3427,7 @@ async fn real_music_library_tags_playback_and_current_grants() {
             "-metadata",
             "LYRICS=[00:00.10]Embedded lyric",
             path.to_str().unwrap(),
-        ];
+        ]);
         media::process(
             &app,
             "ffmpeg",
@@ -3482,6 +3526,37 @@ async fn real_music_library_tags_playback_and_current_grants() {
                     .1,
                 json!({"lines":[{"time_ms":null,"text":"Local override"}]})
             );
+        }
+        let cover_url = format!("/api/v1/items/{id}/artwork");
+        assert_eq!(
+            request(&router, "GET", &cover_url, Some(&listener), None)
+                .await
+                .0,
+            404
+        );
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("{cover_url}?embedded=true"))
+                    .header("Authorization", format!("Bearer {listener}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        if matches!(extension, "mp3" | "flac") {
+            assert_eq!(response.status(), 200, "{extension}");
+            assert_eq!(response.headers()["content-type"], "image/png");
+            let png = response.into_body().collect().await.unwrap().to_bytes();
+            assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
+            assert_eq!(
+                &png[16..24],
+                &[0, 0, 2, 0, 0, 0, 1, 0],
+                "512x256 scaled cover"
+            );
+        } else {
+            assert_eq!(response.status(), 404);
         }
         let path = format!("/api/v1/items/{id}/playback");
         let (status, session) = request(

@@ -919,3 +919,23 @@ and physical VAAPI SDR/HDR measured separately. The earlier run is not
 used for this claim. See `validation-n100-music-cover.json`. Installed-driver
 rejection, production benchmarks, current images and real devices were not
 rerun.
+
+## Embedded music covers (2026-11-11)
+
+Generated MP3 and FLAC tracks with attached 640×320 images verify opt-in
+fallback to a 512×256 PNG, image MIME, unchanged default browsing and no
+extraction for other tested formats. The ordinary music probe, lyrics,
+range and grant tests still pass. Chromium, Firefox and WebKit each decode
+an embedded cover in the music player after queue advancement. Independent
+review found no blocking findings. See `PLAYBACK.md` for bounds and scope.
+
+Full local verification passed: parser unit test, 31 API tests plus socket
+shutdown, nine explicit CPU media/failure tests, ten Python tests,
+frontend/Rust checks, generated types, benchmark-crate checks, 15 browser
+scenarios and cached Nginx. See `validation-browser-embedded-cover.json`.
+No hosted Actions ran.
+
+All eight source-matched N100 checks passed over SSH, including the
+generated MP3/FLAC software cases and separate physical VAAPI SDR/HDR
+checks. See `validation-n100-embedded-cover.json`. Installed-driver rejection,
+production benchmarks, current images and real devices were not rerun.

@@ -216,6 +216,18 @@ folder, then the same extensions for `folder`. The existing artwork
 cache is checked first. Artwork must resolve to the expected path, be
 a regular file smaller than 20 MiB and is served with an explicit image
 media type. Current media grants and library-root checks apply.
-Embedded covers and artist-level artwork remain open. The route still
+Artist-level artwork remains open. The route still
 uses pathname opens after validation and does not claim protection
 against all concurrent replacement races.
+
+The open music player opts into embedded MP3/FLAC artwork via
+`?embedded=true` when there is no cached or local cover. Browsing cards do
+not opt in. The worker opens the source through no-follow directory
+handles and supplies the regular file on stdin to FFmpeg. It restricts
+input demuxers and protocols, uses single-threaded decoding/filtering,
+sets a decoder pixel limit and emits one aspect-preserving PNG no larger
+than 512×512. Extraction has a five-second deadline, 2 MiB output limit
+and retains the inspection permit through process cleanup. The filesystem
+open has its own deadline and holds the permit until it returns. No image
+is written to the media or cache. Embedded artwork in other formats and
+artist-level images remain open.

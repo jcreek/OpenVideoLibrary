@@ -6,7 +6,7 @@ use crate::{
 use axum::{
     Extension, Json,
     body::{Body, Bytes},
-    extract::{Path, Request, State},
+    extract::{Path, Query, Request, State},
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
@@ -444,6 +444,47 @@ pub async fn probe(
     let (path, _) = item(&app, u, id).await?;
     Ok(Json(inspect(&app, &path).await?))
 }
+#[cfg(unix)]
+pub(crate) fn open_registered_file(path: &std::path::Path) -> std::io::Result<std::fs::File> {
+    use std::{
+        ffi::CString,
+        os::{
+            fd::{AsRawFd, FromRawFd},
+            unix::ffi::OsStrExt,
+        },
+        path::Component,
+    };
+    let mut parts = path.components().peekable();
+    if parts.next() != Some(Component::RootDir) {
+        return Err(std::io::Error::other("expected absolute media path"));
+    }
+    let mut directory = std::fs::File::open("/")?;
+    while let Some(Component::Normal(name)) = parts.next() {
+        let name = CString::new(name.as_bytes())?;
+        let flags = libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK;
+        let flags = if parts.peek().is_some() {
+            flags | libc::O_DIRECTORY
+        } else {
+            flags
+        };
+        // The directory handle anchors each component. No symlink is followed.
+        let fd = unsafe { libc::openat(directory.as_raw_fd(), name.as_ptr(), flags) };
+        if fd < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        directory = unsafe { std::fs::File::from_raw_fd(fd) };
+        if parts.peek().is_none() {
+            return Ok(directory);
+        }
+    }
+    Err(std::io::Error::other("invalid media path"))
+}
+
+#[cfg(not(unix))]
+pub(crate) fn open_registered_file(_: &std::path::Path) -> std::io::Result<std::fs::File> {
+    Err(std::io::Error::other("anchored media opens require Unix"))
+}
+
 async fn serve_artwork(app: &App, path: PathBuf, req: Request) -> Result<Response> {
     let mime = match path.extension().and_then(|v| v.to_str()) {
         Some("jpg") => "image/jpeg",
@@ -459,10 +500,99 @@ async fn serve_artwork(app: &App, path: PathBuf, req: Request) -> Result<Respons
     Ok(response)
 }
 
+#[derive(Deserialize)]
+pub struct ArtworkOptions {
+    #[serde(default)]
+    embedded: bool,
+}
+
+async fn embedded_cover(app: &Arc<App>, path: PathBuf) -> Result<Response> {
+    if !path
+        .extension()
+        .and_then(|v| v.to_str())
+        .is_some_and(|ext| ["mp3", "flac"].iter().any(|v| ext.eq_ignore_ascii_case(v)))
+    {
+        return Err(Error::new(404, "no supported embedded artwork"));
+    }
+    let slot = app
+        .inspection
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| Error::new(429, "media inspection busy"))?;
+    let work = app.tasks.spawn_blocking(move || {
+        let file = open_registered_file(&path).map_err(|_| Error::new(404, "media unavailable"))?;
+        if !file.metadata()?.is_file() {
+            return Err(Error::new(404, "media unavailable"));
+        }
+        Ok((file, slot))
+    });
+    let input = tokio::time::timeout(Duration::from_secs(5), work)
+        .await
+        .map_err(|_| Error::new(504, "artwork open timed out"))?
+        .map_err(|_| Error::new(500, "artwork worker failed"))??;
+    let png = run_process(
+        app,
+        "ffmpeg",
+        [
+            "-nostdin",
+            "-v",
+            "error",
+            "-protocol_whitelist",
+            "pipe",
+            "-format_whitelist",
+            "mp3,flac",
+            "-threads",
+            "1",
+            "-max_pixels",
+            "16777216",
+            "-i",
+            "pipe:0",
+            "-map",
+            "0:v:0",
+            "-an",
+            "-sn",
+            "-dn",
+            "-frames:v",
+            "1",
+            "-filter_threads",
+            "1",
+            "-vf",
+            "scale=w='min(512,iw)':h='min(512,ih)':force_original_aspect_ratio=decrease",
+            "-c:v",
+            "png",
+            "-threads",
+            "1",
+            "-f",
+            "image2pipe",
+            "pipe:1",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        None,
+        Duration::from_secs(5),
+        2 << 20,
+        (app.cancel.child_token(), Some(input)),
+    )
+    .await
+    .map_err(|e| {
+        if e.0 == StatusCode::UNPROCESSABLE_ENTITY {
+            Error::new(404, "no supported embedded artwork")
+        } else {
+            e
+        }
+    })?;
+    if !png.starts_with(b"\x89PNG\r\n\x1a\n") {
+        return Err(Error::new(404, "no supported embedded artwork"));
+    }
+    Ok(([(header::CONTENT_TYPE, "image/png")], png).into_response())
+}
+
 pub async fn artwork(
     State(app): State<Arc<App>>,
     Extension(u): Extension<User>,
     Path(id): Path<i64>,
+    Query(options): Query<ArtworkOptions>,
     req: Request,
 ) -> Result<Response> {
     let (path, _, kind) = item_with_kind(&app, u, id).await?;
@@ -510,6 +640,9 @@ pub async fn artwork(
         {
             return serve_artwork(&app, real, req).await;
         }
+    }
+    if kind == "music" && options.embedded {
+        return embedded_cover(&app, path).await;
     }
     Err(Error::new(404, "no local artwork"))
 }

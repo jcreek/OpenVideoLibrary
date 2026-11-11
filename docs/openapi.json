@@ -873,6 +873,12 @@
                   "type": "string",
                   "format": "binary"
                 }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -900,6 +906,15 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "embedded",
+            "in": "query",
+            "description": "Allow embedded MP3/FLAC cover fallback when no local image is available.",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ]

@@ -16,8 +16,10 @@ test.beforeAll(async()=>{
  music=join(root,'music');mkdirSync(music);
  execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','sine=frequency=440','-t','4',
   '-c:a','libmp3lame','-metadata','artist=Fixture Artist','-metadata','album=Fixture Album',join(music,'First track.mp3')]);
- copyFileSync(join(music,'First track.mp3'),join(music,'Second track.mp3'));
  execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','color=red:size=32x32','-frames:v','1','-threads','1',join(music,'cover.png')]);
+ const embedded=join(music,'embedded');mkdirSync(embedded);
+ execFileSync('ffmpeg',['-nostdin','-v','error','-i',join(music,'First track.mp3'),'-i',join(music,'cover.png'),
+  '-map','0:a:0','-map','1:v:0','-c','copy','-disposition:v','attached_pic',join(embedded,'Second track.mp3')]);
  writeFileSync(join(music,'First track.lrc'),'[00:00.10]Opening line\n[00:01.50]Jump here\n[offset:+500]\n');
 
  server=spawn(resolve('../bin/ovl'),[],{env:{...process.env,OVL_DATA:join(root,'data'),OVL_WEB:resolve('dist'),OVL_MIN_FREE_BYTES:'1048576',OVL_TRANSCODE_BYTES:'16777216',OVL_LISTEN:'127.0.0.1:18096',OVL_ACCELERATOR:'cpu',OVL_SECURE_COOKIES:'false'},stdio:'pipe'});
@@ -234,6 +236,7 @@ test('music library tags and decoded audio queue playback',async({page})=>{
  await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeCloseTo(2, 2);
  await player.evaluate(async(a:HTMLAudioElement)=>{a.currentTime=a.duration-.15;await a.play();});
  await expect(page.locator('.player h2')).toHaveText('Second track');
+ await expect.poll(()=>page.locator('.player img').evaluate((image:HTMLImageElement)=>image.naturalWidth)).toBe(32);
  await expect(page.getByRole('list',{name:'Lyrics',exact:true})).toHaveCount(0);
  await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeGreaterThan(.25);
  await page.getByRole('button',{name:'Close player',exact:true}).click();

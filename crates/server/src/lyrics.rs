@@ -107,50 +107,9 @@ fn parse(input: &str, timed: bool) -> Result<Lyrics> {
     Ok(Lyrics { lines })
 }
 
-#[cfg(unix)]
-fn open_sibling(path: &std::path::Path) -> std::io::Result<std::fs::File> {
-    use std::{
-        ffi::CString,
-        os::{
-            fd::{AsRawFd, FromRawFd},
-            unix::ffi::OsStrExt,
-        },
-        path::Component,
-    };
-    let mut parts = path.components().peekable();
-    if parts.next() != Some(Component::RootDir) {
-        return Err(std::io::Error::other("expected absolute lyrics path"));
-    }
-    let mut directory = std::fs::File::open("/")?;
-    while let Some(Component::Normal(name)) = parts.next() {
-        let name = CString::new(name.as_bytes())?;
-        let flags = libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK;
-        let flags = if parts.peek().is_some() {
-            flags | libc::O_DIRECTORY
-        } else {
-            flags
-        };
-        // The directory handle anchors each component. No symlink is followed.
-        let fd = unsafe { libc::openat(directory.as_raw_fd(), name.as_ptr(), flags) };
-        if fd < 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        directory = unsafe { std::fs::File::from_raw_fd(fd) };
-        if parts.peek().is_none() {
-            return Ok(directory);
-        }
-    }
-    Err(std::io::Error::other("invalid lyrics path"))
-}
-
-#[cfg(not(unix))]
-fn open_sibling(_: &std::path::Path) -> std::io::Result<std::fs::File> {
-    Err(std::io::Error::other("local lyrics require Unix"))
-}
-
 fn read_lyrics(path: &std::path::Path) -> Result<Option<Lyrics>> {
     for extension in ["lrc", "txt"] {
-        let Ok(file) = open_sibling(&path.with_extension(extension)) else {
+        let Ok(file) = media::open_registered_file(&path.with_extension(extension)) else {
             continue;
         };
         let metadata = file.metadata()?;
@@ -193,7 +152,7 @@ pub async fn get(
         if !real.starts_with(root) {
             return Err(Error::new(404, "media unavailable"));
         }
-        let file = open_sibling(&real).map_err(unavailable)?;
+        let file = media::open_registered_file(&real).map_err(unavailable)?;
         if !file.metadata().map_err(unavailable)?.is_file() {
             return Err(Error::new(404, "media unavailable"));
         }
