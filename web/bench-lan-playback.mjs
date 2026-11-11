@@ -6,12 +6,13 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { arch, platform, release, cpus, totalmem } from 'node:os';
 import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
+import { playCohort } from './bench-sustained-playback.mjs';
 
 const { values } = parseArgs({
   options: {
     host: { type: 'string' }, key: { type: 'string' },
     workspace: { type: 'string' }, listen: { type: 'string' },
-    output: { type: 'string' }, unbuffered: { type: 'boolean' },
+    output: { type: 'string' }, unbuffered: { type: 'boolean' }, sustained: { type: 'string' },
   },
 });
 if (!values.host || !/^[a-zA-Z0-9_.@-]+$/.test(values.host) || values.host.startsWith('-')
@@ -20,10 +21,14 @@ if (!values.host || !/^[a-zA-Z0-9_.@-]+$/.test(values.host) || values.host.start
   throw Error('Specify --host, --key, --workspace (remote source), --listen (IPv4) and --output');
 }
 
+if (values.sustained && (values.unbuffered || !['direct', 'remux', 'transcode'].includes(values.sustained))) {
+  throw Error('Choose one sustained mode: direct, remux, or transcode');
+}
+
 const ssh = spawn('ssh', [
   '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'IdentitiesOnly=yes',
   '-o', 'ConnectTimeout=5', '-i', values.key, values.host,
-  `cd '${values.workspace}' && exec python3 scripts/lan_playback_worker.py --listen '${values.listen}'${values.unbuffered ? ' --unbuffered' : ''}`,
+  `cd '${values.workspace}' && exec python3 scripts/lan_playback_worker.py --listen '${values.listen}'${values.unbuffered ? ' --unbuffered' : ''}${values.sustained ? ' --sustained' : ''}`,
 ], { stdio: ['pipe', 'pipe', 'pipe'] });
 ssh.stdin.on('error', () => {}); // If the worker exits, the close result is authoritative.
 let stderr = '';
@@ -63,7 +68,8 @@ async function ready(origin) {
 }
 const report = {
   recorded_utc: new Date().toISOString(),
-  scope: 'Direct HTTP, generated local-storage H.264/AAC MP4; decoded browser startup and seek; no SMB, TLS, or sustained concurrency',
+  scope: values.sustained ? 'Two simultaneous Chromium playback windows over LAN; generated local-storage fixture; no SMB, TLS or hardware transcode'
+    : 'Direct HTTP, generated local-storage H.264/AAC MP4; decoded browser startup and seek; no SMB, TLS, or sustained concurrency',
   client: { platform: platform(), arch: arch(), kernel: release(), cpu: cpus()[0]?.model, ram_bytes: totalmem() },
   client_sha256: createHash('sha256').update(await readFile(new URL(import.meta.url))).digest('hex'),
   complete: false, results: [],
@@ -78,6 +84,16 @@ try {
   browser = await chromium.launch({ channel: 'chromium', timeout: 15000 });
   report.client.browser = browser.version();
 
+  if (values.sustained) {
+    report.mode = values.sustained;
+    report.sustained_client_sha256 = createHash('sha256')
+      .update(await readFile(new URL('./bench-sustained-playback.mjs', import.meta.url))).digest('hex');
+    for (let repetition = 0; repetition < 5; repetition++) {
+      const result = await playCohort({ browser, origin, token, item, mode: values.sustained, server, deadline });
+      report.results.push({ repetition, ...result });
+      await writeFile(values.output, JSON.stringify(report, null, 2) + '\n');
+    }
+  } else {
   for (let repetition = 0; repetition < 5; repetition++) {
     const context = await browser.newContext({ extraHTTPHeaders: { Authorization: 'Bearer ' + token } });
     try {
@@ -186,6 +202,7 @@ try {
     } finally {
       await context.close();
     }
+  }
   }
   ssh.stdin.end('done\n');
   report.cleanup = await event();

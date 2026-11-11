@@ -313,3 +313,50 @@ The first sample is retained. This is a synthetic local-storage LAN diagnostic:
 padding stresses byte-range delivery with a simple picture, not demanding
 video decoding. It does not qualify SMB, long-title stalls, real media,
 sustained playback concurrency or a Jellyfin comparison.
+
+## Concurrent browser playback windows over LAN
+
+Stage the worker as above and copy the locked web dependency
+`web/node_modules/hls.js/dist/hls.min.js` to
+`scripts/bench-hls.min.js` in the **remote test workspace** (do not commit the
+bundle). Run the LAN browser command separately with
+`--sustained direct`, `--sustained remux` and `--sustained transcode`.
+The report includes the bundle hash, client/worker hashes, source/binary
+identity, and fixture identity.
+
+Each mode uses the same generated local-storage 36-second 720p/24 H.264/AAC
+clip, starting red and then showing a moving test pattern. Two isolated
+Chromium contexts share the fixture viewer credential. Each watches for
+20 seconds after the first decoded frame; the harness requires at least
+18 seconds of overlap, correct first-frame pixels/dimensions and at least
+18 seconds of decoded media progress per player. It checks media peer
+identity and deletes the HLS sessions. Browser waiting events and frame
+callback gaps are recorded separately; the latter include client scheduling.
+
+The worker samples core RSS and aggregate FFmpeg RSS/worker count every
+100 ms. FFmpeg CPU is the sum of maximum sampled CPU time for observed
+processes and is a lower bound. Resources are reported across each mode run
+and include gaps between browser cohorts. CPU transcode is forced. Browser
+playback overlap does not imply sustained simultaneous FFmpeg activity:
+event HLS can encode ahead. The muted frame checks do not certify audio
+quality or equivalent perceptual quality. No SMB, mixed workload or Jellyfin
+comparison is inferred from these diagnostics.
+
+Five cohorts per mode (ten player windows each) passed on N100, controlled by
+SSH with an Apple M4/Chromium LAN client. All runs used the same source and
+release binary, a byte-identical 13,940,091-byte fixture, and hls.js 1.7.4.
+There were zero browser waiting events and zero frame gaps over 250 ms.
+The minimum overlap was 19.90 seconds, and the smallest decoded media advance
+was 19.875 seconds. All HLS session deletes and worker shutdowns succeeded.
+
+| Mode | First frame median (min–max; sample σ), ms | Max callback gap, ms | Sampled core peak RSS, MiB | Peak FFmpeg workers / RSS, MiB | FFmpeg sampled CPU lower bound, s |
+| --- | --- | --- | --- | --- | --- |
+| [Direct](benchmarks/rust-n100-lan-sustained-direct.json) | 26.95 (14.60–167.10; 57.70) | 83.30 | 10.73 | 0 / 0 | 0 |
+| [Remux](benchmarks/rust-n100-lan-sustained-remux.json) | 418.75 (402.30–567.20; 63.00) | 150.00 | 12.27 | 2 / 108.21 | 35.83 |
+| [CPU transcode](benchmarks/rust-n100-lan-sustained-transcode.json) | 1,526.15 (1,452.80–1,650.30; 69.19) | 150.00 | 12.03 | 2 / 361.32 | 229.21 |
+
+Startup statistics are descriptive across ten player samples per mode;
+the two players in each cohort are paired, not independent repetitions.
+FFmpeg RSS is the sum across live workers at each sample. These observations
+do not establish a capacity limit, long-soak behavior, hardware transcode,
+other clients, or mixed scan/playback capacity.

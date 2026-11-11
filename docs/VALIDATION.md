@@ -679,3 +679,21 @@ GPU, SMB and sustained streaming were not rerun. See `BENCHMARKS.md`.
 explicit CPU media/failure tests, seven Python tests, type consistency,
 benchmark-crate checks, 12 browser scenarios and disposable Nginx.
 No hosted Actions ran.
+
+## Concurrent browser playback over LAN (2026-11-11)
+
+N100 SSH-controlled tests passed five two-player cohorts each for direct,
+remux and CPU transcode, with byte-identical generated local-storage media.
+All 30 player windows verified decoded output and progress; minimum overlap
+was 19.90 seconds and there were no browser waiting events or gaps over
+250 ms. Core and FFmpeg resource samples are separate. Independent review
+confirmed the results and scope. The HLS runs used two live FFmpeg workers
+at sampled peaks; the playback windows do not imply continuous encoding.
+See `BENCHMARKS.md` and the three sustained-run artifacts.
+
+Both prior LAN seek variants passed five regression trials with the updated
+worker. Full `make verify-local` passed: frontend, Rust, API/socket,
+explicit CPU media/failure tests, Python, generated types, benchmark-crate
+checks, 12 browser scenarios and disposable Nginx. Rust source and N100
+binary are unchanged. Physical GPU, long soak, mixed scanning, SMB and
+Jellyfin-relative acceptance remain separate. No hosted Actions ran.
