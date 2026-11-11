@@ -282,3 +282,34 @@ ran during direct playback.
 This is a LAN/local-storage diagnostic. It does not certify SMB, unbuffered
 seeking, long titles, stalls, mobile devices, other browsers, sustained
 concurrency, or a Jellyfin comparison. LAN bandwidth was not measured.
+
+### LAN seek outside the browser buffer
+
+Use the same command with `--unbuffered` (the N100 worker also needs FFprobe).
+It generates a 60-second, 75,532,229-byte MP4 with CBR padding and seeks to
+55 seconds. This makes a far seek practical without relying on traffic
+shaping or writing to SMB. The worker rejects truncated/oversized fixtures
+and independently locates the 55-second video keyframe with FFprobe.
+
+The browser rejects a target already in its buffered ranges. It requires a
+new HTTP 206 from the N100 peer, with a matching requested offset and a returned
+range spanning the target keyframe's start position. It verifies that the
+request starts after the seek and the response begins before the decoded blue
+frame callback (with 1 ms clock tolerance). This establishes a network-backed
+seek, without claiming that a particular response delivered every decoded byte.
+
+[Recorded run](benchmarks/rust-n100-lan-unbuffered-seek.json): five trials,
+zero errors, identical N100 binary and client browser version to the buffered
+diagnostic. Every trial sought to 55 seconds with the target initially
+unbuffered. The response started at byte 69,206,016; the independently probed
+keyframe starts at byte 69,238,623.
+
+| Metric | Median, ms | Min–max, ms | Sample σ, ms |
+| --- | --- | --- | --- |
+| First decoded frame | 14.80 | 12.10–150.30 | 60.71 |
+| Unbuffered seek to decoded frame | 10.10 | 7.60–11.00 | 1.51 |
+
+The first sample is retained. This is a synthetic local-storage LAN diagnostic:
+padding stresses byte-range delivery with a simple picture, not demanding
+video decoding. It does not qualify SMB, long-title stalls, real media,
+sustained playback concurrency or a Jellyfin comparison.

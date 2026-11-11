@@ -663,3 +663,19 @@ limitations. Rust code and the prior physical GPU evidence are unchanged.
 Full local verification passed again, including frontend, Rust, Python,
 CPU media, generated types, 12 browser scenarios and disposable Nginx.
 No GitHub Actions ran.
+
+## Unbuffered LAN seek diagnostic (2026-11-11)
+
+The LAN harness now has a bounded padded fixture and a far seek. All five
+unbuffered trials fetched a new same-peer HTTP 206 whose returned range spans
+the FFprobe-identified target keyframe. The recorded response start precedes
+the decoded blue frame callback in each trial. Follow-up independent review
+confirmed the timing and scope; this measures local-storage LAN seeking.
+All five default short-fixture regressions also passed and both disposable
+N100 servers shut down cleanly. The Rust source and binary are unchanged;
+GPU, SMB and sustained streaming were not rerun. See `BENCHMARKS.md`.
+
+`make verify-local` passed again: frontend/Rust checks, API and socket tests,
+explicit CPU media/failure tests, seven Python tests, type consistency,
+benchmark-crate checks, 12 browser scenarios and disposable Nginx.
+No hosted Actions ran.

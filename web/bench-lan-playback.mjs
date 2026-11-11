@@ -11,7 +11,7 @@ const { values } = parseArgs({
   options: {
     host: { type: 'string' }, key: { type: 'string' },
     workspace: { type: 'string' }, listen: { type: 'string' },
-    output: { type: 'string' },
+    output: { type: 'string' }, unbuffered: { type: 'boolean' },
   },
 });
 if (!values.host || !/^[a-zA-Z0-9_.@-]+$/.test(values.host) || values.host.startsWith('-')
@@ -23,7 +23,7 @@ if (!values.host || !/^[a-zA-Z0-9_.@-]+$/.test(values.host) || values.host.start
 const ssh = spawn('ssh', [
   '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'IdentitiesOnly=yes',
   '-o', 'ConnectTimeout=5', '-i', values.key, values.host,
-  `cd '${values.workspace}' && exec python3 scripts/lan_playback_worker.py --listen '${values.listen}'`,
+  `cd '${values.workspace}' && exec python3 scripts/lan_playback_worker.py --listen '${values.listen}'${values.unbuffered ? ' --unbuffered' : ''}`,
 ], { stdio: ['pipe', 'pipe', 'pipe'] });
 ssh.stdin.on('error', () => {}); // If the worker exits, the close result is authoritative.
 let stderr = '';
@@ -82,11 +82,16 @@ try {
     const context = await browser.newContext({ extraHTTPHeaders: { Authorization: 'Bearer ' + token } });
     try {
       const page = await context.newPage();
-      const range = page.waitForResponse(r => new URL(r.url()).pathname === `/api/v1/items/${item}/file`
-        && r.status() === 206, { timeout: 15000 });
+      const isMediaRange = r => new URL(r.url()).origin === origin
+        && new URL(r.url()).pathname === `/api/v1/items/${item}/file` && r.status() === 206;
+      const mediaRanges = [];
+      page.on('response', r => {
+        if (isMediaRange(r) && mediaRanges.length < 32) mediaRanges.push(r);
+      });
+      const range = page.waitForResponse(isMediaRange, { timeout: 15000 });
       range.catch(() => {});
       await page.goto(origin + "/", { timeout: 10000 });
-      const timings = await deadline(page.evaluate(async ({ item }) => {
+      const timings = await deadline(page.evaluate(async ({ item, seekTarget, mustFetch }) => {
         const video = document.querySelector('video');
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = 1;
@@ -127,14 +132,17 @@ try {
         await video.play();
         const startup = await initial;
         const seekBuffered = Array.from({ length: video.buffered.length }, (_, i) =>
-          video.buffered.start(i) <= 3 && video.buffered.end(i) >= 3).some(Boolean);
-        const afterSeek = frame(performance.now(), 2.95);
+          video.buffered.start(i) <= seekTarget && video.buffered.end(i) >= seekTarget).some(Boolean);
+        if (mustFetch && seekBuffered) throw Error('target was already buffered');
+        const seekStart = performance.now();
+        const afterSeek = frame(seekStart, seekTarget - .05);
         afterSeek.catch(() => {});
-        video.currentTime = 3;
+        video.currentTime = seekTarget;
         const seek = await afterSeek;
         video.pause();
-        return { setup_ms, startup, seek, seek_target_buffered: seekBuffered };
-      }, { item }), 22000, "browser playback trial timed out");
+        return { setup_ms, startup, seek, seek_target_buffered: seekBuffered,
+          seek_start_epoch_ms: performance.timeOrigin + seekStart };
+      }, { item, seekTarget: server.seek_target_seconds, mustFetch: values.unbuffered }), 22000, "browser playback trial timed out");
       const mediaResponse = await range;
       const peer = await mediaResponse.serverAddr();
       const contentRange = mediaResponse.headers()['content-range'];
@@ -144,11 +152,36 @@ try {
       const [r0, g0, b0] = startup.pixel;
       const [r1, g1, b1] = seek.pixel;
       if (!(r0 > 180 && g0 < 50 && b0 < 50 && startup.media_seconds < .5
-          && b1 > 180 && g1 < 50 && r1 < 50 && seek.media_seconds < 3.5
+          && b1 > 180 && g1 < 50 && r1 < 50 && seek.media_seconds < server.seek_target_seconds + .5
           && [startup, seek].every(f => f.width === 640 && f.height === 360))) {
         throw Error('unexpected decoded frame, dimensions, or media time');
       }
-      report.results.push({ repetition, status: 206, content_range: contentRange, peer_verified: true, ...timings });
+      let seekRange;
+      if (values.unbuffered) {
+        for (const candidate of mediaRanges) {
+          const contentRange = candidate.headers()['content-range'];
+          const match = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(contentRange ?? '');
+          const request = candidate.request();
+          const { startTime: started, responseStart } = request.timing();
+          const responseAt = started + responseStart;
+          if (!match || Number(match[3]) !== server.fixture_bytes
+              || Number(match[1]) < server.fixture_bytes * .75
+              || Number(match[1]) > server.seek_keyframe.position
+              || Number(match[2]) < server.seek_keyframe.position
+              || Number(match[2]) >= server.fixture_bytes
+              || !request.headers().range?.startsWith(`bytes=${match[1]}-`)
+              || started < timings.seek_start_epoch_ms - 1
+              || responseStart < 0 || responseAt > timings.seek_start_epoch_ms + timings.seek.milliseconds + 1) continue;
+          const peer = await candidate.serverAddr();
+          if (peer?.ipAddress !== values.listen || peer.port !== Number(new URL(origin).port)) continue;
+          seekRange = { content_range: contentRange, request_range: request.headers().range,
+            request_start_after_seek_ms: started - timings.seek_start_epoch_ms,
+            response_start_after_seek_ms: responseAt - timings.seek_start_epoch_ms, peer_verified: true };
+          break;
+        }
+        if (!seekRange) throw Error('no new verified media range for unbuffered seek');
+      }
+      report.results.push({ repetition, status: 206, content_range: contentRange, peer_verified: true, ...timings, ...(seekRange ? { seek_range: seekRange } : {}) });
       await writeFile(values.output, JSON.stringify(report, null, 2) + '\n');
     } finally {
       await context.close();

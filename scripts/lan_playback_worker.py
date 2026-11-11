@@ -30,6 +30,8 @@ def port_for(host):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--listen', required=True, type=ipaddress.IPv4Address)
+    parser.add_argument('--unbuffered', action='store_true',
+                        help='Generate a bounded padded 60-second fixture for a far seek')
     args = parser.parse_args()
     if not any(args.listen in ipaddress.ip_network(net)
                for net in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '127.0.0.0/8')):
@@ -41,16 +43,41 @@ def main():
         media = root / 'media'
         media.mkdir()
         fixture = media / 'Playback Fixture.mp4'
+        duration = 60 if args.unbuffered else 6
+        seek_target = 55 if args.unbuffered else 3
+        padding = (['-preset', 'ultrafast', '-b:v', '10M', '-minrate', '10M',
+                    '-maxrate', '10M', '-bufsize', '2M',
+                    '-x264-params', 'nal-hrd=cbr:force-cfr=1']
+                   if args.unbuffered else [])
         subprocess.run([
             'ffmpeg', '-nostdin', '-v', 'error',
             '-f', 'lavfi', '-i', 'color=red:size=640x360:rate=24:d=2',
-            '-f', 'lavfi', '-i', 'color=blue:size=640x360:rate=24:d=4',
+            '-f', 'lavfi', '-i', f'color=blue:size=640x360:rate=24:d={duration-2}',
             '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
             '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0[v]',
-            '-map', '[v]', '-map', '2:a:0', '-t', '6',
+            '-map', '[v]', '-map', '2:a:0', '-t', str(duration),
             '-c:v', 'libx264', '-threads', '2', '-pix_fmt', 'yuv420p',
-            '-g', '24', '-c:a', 'aac', '-movflags', '+faststart', str(fixture),
-        ], check=True, timeout=30)
+            '-g', '24', *padding, '-c:a', 'aac', '-movflags', '+faststart',
+            '-fs', str(80 << 20), str(fixture),
+        ], check=True, timeout=60)
+        fixture_bytes = fixture.stat().st_size
+        if fixture_bytes >= 80 << 20 or (args.unbuffered and fixture_bytes < 50 << 20):
+            raise RuntimeError('fixture size outside the expected bounds')
+        with fixture.open('rb') as stream:
+            fixture_hash = hashlib.sha256()
+            for chunk in iter(lambda: stream.read(1 << 20), b''):
+                fixture_hash.update(chunk)
+        seek_keyframe = None
+        if args.unbuffered:
+            packet = json.loads(subprocess.check_output([
+                'ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                '-read_intervals', f'{seek_target}%+#1', '-show_packets',
+                '-show_entries', 'packet=pts_time,pos,flags', '-of', 'json', str(fixture),
+            ], timeout=5))['packets'][0]
+            seek_keyframe = {'position': int(packet['pos']), 'seconds': float(packet['pts_time'])}
+            if ('K' not in packet['flags'] or not seek_target - 1 <= seek_keyframe['seconds'] <= seek_target
+                    or not fixture_bytes * .75 <= seek_keyframe['position'] < fixture_bytes):
+                raise RuntimeError('unexpected target keyframe location')
         fixture.chmod(0o444)
         web = root / 'web'
         web.mkdir()
@@ -114,8 +141,12 @@ def main():
                         'source_sha256': source_hash(),
                         'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
                         'worker_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                        'fixture_sha256': hashlib.sha256(fixture.read_bytes()).hexdigest(),
-                        'fixture_bytes': fixture.stat().st_size,
+                        'fixture_sha256': fixture_hash.hexdigest(),
+                        'fixture_bytes': fixture_bytes,
+                        'fixture_seconds': duration,
+                        'seek_target_seconds': seek_target,
+                        'seek_keyframe': seek_keyframe,
+                        'unbuffered_required': args.unbuffered,
                     },
                 }), flush=True)
                 # EOF, a completion line or a bounded timeout ends the LAN listener.
