@@ -31,6 +31,8 @@ pub struct ClientCapabilities {
     pub video_codecs: Vec<String>,
     pub audio_codecs: Vec<String>,
     #[serde(default)]
+    pub max_audio_channels: Option<u8>,
+    #[serde(default)]
     pub video_pixel_formats: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub hdr: bool,
@@ -106,6 +108,12 @@ fn pixel_format_supported(track: &media::Track, capabilities: Option<&ClientCapa
     matches!(track.codec_name.as_str(), "h264" | "hevc" | "vp9" | "av1")
         && matches!(track.pix_fmt.as_str(), "yuv420p" | "yuvj420p")
 }
+fn channel_limit(capabilities: Option<&ClientCapabilities>) -> u32 {
+    u32::from(capabilities.and_then(|c| c.max_audio_channels).unwrap_or(2))
+}
+fn channels_supported(track: &media::Track, capabilities: Option<&ClientCapabilities>) -> bool {
+    track.channels > 0 && track.channels <= channel_limit(capabilities)
+}
 pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
     if b.subtitle.is_some() {
         return (
@@ -121,9 +129,9 @@ pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
         let video_ok = c.video_codecs.contains(&v.codec_name)
             && pixel_format_supported(v, Some(c))
             && (!info.hdr() || c.hdr);
-        let audio_ok = audio
-            .get(b.audio)
-            .is_none_or(|a| c.audio_codecs.contains(&a.codec_name));
+        let audio_ok = audio.get(b.audio).is_none_or(|a| {
+            c.audio_codecs.contains(&a.codec_name) && channels_supported(a, Some(c))
+        });
         let container_ok = info
             .format
             .format_name
@@ -151,9 +159,9 @@ pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
             .into(),
         );
     }
-    let audio_ok = audio
-        .get(b.audio)
-        .is_none_or(|a| ["aac", "mp3"].contains(&a.codec_name.as_str()));
+    let audio_ok = audio.get(b.audio).is_none_or(|a| {
+        ["aac", "mp3"].contains(&a.codec_name.as_str()) && channels_supported(a, None)
+    });
     if b.can_play_mp4
         && info.format.format_name.contains("mp4")
         && v.codec_name == "h264"
@@ -191,6 +199,16 @@ pub async fn start(
 ) -> Result<(StatusCode, Json<Value>)> {
     let (path, library) = media::item(&app, u, item_id).await?;
     let mut b: Playback = parse(&body)?;
+    if b.capabilities
+        .as_ref()
+        .and_then(|c| c.max_audio_channels)
+        .is_some_and(|n| !(1..=8).contains(&n))
+    {
+        return Err(Error::new(
+            400,
+            "max_audio_channels must be between 1 and 8",
+        ));
+    }
     if !b.start.is_finite() || b.start < 0.0 {
         return Err(Error::new(400, "invalid stream options"));
     }
@@ -422,7 +440,9 @@ pub fn encoding_args(
             "-c:a".into(),
             "aac".into(),
             "-ac".into(),
-            "2".into(),
+            channel_limit(b.capabilities.as_ref())
+                .clamp(1, 2)
+                .to_string(),
             "-b:a".into(),
             "128k".into(),
             "-f".into(),

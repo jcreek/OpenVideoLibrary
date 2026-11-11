@@ -73,6 +73,7 @@ pub struct Track {
     pub index: i32,
     pub codec_name: String,
     pub codec_type: String,
+    pub channels: u32,
     pub width: u32,
     pub height: u32,
     pub color_transfer: String,

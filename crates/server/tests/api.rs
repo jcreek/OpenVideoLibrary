@@ -397,13 +397,14 @@ async fn symlink_escape_is_denied_on_all_media_paths() {
 }
 #[test]
 fn negotiation_handles_hdr_audio_container_and_subtitles() {
-    let mut info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"hevc","pix_fmt":"yuv420p10le","color_transfer":"smpte2084","width":3840,"height":2160},{"codec_type":"audio","codec_name":"truehd"}],"format":{"format_name":"matroska","duration":"60"}})).unwrap();
+    let mut info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"hevc","pix_fmt":"yuv420p10le","color_transfer":"smpte2084","width":3840,"height":2160},{"codec_type":"audio","codec_name":"truehd","channels":2}],"format":{"format_name":"matroska","duration":"60"}})).unwrap();
     let mut request = Playback {
         mode: "auto".into(),
         capabilities: Some(ClientCapabilities {
             containers: vec!["matroska".into()],
             video_codecs: vec!["hevc".into()],
             audio_codecs: vec!["truehd".into()],
+            max_audio_channels: None,
             hdr: true,
             video_pixel_formats: [("hevc".into(), vec!["yuv420p10le".into()])].into(),
         }),
@@ -1187,12 +1188,13 @@ async fn database_shutdown_drains_admitted_work_and_rejects_clones() {
 
 #[test]
 fn demuxer_aliases_do_not_claim_webm_compatibility_for_matroska() {
-    let info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"vp9","pix_fmt":"yuv420p"},{"codec_type":"audio","codec_name":"opus"}],"format":{"format_name":"matroska,webm"}})).unwrap();
+    let info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"vp9","pix_fmt":"yuv420p"},{"codec_type":"audio","codec_name":"opus","channels":2}],"format":{"format_name":"matroska,webm"}})).unwrap();
     let request = Playback {
         capabilities: Some(ClientCapabilities {
             containers: vec!["webm".into()],
             video_codecs: vec!["vp9".into()],
             audio_codecs: vec!["opus".into()],
+            max_audio_channels: None,
             hdr: false,
             video_pixel_formats: Default::default(),
         }),
@@ -2007,7 +2009,7 @@ fn hdr_hardware_selection_requires_verified_color_metadata_and_opt_in() {
 
 #[test]
 fn negotiation_requires_source_pixel_format_support() {
-    let mut info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p"},{"codec_type":"audio","codec_name":"aac"}],"format":{"format_name":"mp4"}})).unwrap();
+    let mut info:media::Info=serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p"},{"codec_type":"audio","codec_name":"aac","channels":2}],"format":{"format_name":"mp4"}})).unwrap();
     let mut request:Playback=serde_json::from_value(json!({"Mode":"auto","CanPlayMP4":true,"Capabilities":{"containers":["mp4"],"video_codecs":["h264"],"audio_codecs":["aac"],"hdr":false}})).unwrap();
     assert_eq!(playback::negotiate(&info, &request).0, "direct");
     for format in ["yuv420p10le", "yuv444p", "yuv444p10le", ""] {
@@ -2906,4 +2908,269 @@ async fn real_styled_subtitles_preserve_embedded_font_and_seek_timing() {
         }
         app.shutdown().await;
     }
+}
+
+#[test]
+fn negotiation_respects_audio_channel_limits_and_unknown_sources() {
+    let mut info: media::Info = serde_json::from_value(json!({"streams":[
+        {"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p"},
+        {"codec_type":"audio","codec_name":"aac","channels":6},
+        {"codec_type":"audio","codec_name":"aac","channels":2}
+    ],"format":{"format_name":"mp4"}}))
+    .unwrap();
+    let mut b: Playback = serde_json::from_value(json!({"Mode":"auto","CanPlayMP4":true,
+        "Capabilities":{"containers":["mp4"],"video_codecs":["h264"],"audio_codecs":["aac"],"hdr":false}})).unwrap();
+    for channels in [0, 1, 2, 6, 8] {
+        info.streams[1].channels = channels;
+        for limit in [None, Some(1), Some(2), Some(6), Some(8)] {
+            b.capabilities.as_mut().unwrap().max_audio_channels = limit;
+            let expected = if channels > 0 && channels <= u32::from(limit.unwrap_or(2)) {
+                "direct"
+            } else {
+                "remux"
+            };
+            assert_eq!(
+                playback::negotiate(&info, &b).0,
+                expected,
+                "source {channels}, limit {limit:?}"
+            );
+        }
+        let mut legacy = b.clone();
+        legacy.capabilities = None;
+        assert_eq!(
+            playback::negotiate(&info, &legacy).0,
+            if (1..=2).contains(&channels) {
+                "direct"
+            } else {
+                "remux"
+            }
+        );
+    }
+    b.audio = 1;
+    assert_eq!(
+        playback::negotiate(&info, &b).0,
+        "remux",
+        "secondary track must be selected by conversion"
+    );
+    b.audio = 0;
+    info.streams.truncate(1);
+    assert_eq!(
+        playback::negotiate(&info, &b).0,
+        "direct",
+        "silent video needs no audio conversion"
+    );
+    let null: Playback = serde_json::from_value(json!({"Capabilities":{"containers":[],"video_codecs":[],"audio_codecs":[],"hdr":false,"max_audio_channels":null}})).unwrap();
+    assert_eq!(null.capabilities.unwrap().max_audio_channels, None);
+}
+
+#[tokio::test]
+async fn invalid_audio_channel_reports_fail_before_probe_or_allocation() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let item = add_media(&app, root.path()).await;
+    // The source is deliberately not valid media: probing would fail with 502.
+    for limit in [
+        json!(0),
+        json!(9),
+        json!(256),
+        json!(-1),
+        json!(1.5),
+        json!("2"),
+    ] {
+        for mode in ["auto", "direct", "remux", "transcode"] {
+            let (status,body)=request(&router,"POST",&format!("/api/v1/items/{item}/playback"),Some(&token),
+                Some(json!({"Mode":mode,"Capabilities":{"containers":["mp4"],"video_codecs":["h264"],"audio_codecs":["aac"],"hdr":false,"max_audio_channels":limit}}))).await;
+            assert_eq!(status, 400, "{mode}, {limit}: {body}");
+            assert!(app.streams.lock().await.is_empty());
+        }
+    }
+    let temporary = app.config.data.join("transcodes");
+    assert!(!temporary.exists() || std::fs::read_dir(temporary).unwrap().count() == 0);
+    app.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "requires FFmpeg AAC 5.1 encode/decode and libx264; decoded channel-tone software acceptance"]
+async fn real_surround_audio_negotiates_and_downmixes_selected_channels() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let item = add_media(&app, root.path()).await;
+    let path = root.path().join("media/Example.S01E01.mp4");
+    let args=["-nostdin","-v","error","-y","-f","lavfi","-i","testsrc2=size=320x180:rate=12",
+        "-f","lavfi","-i","aevalsrc=0.08*sin(2*PI*400*t)|0.08*sin(2*PI*600*t)|0.08*sin(2*PI*800*t)|0.08*sin(2*PI*80*t)|0.08*sin(2*PI*1000*t)|0.08*sin(2*PI*1200*t):s=48000:c=5.1",
+        "-f","lavfi","-i","aevalsrc=0.08*sin(2*PI*1600*t)|0.08*sin(2*PI*1800*t):s=48000:c=stereo",
+        "-map","0:v:0","-map","1:a:0","-map","2:a:0","-t","3","-c:v","libx264","-threads","2","-g","12","-pix_fmt","yuv420p",
+        "-c:a","aac","-b:a:0","384k","-b:a:1","128k",path.to_str().unwrap()].into_iter().map(str::to_owned).collect();
+    media::process(
+        &app,
+        "ffmpeg",
+        args,
+        None,
+        Duration::from_secs(30),
+        1024,
+        app.cancel.child_token(),
+    )
+    .await
+    .unwrap();
+    let (status, probe) = request(
+        &router,
+        "GET",
+        &format!("/api/v1/items/{item}/probe"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{probe}");
+    let info: media::Info = serde_json::from_value(probe).unwrap();
+    assert_eq!(
+        info.tracks("audio")
+            .iter()
+            .map(|a| a.channels)
+            .collect::<Vec<_>>(),
+        vec![6, 2]
+    );
+    // Mono and stereo conversion, legacy default, explicit six-channel direct,
+    // secondary-track selection and a seeked full-video conversion.
+    for (limit, audio, mode, start, expected) in [
+        (Some(2), 0, "auto", 0.0, "remux"),
+        (Some(1), 0, "auto", 0.0, "remux"),
+        (None, 0, "auto", 0.0, "remux"),
+        (Some(6), 0, "auto", 0.0, "direct"),
+        (Some(2), 1, "auto", 0.0, "remux"),
+        (Some(2), 0, "transcode", 1.5, "transcode"),
+    ] {
+        let (status,session)=request(&router,"POST",&format!("/api/v1/items/{item}/playback"),Some(&token),
+            Some(json!({"Mode":mode,"Audio":audio,"Start":start,"Capabilities":{"containers":["mov","mp4","m4a","3gp","3g2","mj2"],"video_codecs":["h264"],"audio_codecs":["aac"],"hdr":false,"max_audio_channels":limit}}))).await;
+        assert!(status == 200 || status == 201, "{session}");
+        assert_eq!(session["mode"], expected, "{session}");
+        if expected == "direct" {
+            continue;
+        }
+        let id = session["id"].as_str().unwrap();
+        let (status, master) = request(
+            &router,
+            "GET",
+            session["url"].as_str().unwrap(),
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, 200, "{master}");
+        let output = app.config.data.join("transcodes").join(id).join("v0.m3u8");
+        let converted = media::inspect(&app, &output).await.unwrap();
+        let channels = limit.unwrap_or(2).min(2) as usize;
+        assert_eq!(converted.tracks("audio")[0].channels, channels as u32);
+        assert_eq!(converted.tracks("audio")[0].codec_name, "aac");
+        let args = [
+            "-v",
+            "error",
+            "-i",
+            output.to_str().unwrap(),
+            "-ss",
+            "0.25",
+            "-map",
+            "0:a:0",
+            "-t",
+            "0.5",
+            "-ar",
+            "48000",
+            "-f",
+            "f32le",
+            "pipe:1",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+        let pcm = media::process(
+            &app,
+            "ffmpeg",
+            args,
+            None,
+            Duration::from_secs(15),
+            1 << 20,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        let samples: Vec<f64> = pcm
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f64::from(f32::from_le_bytes(*b)))
+            .collect();
+        assert!(samples.len() >= 23_000 * channels);
+        assert!(
+            samples.iter().all(|s| s.is_finite() && s.abs() < 0.98),
+            "nonfinite or clipped audio"
+        );
+        let amplitude = |channel: usize, hz: f64| {
+            let signal: Vec<_> = samples
+                .iter()
+                .skip(channel)
+                .step_by(channels)
+                .copied()
+                .collect();
+            let mut re = 0.0;
+            let mut im = 0.0;
+            for (n, sample) in signal.iter().enumerate() {
+                let phase = std::f64::consts::TAU * hz * n as f64 / 48000.0;
+                re += sample * phase.cos();
+                im += sample * phase.sin();
+            }
+            2.0 * re.hypot(im) / signal.len() as f64
+        };
+        if audio == 1 {
+            assert!(
+                amplitude(0, 1600.0) > 0.04 && amplitude(1, 1800.0) > 0.04,
+                "wrong secondary track"
+            );
+            assert!(
+                amplitude(0, 400.0) < 0.002 && amplitude(1, 600.0) < 0.002,
+                "primary track leaked"
+            );
+            assert!(
+                amplitude(0, 1800.0) < 0.002 && amplitude(1, 1600.0) < 0.002,
+                "secondary channel swap/leak"
+            );
+        } else {
+            for hz in [400.0, 600.0, 800.0, 1000.0, 1200.0] {
+                assert!(
+                    (0..channels).map(|c| amplitude(c, hz)).fold(0.0, f64::max) > 0.008,
+                    "lost {hz}Hz channel, cap {limit:?}"
+                );
+            }
+            if channels == 2 {
+                for hz in [400.0, 1000.0] {
+                    assert!(
+                        amplitude(0, hz) > 4.0 * amplitude(1, hz),
+                        "left channel {hz} misrouted"
+                    );
+                }
+                for hz in [600.0, 1200.0] {
+                    assert!(
+                        amplitude(1, hz) > 4.0 * amplitude(0, hz),
+                        "right channel {hz} misrouted"
+                    );
+                }
+                assert!(
+                    (amplitude(0, 800.0) / amplitude(1, 800.0) - 1.0).abs() < 0.15,
+                    "center not balanced"
+                );
+            }
+        }
+        assert_eq!(
+            request(
+                &router,
+                "DELETE",
+                &format!("/api/v1/playback/{id}"),
+                Some(&token),
+                None
+            )
+            .await
+            .0,
+            200
+        );
+        assert!(!app.config.data.join("transcodes").join(id).exists());
+    }
+    app.shutdown().await;
 }

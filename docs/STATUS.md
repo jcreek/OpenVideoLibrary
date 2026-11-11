@@ -133,3 +133,10 @@ ASS regression covers font fallback discrimination, red glyph geometry, two
 tracks, cue clearing and timed audio at zero/five-second origins. Broader effects,
 languages, SSA, VFR/delayed tracks and duration interpretation remain open; see
 `PLAYBACK.md`.
+
+Automatic direct playback now enforces a known audio channel count against an
+optional 1–8-channel client limit (default stereo); the web client reports two.
+HLS converts to AAC stereo or reported mono. Generated 5.1 channel-tone and
+alternate-track decoding tests cover downmix routing and a seeked conversion.
+Surround passthrough, layout/profile/sample-rate negotiation and real devices
+remain unaccepted; see `PLAYBACK.md`.

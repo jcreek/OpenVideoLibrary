@@ -32,7 +32,9 @@ test('household workflow and viewer authorization',async({page,browserName})=>{
  await page.getByLabel('Subtitles',{exact:true}).selectOption('burn:0');
  const burned=page.waitForRequest(r=>r.url().endsWith('/playback')&&r.method()==='POST'&&r.postDataJSON().Subtitle===0);
  await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();
- expect((await burned).postDataJSON().Mode).toBe('transcode');
+ const burnRequest=(await burned).postDataJSON();
+ expect(burnRequest.Mode).toBe('transcode');
+ expect(burnRequest.Capabilities.max_audio_channels).toBe(2);
  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
  await page.getByText('Edit title and metadata',{exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('Edited episode');await page.getByLabel('Overview',{exact:true}).fill('Local metadata survives a refresh.');await page.getByRole('button',{name:'Save metadata',exact:true}).click();await expect(page.getByRole('heading',{name:'Edited episode',exact:true}).first()).toBeVisible();
  await page.getByRole('button',{name:'Close player',exact:true}).click();

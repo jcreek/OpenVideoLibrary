@@ -86,7 +86,7 @@ function clientCapabilities():ClientCapabilities {
  for(const [codec,mime] of [['h264','video/mp4; codecs="avc1.42E01E"'],['hevc','video/mp4; codecs="hvc1.1.6.L93.B0"'],['av1','video/mp4; codecs="av01.0.08M.08"'],['vp9','video/webm; codecs="vp9"']])if(v.canPlayType(mime))video_codecs.push(codec);
  for(const [codec,mime] of [['aac','audio/mp4; codecs="mp4a.40.2"'],['mp3','audio/mpeg'],['opus','audio/webm; codecs="opus"']])if(v.canPlayType(mime))audio_codecs.push(codec);
  // Display HDR alone does not establish browser decoding support. Stay conservative.
- return {containers:['mp4','webm'],video_codecs,audio_codecs,video_pixel_formats:Object.fromEntries(video_codecs.map(codec=>[codec,['yuv420p','yuvj420p']])),hdr:false};
+ return {containers:['mp4','webm'],video_codecs,audio_codecs,max_audio_channels:2,video_pixel_formats:Object.fromEntries(video_codecs.map(codec=>[codec,['yuv420p','yuvj420p']])),hdr:false};
 }
 async function loadLists(){savedLists=await api('lists');}
 async function selectList(id:number){activeList=await api('lists/'+id);section='lists';}

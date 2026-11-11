@@ -2,7 +2,7 @@
 
 `docs/openapi.json` owns the native playback request contract. Automatic mode
 considers the source container, selected audio, video codec, video pixel format,
-HDR support and subtitle burn-in. Codec names alone do not prove every profile,
+audio channel limits, HDR support and subtitle burn-in. Codec names alone do not prove every profile,
 bit depth or chroma format is supported.
 
 Clients can send `Capabilities.video_pixel_formats`, an optional map from FFprobe
@@ -15,6 +15,7 @@ codec name to supported FFprobe pixel formats, for example:
     "containers": ["mp4", "webm"],
     "video_codecs": ["h264", "vp9"],
     "audio_codecs": ["aac", "opus"],
+    "max_audio_channels": 2,
     "video_pixel_formats": {
       "h264": ["yuv420p", "yuvj420p"],
       "vp9": ["yuv420p"]
@@ -41,7 +42,7 @@ The generated software corpus includes ordinary 8-bit 4:2:0, 10-bit 4:2:0 and
 8-bit 4:4:4 H.264. The latter two require conversion for conservative clients.
 Tests inspect converted output as H.264 `yuv420p`, compare decoded source/output
 RGB and check audio. These synthetic checks do not certify every file or device.
-Codec profiles/levels, resolution/frame-rate limits, audio channel/layout support,
+Codec profiles/levels, resolution/frame-rate limits, audio layout support,
 Dolby Vision, subtitle styling/fonts/bitmap formats and device-specific decoding
 still need broader negotiation and acceptance evidence. Hardware acceptance and
 performance remain separate; see `HDR.md`, `BENCHMARKS.md` and `PARITY.md`.
@@ -112,3 +113,32 @@ VFR, timestamp discontinuities, delayed tracks or external-subtitle burn-in.
 Source-duration interpretation across nonzero-origin containers also needs a
 broader corpus; this fix concerns cue alignment and does not redefine duration.
 Physical GPU subtitle rendering remains outside the software acceptance.
+
+## Audio channel capabilities
+
+`MediaTrack.channels` reports the probed channel count (zero if unavailable).
+Automatic direct playback requires the selected audio codec and a known positive
+channel count within `Capabilities.max_audio_channels`. The optional limit is
+1–8; omission or null uses two channels. The web client explicitly reports two.
+Absent audio streams remain eligible for direct playback; an audio stream with
+unknown channel count requires conversion. Legacy `CanPlayMP4` also defaults to
+stereo. An alternate audio track still requires remux/transcode selection.
+
+HLS audio uses AAC, with stereo output or mono when the reported limit is one.
+A larger limit permits suitable source multichannel direct playback; HLS does
+not currently preserve surround or provide passthrough. Manual direct mode is
+an explicit override. Channel counts do not prove support for layouts, codec
+profiles, sample rates, object audio or a physical device. General conversion
+target capability negotiation remains incomplete.
+
+The software corpus generates AAC 5.1 with distinct front, center, surround and
+LFE frequencies and a separate stereo track. Decoded mono/stereo assertions
+check non-LFE contributions, left/right routing, balanced center, clipping,
+track isolation, output codec/channel count and a seeked video conversion.
+The ordinary downmix may omit LFE; no bass-management claim is made. An explicit
+six-channel report exercises direct selection without certifying a device.
+
+```sh
+OVL_ACCELERATOR=cpu cargo test --locked --test api \
+  real_surround_audio_negotiates_and_downmixes_selected_channels -- --ignored --nocapture
+```

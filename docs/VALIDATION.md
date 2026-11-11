@@ -1,6 +1,7 @@
-# Rust preview validation — 9 November 2026
+# Rust preview validation — 10 November 2026
 
-Current evidence is summarized in **Guarded VAAPI HDR10 increment** below.
+Current evidence is recorded in the dated increments below; later source-matched
+artifacts supersede earlier counts without expanding their platform scope.
 Source hashes and platform scope belong to each captured artifact; historical
 application/prototype reports do not certify this implementation. The migration
 is published as draft PR #1; no registry image or stable release is published.
@@ -543,3 +544,26 @@ The diagnostic subprocess runner additionally has timeout and output-limit
 regressions verifying killed children are reaped. See `BENCHMARKS.md` for the
 bounded synthetic seek profile and its limitations. Hosted Actions remain
 manual-only; these checks used local hardware and SSH, not Actions minutes.
+
+## Audio channel negotiation (2026-11-11)
+
+Automatic direct playback now checks the selected audio stream's channel count.
+The generated AAC 5.1 regression exercises six sessions, including mono and
+stereo downmix, alternate audio, seeked conversion and explicit six-channel
+direct selection. Decoded tones verify routing, center and surround
+contributions, track isolation and absence of clipping. This does not certify
+surround passthrough or physical device decoding.
+
+Local verification passed: 27 ordinary API tests, socket shutdown, seven
+explicit CPU media and failure tests, 12 browser scenarios and disposable
+Nginx acceptance. The Python suite passed all seven tests after independent
+review corrected the OpenAPI 3.1 integer/null declaration and type generator.
+Generated types were regenerated and checked for byte consistency.
+See `validation-audio-channels-local.json`, `validation-browser-audio-channels.json`
+and `validation-nginx-audio-channels.json`.
+
+All eight checks in `validation-n100-audio-channels.json` passed over SSH and
+its source hash matches the Rust checkout. CPU media and physical VAAPI SDR/HDR
+are separate checks. This run did not repeat the installed-driver negative
+test, production benchmarks, multi-architecture builds or real-device acceptance.
+No hosted Actions minutes were used.

@@ -2225,6 +2225,11 @@
           },
           "color_range": {
             "type": "string"
+          },
+          "channels": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "FFprobe audio channel count; zero means unavailable or not an audio stream."
           }
         },
         "required": [
@@ -2332,6 +2337,15 @@
                 "type": "string"
               }
             }
+          },
+          "max_audio_channels": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 8,
+            "description": "Maximum source audio channels for automatic direct playback. Omitted or null reports use a conservative two-channel limit; unknown source channels require conversion. HLS converts to AAC with at most two channels, or mono when the limit is one. This does not certify channel layouts, passthrough or device decoding."
           }
         },
         "required": [
