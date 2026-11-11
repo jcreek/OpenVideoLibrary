@@ -88,8 +88,14 @@ async fn add_media(app: &Arc<App>, root: &Path) -> i64 {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("Example.S01E01.mp4");
     std::fs::write(&path, b"0123456789").unwrap();
-    let dir = dir.to_string_lossy().into_owned();
-    let path = path.to_string_lossy().into_owned();
+    let dir = std::fs::canonicalize(dir)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let path = std::fs::canonicalize(path)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
     app.db
         .call(move |c| {
             c.execute(
@@ -3658,6 +3664,105 @@ async fn local_lyrics_are_bounded_and_follow_current_music_grants() {
     assert_eq!(
         request(&router, "GET", &url, Some(&listener), None).await.0,
         404
+    );
+    app.shutdown().await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn replaced_library_root_is_unavailable_without_losing_queue_or_records() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let id = add_media(&app, root.path()).await;
+    let media = root.path().join("media");
+    let original = root.path().join("original");
+    let outside = root.path().join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    std::fs::write(outside.join("Example.S01E01.mp4"), b"outside bytes").unwrap();
+    std::fs::write(outside.join("Outside.mp4"), b"outside title").unwrap();
+    assert_eq!(
+        request(
+            &router,
+            "POST",
+            "/api/v1/lists",
+            Some(&token),
+            Some(json!({"Kind":"queue","Name":"Root replacement","ItemIDs":[id]}))
+        )
+        .await
+        .0,
+        201
+    );
+    let queue = "/api/v1/lists/1";
+    assert_eq!(
+        request(&router, "GET", queue, Some(&token), None).await.1["entries"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    std::fs::rename(&media, &original).unwrap();
+    std::os::unix::fs::symlink(&outside, &media).unwrap();
+    for (method, suffix) in [
+        ("GET", "file"),
+        ("GET", "probe"),
+        ("GET", "artwork"),
+        ("POST", "playback"),
+        ("POST", "subtitles"),
+    ] {
+        assert_eq!(
+            request(
+                &router,
+                method,
+                &format!("/api/v1/items/{id}/{suffix}"),
+                Some(&token),
+                (method == "POST").then(|| json!({"Mode":"direct"}))
+            )
+            .await
+            .0,
+            404
+        );
+    }
+    let saved = request(&router, "GET", queue, Some(&token), None).await.1;
+    assert_eq!(saved["entry_count"], 1);
+    assert_eq!(saved["entries"], json!([]));
+    for offline in [true, false] {
+        if !offline {
+            std::fs::remove_file(&media).unwrap();
+            std::fs::rename(&original, &media).unwrap();
+        }
+        assert_eq!(
+            request(&router, "POST", "/api/v1/scan", Some(&token), None)
+                .await
+                .0,
+            202
+        );
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while request(&router, "GET", "/api/v1/scan", Some(&token), None)
+                .await
+                .1["running"]
+                == true
+            {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let libs = request(&router, "GET", "/api/v1/libraries", Some(&token), None)
+            .await
+            .1;
+        assert_eq!(libs[0]["offline"], offline);
+        let items = request(&router, "GET", "/api/v1/items", Some(&token), None)
+            .await
+            .1;
+        assert_eq!(items.as_array().unwrap().len(), 1);
+        assert_eq!(items[0]["id"], id);
+    }
+    assert_eq!(
+        request(&router, "GET", queue, Some(&token), None).await.1["entries"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
     );
     app.shutdown().await;
 }

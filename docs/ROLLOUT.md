@@ -63,3 +63,21 @@ Use native target runtimes for platform acceptance. The tested N100 account
 has no container runtime and cannot create a user namespace. Its household
 SMB mount is writable; leave it untouched and provision a separate read-only
 test mount before SMB or production-host acceptance.
+
+### Registered library paths
+
+A library is registered with its canonical path. If that path later resolves
+elsewhere, media access fails closed and scanning marks the library offline.
+Restore the directory or read-only mount at the recorded path. Queue entries
+and library rows are preserved.
+
+An older database can contain a deliberately symlinked or otherwise
+noncanonical root. The preview keeps the records but does not automatically
+trust the current symlink target. For recovery, stop the server and take a
+backup, then work on a restored copy. Verify the intended canonical root
+and the existing media file paths before editing. A path-only repair must
+update the affected `libraries.path` and corresponding `media_files.path`
+values together in a transaction, retaining the library, file and item IDs.
+Run a scan and verify the original item IDs, grants, progress and lists on
+the copy before using it. There is no automatic repair command in this
+preview. Deleting and recreating the library is not an equivalent repair.

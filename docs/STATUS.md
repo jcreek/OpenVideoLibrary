@@ -159,3 +159,8 @@ native web controls and shared progress/queues. Classification preserves
 the legacy SQLite schema version through an additive table. Album/artist
 grouping and audio conversion remain open. Local UTF-8 LRC/TXT lyrics
 are supported with click-to-seek for timed lines.
+
+Media resolution and scanning now reject a library root whose resolved
+path differs from its registered path. A replaced root becomes unavailable
+without deleting media or queue records. See `ROLLOUT.md` for legacy path
+recovery. This does not eliminate every concurrent pathname-open race.

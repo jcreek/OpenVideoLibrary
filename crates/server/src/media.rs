@@ -47,10 +47,14 @@ pub(crate) async fn locate_item(
 
 async fn resolve_item(app: &App, u: User, id: i64, kind: bool) -> Result<(PathBuf, i64, String)> {
     let (path, root, library, kind) = locate_item(app, u, id, kind).await?;
-    let real = tokio::fs::canonicalize(path)
+    let root = PathBuf::from(root);
+    let registered = tokio::fs::canonicalize(&root)
         .await
         .map_err(|_| Error::new(404, "media unavailable"))?;
-    let root = tokio::fs::canonicalize(root)
+    if registered != root {
+        return Err(Error::new(404, "media unavailable"));
+    }
+    let real = tokio::fs::canonicalize(path)
         .await
         .map_err(|_| Error::new(404, "media unavailable"))?;
     if !real.starts_with(&root)

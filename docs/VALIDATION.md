@@ -799,3 +799,30 @@ software media and physical VAAPI SDR/HDR checks. See
 `validation-n100-lyrics.json`. The installed-driver negative guard,
 production benchmarks, container images and real devices were not rerun.
 No hosted Actions ran.
+
+## Registered library root replacement (2026-11-11)
+
+The shared resolver now compares the resolved library root with the
+registered path rather than trusting a new target. Scanning makes the
+same check and does not follow a root symlink. The regression replaces
+the registered directory with a link to an outside tree, verifies denial
+on file, probe, artwork, playback and subtitles, and verifies a saved
+queue hides the entry without losing it. Scanning marks the library
+offline without importing the outside item. Restoring the directory
+recovers the original item and queue entry.
+
+Independent review confirmed this scope. Pathname opens can still race
+a concurrent replacement after validation; the guarantee here concerns
+a root that is already redirected when checked. Legacy noncanonical
+paths fail closed and retain their records; see `ROLLOUT.md`.
+
+Full local verification passed: 30 API tests plus socket shutdown, nine
+explicit CPU media/failure tests, seven Python tests, frontend/Rust checks,
+type consistency, benchmark-crate checks, 15 browser scenarios and cached
+Nginx. No GitHub Actions ran.
+
+All eight source-matched N100 checks passed over SSH, including separate
+software media and physical VAAPI SDR/HDR. See
+`validation-n100-library-root.json`, `validation-browser-library-root.json`
+and `validation-nginx-library-root.json`. Installed-driver rejection,
+production benchmarks, current containers and real devices were not rerun.

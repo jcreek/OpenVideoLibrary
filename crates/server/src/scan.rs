@@ -43,12 +43,21 @@ fn discover(
     cancel: &tokio_util::sync::CancellationToken,
     tx: mpsc::Sender<Found>,
 ) -> Result<usize> {
-    let real_root = std::fs::canonicalize(root)?;
+    if std::fs::canonicalize(root)? != root {
+        return Err(Error::new(
+            503,
+            "registered library root is no longer canonical",
+        ));
+    }
     let episode = regex::Regex::new(r"(?i)^(.*?)s(\d{1,3})e(\d{1,4})").expect("episode expression");
     let started = Instant::now();
     let mut visited = 0;
     let mut seen = 0;
-    for entry in WalkDir::new(root).follow_links(false).max_open(16) {
+    for entry in WalkDir::new(root)
+        .follow_links(false)
+        .follow_root_links(false)
+        .max_open(16)
+    {
         if cancel.is_cancelled() {
             return Err(Error::new(499, "scan cancelled"));
         }
@@ -75,7 +84,7 @@ fn discover(
             continue;
         }
         let real = std::fs::canonicalize(p)?;
-        if !real.starts_with(&real_root) {
+        if !real.starts_with(root) {
             continue;
         }
         let m = entry
@@ -100,7 +109,7 @@ fn discover(
             && m.is_file()
             && m.len() <= 1 << 20
             && let Ok(real) = std::fs::canonicalize(&nfo)
-            && real.starts_with(&real_root)
+            && real.starts_with(root)
             && let Ok(data) = read_nfo(&real)
             && let Ok(n) = quick_xml::de::from_str::<Nfo>(&data)
         {
@@ -135,9 +144,6 @@ fn discover(
     Ok(seen)
 }
 async fn library(app: &Arc<App>, id: i64, root: PathBuf, music: bool) -> Result<()> {
-    tokio::fs::canonicalize(&root)
-        .await
-        .map_err(|_| Error::new(503, "library root unavailable"))?;
     let (tx, mut rx) = mpsc::channel(16);
     let cancel = app.cancel.child_token();
     let producer_cancel = cancel.clone();
