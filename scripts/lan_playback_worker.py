@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import secrets
 import select
 import socket
@@ -75,6 +76,47 @@ def sample_proc(pid):
         return 0, 0
 
 
+def observe_scans(log_path, offset):
+    with log_path.open('rb') as stream:
+        stream.seek(offset)
+        data = stream.read(1 << 20)
+    if len(data) >= 1 << 20:
+        raise RuntimeError('scan trace exceeded measurement limit')
+    return {'completed_ms': [int(ms) for ms in re.findall(rb'scan finished[^\n]*elapsed_ms=(\d+)', data)],
+            'incomplete': data.count(b'scan incomplete; records preserved')}
+
+
+def await_client(log_path, log_offset, background, restarted):
+    deadline = time.monotonic() + (360 if background == "scan" else 240)
+    snapshots = 0
+    pending = bytearray()
+    while time.monotonic() < deadline:
+        ready, _, _ = select.select([sys.stdin], [], [], max(0, deadline - time.monotonic()))
+        if not ready:
+            break
+        chunk = os.read(sys.stdin.fileno(), 64 - len(pending))
+        if not chunk:
+            break
+        pending.extend(chunk)
+        if b'\n' not in pending:
+            if len(pending) >= 64:
+                break
+            continue
+        line, _, trailing = pending.partition(b'\n')
+        if trailing:
+            break
+        pending.clear()
+        command = line.strip()
+        if command == b'done':
+            return True
+        if command != b'scan-snapshot' or not background or snapshots >= (15 if background == 'scan' else 10):
+            break
+        snapshots += 1
+        print(json.dumps({**observe_scans(log_path, log_offset),
+                          'uptime_ms': (time.monotonic() - restarted) * 1000}), flush=True)
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--listen', required=True, type=ipaddress.IPv4Address)
@@ -82,7 +124,11 @@ def main():
                         help='Generate a bounded padded 60-second fixture for a far seek')
     parser.add_argument('--sustained', action='store_true',
                         help='Generate the 36-second sustained browser playback fixture')
+    parser.add_argument('--background', choices=('idle', 'scan'),
+                        help='Add a 10k-entry browse/search library for the mixed benchmark')
     args = parser.parse_args()
+    if args.background and not args.sustained:
+        parser.error('background workload requires sustained playback')
     if args.sustained and args.unbuffered:
         parser.error('choose sustained or unbuffered')
     if not any(args.listen in ipaddress.ip_network(net)
@@ -134,6 +180,13 @@ def main():
                     or not fixture_bytes * .75 <= seek_keyframe['position'] < fixture_bytes):
                 raise RuntimeError('unexpected target keyframe location')
         fixture.chmod(0o444)
+        scan_root = None
+        scan_count = 10000 if args.background else 0
+        if scan_count:
+            scan_root = root / 'scan-media'
+            scan_root.mkdir()
+            for index in range(1, scan_count + 1):
+                os.link(fixture, scan_root / f'Scan {index:06}.mp4')
         web = root / 'web'
         web.mkdir()
         (web / 'index.html').write_text(
@@ -152,9 +205,14 @@ def main():
                'OVL_ACCELERATOR': 'cpu', 'OVL_MAX_STREAMS': '2',
                'OVL_TRANSCODE_BYTES': str(128 << 20), 'RUST_LOG': 'error'}
         port = port_for('127.0.0.1')
-        with (root / 'server.log').open('wb') as log:
-            def start(address, port):
-                return subprocess.Popen([str(binary)], env={**env, 'OVL_LISTEN': f'{address}:{port}'},
+        log_path = root / 'server.log'
+        with log_path.open('wb') as log:
+            def start(address, port, measuring=False):
+                settings = {**env, 'OVL_LISTEN': f'{address}:{port}'}
+                if measuring and args.background:
+                    settings.update(RUST_LOG='ovl_server::scan=info', NO_COLOR='1',
+                                    OVL_SCAN_INTERVAL='60s' if args.background == 'scan' else '24h')
+                return subprocess.Popen([str(binary)], env=settings,
                                         stdout=log, stderr=log)
 
             server = start('127.0.0.1', port)
@@ -167,10 +225,13 @@ def main():
                 api(port, 'setup', data=credentials)
                 admin = api(port, 'login', data=credentials)['token']
                 library = api(port, 'libraries', admin, {'Name': 'Fixture', 'Path': str(media), 'Kind': 'movie'})
+                scan_library = (api(port, 'libraries', admin,
+                                    {'Name': 'Scan fixture', 'Path': str(scan_root), 'Kind': 'movie'})['id']
+                                if scan_root else None)
                 viewer = {'Name': 'viewer', 'Password': secrets.token_urlsafe(24)}
-                api(port, 'users', admin, {**viewer, 'Libraries': [library['id']]})
+                api(port, 'users', admin, {**viewer, 'Libraries': [library['id']] + ([scan_library] if scan_library else [])})
                 api(port, 'scan', admin, {})
-                deadline = time.monotonic() + 15
+                deadline = time.monotonic() + (45 if args.background else 15)
                 while api(port, 'scan', admin)['running']:
                     if time.monotonic() >= deadline:
                         raise RuntimeError('fixture scan timed out')
@@ -184,14 +245,20 @@ def main():
                         raise
                 else:
                     raise RuntimeError('fixture viewer unexpectedly has admin access')
-                items = api(port, 'items', token)
+                items = api(port, f'items?library={library["id"]}', token)
+                if scan_library:
+                    final_page = api(port, f'items?library={scan_library}&limit=1&offset={scan_count-1}', token)
+                    if len(final_page) != 1 or final_page[0]['title'] != f'Scan {scan_count:06}':
+                        raise RuntimeError('background library initial scan is incomplete')
                 if len(items) != 1:
                     raise RuntimeError('expected exactly one scanned item')
                 stop_server(server)
                 if server.returncode != 0:
                     raise RuntimeError('loopback bootstrap did not shut down cleanly')
                 port = port_for(host)
-                server = start(host, port)
+                log_offset = log_path.stat().st_size
+                restarted = time.monotonic()
+                server = start(host, port, measuring=True)
                 # The client checks readiness on the real LAN connection.
                 before = sample_proc(server.pid)
                 metrics = {'core_peak_rss_bytes': 0, 'ffmpeg_peak_workers': 0,
@@ -217,6 +284,9 @@ def main():
                         'fixture_bytes': fixture_bytes,
                         'fixture_seconds': duration,
                         'fixture_dimensions': [width, height],
+                        'background_mode': args.background,
+                        'scan_library': scan_library,
+                        'scan_library_entries': scan_count,
                         'hls_bundle_sha256': hls_hash,
                         'seek_target_seconds': seek_target,
                         'seek_keyframe': seek_keyframe,
@@ -224,8 +294,7 @@ def main():
                     },
                 }), flush=True)
                 # EOF, a completion line or a bounded timeout ends the LAN listener.
-                ready, _, _ = select.select([sys.stdin], [], [], 240)
-                finished = bool(ready and sys.stdin.readline().strip() == 'done')
+                finished = await_client(log_path, log_offset, args.background, restarted)
                 after = sample_proc(server.pid)
             finally:
                 stop.set()

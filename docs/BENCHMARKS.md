@@ -360,3 +360,50 @@ the two players in each cohort are paired, not independent repetitions.
 FFmpeg RSS is the sum across live workers at each sample. These observations
 do not establish a capacity limit, long-soak behavior, hardware transcode,
 other clients, or mixed scan/playback capacity.
+
+### Mixed scanning, browse/search and playback
+
+Run the same CPU transcode command with `--background scan` and
+`--background idle`. Both bootstrap and scan a disposable second library
+with 10,000 distinct paths hard-linked to the same generated clip. The
+paths share one inode; the measured scans are unchanged-file revisits,
+with no payload writes or NAS access. Both modes use the same two CPU
+transcode players and two paced LAN API clients. Administrator setup
+stays on loopback and the LAN viewer is granted only the two fixtures.
+
+The scan arm starts each cohort about six seconds before a supported
+60-second scheduler tick. The idle arm uses a 24-hour interval.
+After both players decode a frame, the worker snapshots the count of
+completed and incomplete scans over the SSH control pipe. Two API
+clients then attempt 100 requests each, with starts at least about
+100 ms apart per client. They validate the expected 100 titles and
+library in each response, and record latency, errors and elapsed time.
+A second SSH snapshot must show a completed scan in the scan arm
+and none in the idle arm; either arm rejects an incomplete scan.
+The full snapshot and API window must fall within both decoded
+playback windows, so the overlap does not depend on synchronized
+clocks between the hosts.
+
+The [scan arm](benchmarks/rust-n100-lan-mixed-scan.json) ran before the
+[idle arm](benchmarks/rust-n100-lan-mixed-idle.json) on the shared N100.
+Both used the same release binary, fixture bytes and HLS client bundle.
+Each completed five two-player cohorts, 500 browse requests and 500
+search requests without errors. Achieved pacing was 9.81–9.87 requests/s
+per API client. The scan arm observed one completion per cohort, with
+durations 735–1,098 ms; the idle arm observed none. This does not mean
+scanning was active for all requests in the window.
+
+| Arm | Browse p95 median (min–max; sample σ), ms | Search p95 median (min–max; sample σ), ms | Waiting events / max frame gap, ms |
+| --- | --- | --- | --- |
+| Idle | 51.48 (48.81–56.44; 2.77) | 54.04 (53.48–56.53; 1.19) | 4 / 150.00 |
+| Scan | 52.76 (47.07–56.54; 3.65) | 50.48 (49.83–66.84; 7.27) | 3 / 166.60 |
+
+Every per-run p95 was below 150 ms in this paced workload. The ranges
+overlap and the arms were sequential, so they do not establish a reliable
+scan latency effect. The artifacts retain separate core and FFmpeg CPU/RSS,
+with peak two FFmpeg workers in both arms. The scan arm contains longer
+idle waits between cohorts to align with scheduler ticks, so whole-run
+CPU seconds are not directly comparable. This is a local-storage diagnostic
+with a zero changed-file ratio and two paced API clients. It does not
+qualify SMB, changed-file import, saturation, long-soak behavior or the
+Jellyfin baseline.

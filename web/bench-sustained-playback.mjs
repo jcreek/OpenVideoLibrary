@@ -1,12 +1,16 @@
 // Two concurrent, separately authenticated browser contexts on the LAN client.
-export async function playCohort({ browser, origin, token, item, mode, server, deadline }) {
+export async function playCohort({ browser, origin, token, item, mode, server, deadline, observeWindow }) {
   const contexts = [];
+  const ready = [];
+  const starts = observeWindow ? Array.from({ length: 2 }, (_, i) =>
+    new Promise(resolve => { ready[i] = resolve; })) : [];
   try {
     for (let i = 0; i < 2; i++) {
       contexts.push(await browser.newContext({ extraHTTPHeaders: { Authorization: 'Bearer ' + token } }));
     }
-    const prepared = await Promise.allSettled(contexts.map(async context => {
+    const prepared = await Promise.allSettled(contexts.map(async (context, index) => {
       const page = await context.newPage();
+      if (observeWindow) await page.exposeBinding('benchmarkReady', () => ready[index]());
       await page.goto(origin + '/', { timeout: 10000 });
       if (mode !== 'direct') {
         await deadline(page.addScriptTag({ url: origin + '/bench-hls.js' }), 10000, 'HLS client load timed out');
@@ -16,6 +20,10 @@ export async function playCohort({ browser, origin, token, item, mode, server, d
     const failedPage = prepared.find(p => p.status === 'rejected');
     if (failedPage) throw failedPage.reason;
 
+    const observed = observeWindow
+      ? deadline(Promise.all(starts), 15000, 'decoded playback did not start').then(observeWindow)
+      : Promise.resolve(null);
+    observed.catch(() => {});
     const completed = await Promise.allSettled(prepared.map(async ({ value: page }) => {
       const received = [];
       page.on('response', response => {
@@ -99,6 +107,7 @@ export async function playCohort({ browser, origin, token, item, mode, server, d
             hls.loadSource(playback.url);
           }
           await Promise.race([Promise.all([video.play(), first]), failed]);
+          if (window.benchmarkReady) await window.benchmarkReady();
           await Promise.race([watch, failed]);
           const ended = performance.now();
           if (waitingSince !== null) waitingMs += ended - waitingSince;
@@ -144,12 +153,20 @@ export async function playCohort({ browser, origin, token, item, mode, server, d
       return { ...metrics, peer_verified: true };
     }));
     const failure = completed.find(r => r.status === 'rejected');
-    if (failure) throw failure.reason;
+    if (failure) {
+      await observed.catch(() => {});
+      throw failure.reason;
+    }
     const players = completed.map(r => r.value);
     const overlapMs = Math.min(...players.map(r => r.window_end_epoch_ms))
       - Math.max(...players.map(r => r.first_frame_epoch_ms));
     if (overlapMs < 18000) throw Error('playback windows did not overlap for 18 seconds');
-    return { players, overlap_ms: overlapMs };
+    const background = await observed;
+    if (background && (background.start_epoch_ms < Math.max(...players.map(p => p.first_frame_epoch_ms))
+        || background.end_epoch_ms > Math.min(...players.map(p => p.window_end_epoch_ms)))) {
+      throw Error('browse/search observation was outside simultaneous playback');
+    }
+    return { players, overlap_ms: overlapMs, ...(background ? { background } : {}) };
   } finally {
     await Promise.allSettled(contexts.map(context => context.close()));
   }

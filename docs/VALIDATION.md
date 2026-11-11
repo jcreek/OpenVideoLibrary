@@ -697,3 +697,26 @@ explicit CPU media/failure tests, Python, generated types, benchmark-crate
 checks, 12 browser scenarios and disposable Nginx. Rust source and N100
 binary are unchanged. Physical GPU, long soak, mixed scanning, SMB and
 Jellyfin-relative acceptance remain separate. No hosted Actions ran.
+
+## Mixed scan and playback over LAN (2026-11-11)
+
+Review caught that the proposed two-second schedule was below the server's
+60-second minimum. The preliminary run was stopped; its results were not used.
+The corrected harness aligns cohorts with supported scheduled ticks, brackets
+actual scan completions over SSH and verifies the API window falls inside
+both decoded playback windows. It keeps admin authentication on loopback.
+
+Five scan and five idle N100 cohorts completed with identical fixture and
+release binary. All 2,000 authenticated API requests passed their page
+checks, and all 20 player windows decoded with at least 19.92 seconds of
+overlap. There was one observed completion per scan cohort, none per idle
+cohort, and both workers shut down cleanly. Waiting events and repeated-run
+variation remain in the artifacts; see `BENCHMARKS.md`. Independent review
+confirmed the counts and limits. The test covers paced LAN load and an
+unchanged-file rescan on local storage; no SMB, cold, saturation or
+Jellyfin comparison is claimed.
+
+Buffered and unbuffered SSH regressions each passed five trials. Full
+`make verify-local` passed, including frontend, Rust, CPU media, Python,
+generated types, 12 browser scenarios and disposable Nginx. Rust source
+and physical GPU evidence are unchanged. No GitHub Actions ran.

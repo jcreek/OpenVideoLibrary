@@ -12,7 +12,7 @@ const { values } = parseArgs({
   options: {
     host: { type: 'string' }, key: { type: 'string' },
     workspace: { type: 'string' }, listen: { type: 'string' },
-    output: { type: 'string' }, unbuffered: { type: 'boolean' }, sustained: { type: 'string' },
+    output: { type: 'string' }, unbuffered: { type: 'boolean' }, sustained: { type: 'string' }, background: { type: 'string' },
   },
 });
 if (!values.host || !/^[a-zA-Z0-9_.@-]+$/.test(values.host) || values.host.startsWith('-')
@@ -25,10 +25,14 @@ if (values.sustained && (values.unbuffered || !['direct', 'remux', 'transcode'].
   throw Error('Choose one sustained mode: direct, remux, or transcode');
 }
 
+if (values.background && (!values.sustained || !['idle', 'scan'].includes(values.background))) {
+  throw Error('Choose --background idle or scan with a sustained mode');
+}
+
 const ssh = spawn('ssh', [
   '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'IdentitiesOnly=yes',
   '-o', 'ConnectTimeout=5', '-i', values.key, values.host,
-  `cd '${values.workspace}' && exec python3 scripts/lan_playback_worker.py --listen '${values.listen}'${values.unbuffered ? ' --unbuffered' : ''}${values.sustained ? ' --sustained' : ''}`,
+  `cd '${values.workspace}' && exec python3 scripts/lan_playback_worker.py --listen '${values.listen}'${values.unbuffered ? ' --unbuffered' : ''}${values.sustained ? ' --sustained' : ''}${values.background ? ' --background ' + values.background : ''}`,
 ], { stdio: ['pipe', 'pipe', 'pipe'] });
 ssh.stdin.on('error', () => {}); // If the worker exits, the close result is authoritative.
 let stderr = '';
@@ -50,8 +54,8 @@ async function deadline(promise, ms, label) {
     clearTimeout(timer);
   }
 }
-async function event() {
-  const line = await deadline(lines.next(), 60000, 'worker response timed out');
+async function event(timeout = 60000) {
+  const line = await deadline(lines.next(), timeout, 'worker response timed out');
   if (line.done) throw Error(`SSH worker stopped: ${stderr}`);
   return JSON.parse(line.value);
 }
@@ -66,6 +70,57 @@ async function ready(origin) {
   }
   throw Error('N100 server did not answer over the direct connection');
 }
+async function observeBackground(origin, token, library) {
+  const startEpoch = performance.timeOrigin + performance.now();
+  ssh.stdin.write('scan-snapshot\n');
+  const before = await event();
+  const start = performance.now();
+  async function load(search) {
+    const latencies = [];
+    const errors = {};
+    let nextAt = start;
+    for (let i = 0; i < 100; i++) {
+      const remaining = nextAt - performance.now();
+      if (remaining > 0) await new Promise(resolve => setTimeout(resolve, Math.ceil(remaining)));
+      const offset = i % 10 * 100;
+      const url = new URL('/api/v1/items', origin);
+      url.search = new URLSearchParams({ library, limit: 100, offset, ...(search ? { q: 'Scan' } : {}) });
+      const began = performance.now();
+      nextAt = began + 100;
+      try {
+        const response = await fetch(url, { headers: { Authorization: 'Bearer ' + token },
+          signal: AbortSignal.timeout(1000) });
+        if (!response.ok) {
+          await response.body?.cancel();
+          errors['HTTP' + response.status] = (errors['HTTP' + response.status] ?? 0) + 1;
+          continue;
+        }
+        const rows = await response.json();
+        if (!Array.isArray(rows) || rows.length !== 100 || rows.some((row, index) =>
+          row.library_id !== library || row.title !== 'Scan ' + String(offset + index + 1).padStart(6, '0'))) {
+          throw Error('wrong page');
+        }
+        latencies.push(performance.now() - began);
+      } catch (error) {
+        const kind = error.message === 'wrong page' ? 'WrongPage' : error.name;
+        errors[kind] = (errors[kind] ?? 0) + 1;
+      }
+    }
+    latencies.sort((a, b) => a - b);
+    const pct = p => latencies.length ? latencies[Math.floor((latencies.length - 1) * p)] : null;
+    return { requests: 100, errors, successful: latencies.length, elapsed_ms: performance.now() - start,
+      p50_ms: pct(.5), p95_ms: pct(.95), p99_ms: pct(.99) };
+  }
+  const [browse, search] = await Promise.all([load(false), load(true)]);
+  ssh.stdin.write('scan-snapshot\n');
+  const after = await event();
+  const completed = after.completed_ms.slice(before.completed_ms.length);
+  if (before.incomplete || after.incomplete || (values.background === 'scan' ? completed.length < 1 : completed.length !== 0)) {
+    throw Error('scheduled scan observations did not match the background workload');
+  }
+  return { start_epoch_ms: startEpoch, end_epoch_ms: performance.timeOrigin + performance.now(),
+    completed_scan_ms: completed, browse, search };
+}
 const report = {
   recorded_utc: new Date().toISOString(),
   scope: values.sustained ? 'Two simultaneous Chromium playback windows over LAN; generated local-storage fixture; no SMB, TLS or hardware transcode'
@@ -76,7 +131,7 @@ const report = {
 };
 let browser;
 try {
-  const { origin, token, item, server } = await event();
+  const { origin, token, item, server } = await event(120000);
   if (new URL(origin).hostname !== values.listen) throw Error('unexpected worker address');
   report.server = server;
   report.transport = values.listen.startsWith('127.') ? 'loopback' : 'direct LAN HTTP; SSH control only';
@@ -86,10 +141,19 @@ try {
 
   if (values.sustained) {
     report.mode = values.sustained;
+    if (values.background) report.background = values.background;
     report.sustained_client_sha256 = createHash('sha256')
       .update(await readFile(new URL('./bench-sustained-playback.mjs', import.meta.url))).digest('hex');
     for (let repetition = 0; repetition < 5; repetition++) {
-      const result = await playCohort({ browser, origin, token, item, mode: values.sustained, server, deadline });
+      if (values.background === 'scan') {
+        ssh.stdin.write('scan-snapshot\n');
+        const snapshot = await event();
+        // Start the cohort around six seconds before the next supported tick.
+        const delay = (120000 - snapshot.uptime_ms % 60000 - 6000) % 60000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      const result = await playCohort({ browser, origin, token, item, mode: values.sustained, server, deadline,
+        observeWindow: values.background ? () => observeBackground(origin, token, server.scan_library) : undefined });
       report.results.push({ repetition, ...result });
       await writeFile(values.output, JSON.stringify(report, null, 2) + '\n');
     }
@@ -209,6 +273,10 @@ try {
   const exit = await deadline(closed, 20000, 'worker shutdown timed out');
   if (exit.code !== 0 || report.cleanup.shutdown_exit !== 0) throw Error('worker cleanup failed');
   report.complete = true;
+  if (values.background && report.results.some(row =>
+    [row.background.browse, row.background.search].some(workload => workload.successful !== workload.requests))) {
+    process.exitCode = 1;
+  }
 } catch (error) {
   report.error = String(error.message).slice(0, 1024);
   process.exitCode = 1;
