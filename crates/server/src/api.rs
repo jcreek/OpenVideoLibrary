@@ -38,6 +38,7 @@ pub fn routes(app: Arc<App>) -> Router {
         .route("/items/{id}/telemetry", post(telemetry))
         .route("/items/{id}/artwork", get(media::artwork))
         .route("/items/{id}/subtitles", post(media::subtitle))
+        .route("/items/{id}/lyrics", get(crate::lyrics::get))
         .route("/items/{id}/match", post(media::metadata_match))
         .route("/items/{id}/playback", post(playback::start))
         .route("/playback/{session}/{file}", get(playback::segment))

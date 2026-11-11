@@ -4,6 +4,7 @@ pub mod db;
 pub mod error;
 pub mod hardware;
 pub mod lists;
+mod lyrics;
 pub mod media;
 pub mod playback;
 pub mod scan;

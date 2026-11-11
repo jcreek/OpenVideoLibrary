@@ -799,6 +799,7 @@ dependencies = [
  "http-body-util",
  "httpdate",
  "humantime",
+ "libc",
  "quick-xml",
  "regex",
  "reqwest",

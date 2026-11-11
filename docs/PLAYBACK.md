@@ -180,4 +180,20 @@ Music classification uses an additive table and preserves the v2 library
 rows, IDs and legacy kind constraint. Older binaries can preserve the
 database but see these libraries as movies and do not offer this music
 workflow. Audio conversion, tag indexing, album/artist grouping, artwork
-extraction and lyrics remain open.
+extraction and broader lyrics support remain open.
+
+### Local lyrics
+
+The music player can open a UTF-8 sibling `.lrc` or `.txt` file, preferring
+LRC. Timed LRC lines support multiple leading timestamps and seek the
+track when selected; plain text stays untimed. The player renders lyrics
+as text. Embedded lyrics, enhanced word timing and LRC offset tags are
+not supported.
+
+The endpoint checks current grants and opens the stored music source
+and sibling without following symlinks in any path component on Unix.
+It limits input and expanded text to 128 KiB, 4,096 lines and 512
+characters per line. An admitted filesystem worker retains its inspection
+permit even after a disconnected client or a five-second HTTP deadline.
+Shutdown waits for tracked work; kernel-blocked filesystem I/O still
+depends on mount timeouts.

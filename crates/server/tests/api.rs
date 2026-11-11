@@ -3551,3 +3551,113 @@ async fn real_music_library_tags_playback_and_current_grants() {
     }
     app.shutdown().await;
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn local_lyrics_are_bounded_and_follow_current_music_grants() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let canonical = std::fs::canonicalize(root.path()).unwrap();
+    let id = add_media(&app, &canonical).await;
+    let url = format!("/api/v1/items/{id}/lyrics");
+    let lrc = root.path().join("media/Example.S01E01.lrc");
+    let txt = root.path().join("media/Example.S01E01.txt");
+    std::fs::write(
+        &lrc,
+        "\u{feff}[ar:Metadata]\n[00:02.5][00:01.025]Second and first\n[00:03]Third\n",
+    )
+    .unwrap();
+    assert_eq!(
+        request(&router, "GET", &url, Some(&token), None).await.0,
+        404
+    );
+    app.db
+        .call(|c| {
+            c.execute(
+                "INSERT INTO ovl_music_libraries SELECT id FROM libraries",
+                [],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let (status, body) = request(&router, "GET", &url, Some(&token), None).await;
+    assert_eq!(status, 200);
+    assert_eq!(
+        body,
+        json!({"lines":[{"time_ms":1025,"text":"Second and first"},{"time_ms":2500,"text":"Second and first"},{"time_ms":3000,"text":"Third"}]})
+    );
+    std::fs::remove_file(&lrc).unwrap();
+    let outside = root.path().join("outside.lrc");
+    std::fs::write(&outside, "secret").unwrap();
+    std::os::unix::fs::symlink(&outside, &lrc).unwrap();
+    std::fs::write(&txt, "Plain line\n<script>text</script>\n").unwrap();
+    assert_eq!(
+        request(&router, "GET", &url, Some(&token), None).await.1,
+        json!({"lines":[{"time_ms":null,"text":"Plain line"},{"time_ms":null,"text":"<script>text</script>"}]})
+    );
+    std::fs::remove_file(&lrc).unwrap();
+    std::fs::write(&lrc, vec![b'a'; 128 * 1024 + 1]).unwrap();
+    assert_eq!(
+        request(&router, "GET", &url, Some(&token), None).await.0,
+        422
+    );
+    std::fs::write(&lrc, format!("{}text", "[00:01]".repeat(4097))).unwrap();
+    assert_eq!(
+        request(&router, "GET", &url, Some(&token), None).await.0,
+        422
+    );
+    std::fs::write(
+        &lrc,
+        format!("{}{}", "[00:01]".repeat(300), "x".repeat(512)),
+    )
+    .unwrap();
+    assert_eq!(
+        request(&router, "GET", &url, Some(&token), None).await.0,
+        422
+    );
+    let original = canonical.join("original");
+    let outside_root = canonical.join("outside");
+    std::fs::create_dir(&outside_root).unwrap();
+    std::fs::write(outside_root.join("Example.S01E01.mp4"), b"outside track").unwrap();
+    std::fs::write(outside_root.join("Example.S01E01.lrc"), b"[00:01]outside").unwrap();
+    std::fs::rename(canonical.join("media"), &original).unwrap();
+    std::os::unix::fs::symlink(&outside_root, canonical.join("media")).unwrap();
+    assert_eq!(
+        request(&router, "GET", &url, Some(&token), None).await.0,
+        404
+    );
+    std::fs::remove_file(canonical.join("media")).unwrap();
+    std::fs::rename(original, canonical.join("media")).unwrap();
+    let (_, viewer) = request(
+        &router,
+        "POST",
+        "/api/v1/users",
+        Some(&token),
+        Some(json!({"Name":"lyric-viewer","Password":"test-password-123","Libraries":[1]})),
+    )
+    .await;
+    let listener = account(&router, "lyric-viewer").await;
+    std::fs::remove_file(&lrc).unwrap();
+    assert_eq!(
+        request(&router, "GET", &url, Some(&listener), None).await.0,
+        200
+    );
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &format!("/api/v1/users/{}/access", viewer["id"]),
+            Some(&token),
+            Some(json!({"Libraries":[]}))
+        )
+        .await
+        .0,
+        200
+    );
+    assert_eq!(
+        request(&router, "GET", &url, Some(&listener), None).await.0,
+        404
+    );
+    app.shutdown().await;
+}

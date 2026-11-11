@@ -1,7 +1,7 @@
 <script lang="ts">
 import {onMount,tick} from 'svelte';
 import type HlsType from 'hls.js';
-import type {Item,Library,Account,Series,MediaInfo,MediaList,MediaListSummary,MediaListEntry,ClientCapabilities} from './api.generated';
+import type {Item,Library,Account,Series,MediaInfo,Lyrics,MediaList,MediaListSummary,MediaListEntry,ClientCapabilities} from './api.generated';
 let ready=false,setup=false,logged=false,admin=false,name='',password='',error='',notice='',query='',library='',offset=0,continuing=false,section='library',seriesFilter='',season='';
 let items:Item[]=[],libraries:Library[]=[],shows:Series[]=[],users:Account[]=[],selected:Item|null=null,info:MediaInfo|null=null;
 let video:HTMLMediaElement,hls:HlsType|undefined,session='',mode='auto',actualMode='',startOffset=0,audio=0,subtitle='off',adaptive=false,busy=false,transition=false,captionURL='',duration=0,seekTo=0;
@@ -13,6 +13,7 @@ let frameRequestedAt=0,waitingAt=0,seekRequestedAt=0;
 let savedLists:MediaListSummary[]=[],activeList:MediaList|null=null,playingQueue:MediaList|null=null,newListName='',newListKind:'collection'|'playlist'|'queue'='playlist',targetListID='',playbackReason='';
 let editTitle='',editOverview='',tmdbID='',tmdbKind='movie',scanning=false;
 let musicSelected=false;
+let lyrics:Lyrics|null=null,lyricPosition=0;
 $: musicSelected=!!selected&&libraries.some(l=>l.id===selected?.library_id&&l.kind==='music');
 async function api(url:string,method='GET',body?:unknown){const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok){if(r.status===401)logged=false;throw Error(data.error||'Request failed');}return data;}
 async function guard(fn:()=>Promise<void>){error='';try{await fn()}catch(e){error=e instanceof Error?e.message:String(e)}}
@@ -38,14 +39,14 @@ function stopPlayer(){
 }
 async function close(){
  const generation=++playerGeneration,saving=save();
- const cleanup=stopPlayer();selected=null;info=null;busy=false;
+ const cleanup=stopPlayer();selected=null;info=null;lyrics=null;busy=false;
  await Promise.all([saving,cleanup]);
  if(generation===playerGeneration){transition=false;await load();}
 }
 async function open(item:Item,fromQueue=false){
  const generation=++playerGeneration;if(!fromQueue)playingQueue=null;
  const saving=save(),cleanup=stopPlayer();
- selected={...item};info=null;busy=true;audio=0;subtitle='off';editTitle=item.title;editOverview=item.overview;tmdbID='';
+ selected={...item};info=null;lyrics=null;lyricPosition=0;busy=true;audio=0;subtitle='off';editTitle=item.title;editOverview=item.overview;tmdbID='';
  try{
   await Promise.all([saving,cleanup]);if(generation!==playerGeneration)return;
   const probed=await api('items/'+item.id+'/probe');if(generation!==playerGeneration)return;
@@ -89,6 +90,12 @@ function clientCapabilities():ClientCapabilities {
  for(const [codec,mime] of [['aac','audio/mp4; codecs="mp4a.40.2"'],['mp3','audio/mpeg'],['opus','audio/webm; codecs="opus"']])if(v.canPlayType(mime))audio_codecs.push(codec);
  // Display HDR alone does not establish browser decoding support. Stay conservative.
  return {containers:['mp4','webm'],video_codecs,audio_codecs,max_audio_channels:2,video_pixel_formats:Object.fromEntries(video_codecs.map(codec=>[codec,['yuv420p','yuvj420p']])),hdr:false};
+}
+async function loadLyrics(){
+ const item=selected,generation=playerGeneration;
+ if(!item||!musicSelected)return;
+ const result=await api('items/'+item.id+'/lyrics');
+ if(generation===playerGeneration)lyrics=result;
 }
 function musicCapabilities():ClientCapabilities {
  const element=document.createElement('audio'),containers=new Set<string>(),audio_codecs=new Set<string>();
@@ -139,9 +146,18 @@ function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(M
 <form class="filters" onsubmit={(e)=>{e.preventDefault();offset=0;guard(load);}}><input aria-label="Search" placeholder="Search your library…" bind:value={query}/><select aria-label="Library" bind:value={library} onchange={()=>{offset=0;seriesFilter='';season='';guard(load);}}><option value="">All libraries</option>{#each libraries as l}<option value={l.id}>{l.name}{l.offline?' · offline':''}</option>{/each}</select><label class="inline"><input type="checkbox" bind:checked={continuing} onchange={()=>{offset=0;guard(load);}}/>Continue playing</label><button>Search</button></form>
 {#if seriesFilter}<div class="toolbar"><button onclick={()=>guard(async()=>{seriesFilter='';season='';offset=0;await load();})}>All titles</button><label>Season<input type="number" min="0" bind:value={season} onchange={()=>{offset=0;guard(load);}} placeholder="All"/></label></div>{/if}
 {#if selected}<section class="player"><div class="heading"><h2>{selected.title}</h2><button onclick={()=>guard(close)}>Close player</button></div>{#if musicSelected}
-<audio aria-label="Music player" bind:this={video} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onloadedmetadata={()=>{if(selected&&actualMode==='direct')video.currentTime=seekTo;}} onpause={()=>{if(!transition)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This music track could not be played.';}}></audio>
+<audio aria-label="Music player" bind:this={video} ontimeupdate={()=>{lyricPosition=video.currentTime*1000;}} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onloadedmetadata={()=>{if(selected&&actualMode==='direct')video.currentTime=seekTo;}} onpause={()=>{if(!transition)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This music track could not be played.';}}></audio>
 {#if info?.format.tags}{@const tags=info.format.tags}<p>{[tags.title,tags.artist,tags.album].filter(Boolean).join(' · ')}</p>
 {#if tags.disc||tags.track}<p>{[tags.disc?'Disc '+tags.disc:'',tags.track?'Track '+tags.track:''].filter(Boolean).join(' · ')}</p>{/if}{/if}
+{#if lyrics}
+{#if lyrics.lines.length===0}<p>No local lyrics.</p>{:else}
+<ol aria-label="Lyrics">{#each lyrics.lines as line,i}
+<li>{#if line.time_ms!==null}
+<button aria-current={lyricPosition>=line.time_ms&&(lyrics.lines[i+1]?.time_ms??Infinity)>lyricPosition?'true':undefined}
+ onclick={()=>{if(video&&line.time_ms!==null)video.currentTime=Math.min(line.time_ms/1000,video.duration||Infinity);}}>{line.text}</button>
+{:else}{line.text}{/if}</li>
+{/each}</ol>{/if}
+{:else}<button onclick={()=>guard(loadLyrics)}>Show lyrics</button>{/if}
 {:else}<video bind:this={video} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onseeked={()=>{if(seekRequestedAt&&actualMode==='direct'){reportPlayback('seek',performance.now()-seekRequestedAt);seekRequestedAt=0;}}} onloadedmetadata={()=>{if(selected&&actualMode==='direct')video.currentTime=seekTo;}} onpause={()=>{if(!transition)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This media could not be played. Try transcoding.';}}><track kind="subtitles" label="Selected subtitles" srclang="en"/></video>
 <div class="toolbar"><label>Playback<select aria-label="Playback" bind:value={mode}><option value="auto">Automatic</option><option value="direct">Direct play</option><option value="remux">Remux</option><option value="transcode">Transcode to SDR</option></select></label><label>Audio<select aria-label="Audio" bind:value={audio}>{#each info?.streams.filter(t=>t.codec_type==='audio')||[] as t,i}<option value={i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name}</option>{/each}</select></label><label>Subtitles<select aria-label="Subtitles" bind:value={subtitle}><option value="off">Off</option><option value="external">External sibling SRT</option>{#each info?.streams.filter(t=>t.codec_type==='subtitle')||[] as t,i}<option value={(textSubtitle(t.codec_name)?'text:':'burn:')+i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name}{textSubtitle(t.codec_name)?' (text)':' (burn in)'}</option>{#if textSubtitle(t.codec_name)}<option value={'burn:'+i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name} (burn in{['ass','ssa'].includes(t.codec_name)?', preserve styling':''})</option>{/if}{/each}</select></label><label class="inline"><input type="checkbox" bind:checked={adaptive}/>Adaptive renditions (transcoding)</label><button disabled={busy} onclick={()=>guard(applyPlayback)}>{busy?'Preparing…':'Apply playback settings'}</button><button onclick={()=>guard(async()=>{if(selected)await mark(selected);})}>{selected.watched?'Mark unwatched':'Mark watched'}</button></div>{/if}
 {#if duration>0}<label>Jump to {formatTime(Number(seekTo))} / {formatTime(duration)}<input type="range" min="0" max={duration} step="1" bind:value={seekTo} onchange={()=>guard(async()=>{seekRequestedAt=performance.now();if(actualMode==='direct')video.currentTime=Number(seekTo);else await start(Number(seekTo));})}/></label>{/if}<p>{selected.overview}</p><p role="status">{playbackReason}</p><div class="toolbar"><label>Add to list<select aria-label="Add to list" bind:value={targetListID}><option value="">Choose a collection, playlist or queue</option>{#each savedLists as l}<option value={l.id}>{l.name} · {l.kind}</option>{/each}</select></label><button disabled={!targetListID} onclick={()=>guard(addToList)}>Add title</button></div>

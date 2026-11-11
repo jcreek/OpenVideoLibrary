@@ -1820,6 +1820,77 @@
           }
         ]
       }
+    },
+    "/api/v1/items/{id}/lyrics": {
+      "get": {
+        "operationId": "get__items_id_lyrics",
+        "summary": "Read bounded local music lyrics",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lyrics or empty lines when absent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lyrics"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Music source unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid or oversized lyrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Inspection busy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Lyrics read timed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2607,6 +2678,43 @@
         },
         "required": [
           "side_data_type"
+        ],
+        "additionalProperties": false
+      },
+      "LyricLine": {
+        "type": "object",
+        "properties": {
+          "time_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "time_ms",
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "Lyrics": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "$ref": "#/components/schemas/LyricLine"
+            }
+          }
+        },
+        "required": [
+          "lines"
         ],
         "additionalProperties": false
       }

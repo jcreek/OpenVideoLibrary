@@ -33,11 +33,20 @@ pub(crate) async fn item_with_kind(app: &App, u: User, id: i64) -> Result<(PathB
     resolve_item(app, u, id, true).await
 }
 
-async fn resolve_item(app: &App, u: User, id: i64, kind: bool) -> Result<(PathBuf, i64, String)> {
-    let (path,root,library,kind)=app.db.call(move|c|{
+pub(crate) async fn locate_item(
+    app: &App,
+    u: User,
+    id: i64,
+    kind: bool,
+) -> Result<(String, String, i64, String)> {
+    app.db.call(move|c|{
         let entry=c.query_row("SELECT f.path,l.path,l.id,CASE WHEN ? THEN CASE WHEN EXISTS(SELECT 1 FROM ovl_music_libraries m WHERE m.library_id=l.id) THEN 'music' ELSE l.kind END ELSE '' END FROM media_files f JOIN libraries l ON l.id=f.library_id WHERE f.item_id=? AND (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=l.id AND a.user_id=?)) ORDER BY f.id LIMIT 1",params![kind,id,u.admin,u.id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?))).optional()?;
         entry.ok_or_else(||Error::new(404,"media unavailable"))
-    }).await?;
+    }).await
+}
+
+async fn resolve_item(app: &App, u: User, id: i64, kind: bool) -> Result<(PathBuf, i64, String)> {
+    let (path, root, library, kind) = locate_item(app, u, id, kind).await?;
     let real = tokio::fs::canonicalize(path)
         .await
         .map_err(|_| Error::new(404, "media unavailable"))?;

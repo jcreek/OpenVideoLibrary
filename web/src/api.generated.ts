@@ -27,3 +27,5 @@ export type ListSaved = { "id": number; "revision": number };
 export type PlaybackTelemetry = { "Event": "first_frame" | "seek" | "stall"; "DurationMs": number; "Mode": "direct" | "remux" | "transcode" };
 export type WriteQueueCursor = { "Revision": number; "Cursor": number };
 export type MediaSideData = { "side_data_type": string };
+export type LyricLine = { "time_ms": (number | null); "text": string };
+export type Lyrics = { "lines": (LyricLine)[] };

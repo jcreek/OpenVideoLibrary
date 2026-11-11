@@ -774,3 +774,28 @@ software media and physical VAAPI SDR/HDR checks; see
 `validation-n100-music.json`. Installed-driver rejection, current container
 images, production benchmarks and native devices were not rerun. Music
 conversion, album/artist grouping and lyrics remain open. No hosted Actions ran.
+
+## Local music lyrics (2026-11-11)
+
+The music endpoint reads local LRC/TXT and returns bounded timed or plain
+lines. The API regression covers repeated timestamps and ordering, UTF-8 BOM,
+plain-text fallback, sidecar symlinks, a replaced library-root symlink,
+oversized input/expanded text, line limits and revoked grants. Review found
+that timed-out filesystem work could outlive its permit and that a replaced
+root could redirect a canonicalized read. The final worker holds its lease
+until it exits and traverses the registered path with no-follow directory
+handles. Follow-up review found no remaining blockers in this slice.
+
+Full local verification passed: 29 API tests plus socket shutdown, nine
+explicit CPU media/failure tests, seven Python tests, frontend/Rust checks,
+type consistency, benchmark-crate checks, 15 browser scenarios and cached
+Nginx. All three browser engines exercised click-to-seek lyrics and clearing
+the previous lyrics on queue advance. See `validation-browser-lyrics.json`
+and `validation-nginx-lyrics.json`. LRC offsets, embedded/enhanced lyrics,
+external providers and real-device checks remain open.
+
+All eight final-source N100 checks passed over SSH, including separate
+software media and physical VAAPI SDR/HDR checks. See
+`validation-n100-lyrics.json`. The installed-driver negative guard,
+production benchmarks, container images and real devices were not rerun.
+No hosted Actions ran.
