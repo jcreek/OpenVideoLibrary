@@ -3,7 +3,7 @@ import {spawn,execFileSync,type ChildProcess} from 'node:child_process';
 import {mkdtempSync,mkdirSync,rmSync,writeFileSync,copyFileSync,renameSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
-let server:ChildProcess,root:string,media:string,serverLog='';
+let server:ChildProcess,root:string,media:string,music:string,serverLog='';
 test.afterEach(async({},testInfo)=>{if(testInfo.status!==testInfo.expectedStatus)await testInfo.attach('server-log',{body:serverLog,contentType:'text/plain'});});
 test.beforeEach(async({browser},testInfo)=>{testInfo.annotations.push({type:'browser-version',description:browser.version()});});
 const username='browser-admin',password='browser-test-password-123';
@@ -12,6 +12,11 @@ test.beforeAll(async()=>{
  writeFileSync(join(media,'Example.S01E01.srt'),'1\n00:00:00,000 --> 00:00:04,000\nA local subtitle\n');
  execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=24','-f','lavfi','-i','sine=frequency=440','-i',join(media,'Example.S01E01.srt'),'-t','12','-c:v','libx264','-preset','ultrafast','-g','24','-c:a','aac','-c:s','mov_text',join(media,'Example.S01E01.mp4')]);
  copyFileSync(join(media,'Example.S01E01.mp4'),join(media,'Example.S01E02.mp4'));
+
+ music=join(root,'music');mkdirSync(music);
+ execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','sine=frequency=440','-t','4',
+  '-c:a','libmp3lame','-metadata','artist=Fixture Artist','-metadata','album=Fixture Album',join(music,'First track.mp3')]);
+ copyFileSync(join(music,'First track.mp3'),join(music,'Second track.mp3'));
 
  server=spawn(resolve('../bin/ovl'),[],{env:{...process.env,OVL_DATA:join(root,'data'),OVL_WEB:resolve('dist'),OVL_MIN_FREE_BYTES:'1048576',OVL_TRANSCODE_BYTES:'16777216',OVL_LISTEN:'127.0.0.1:18096',OVL_ACCELERATOR:'cpu',OVL_SECURE_COOKIES:'false'},stdio:'pipe'});
  serverLog='';for(const stream of [server.stdout,server.stderr])stream?.on('data',chunk=>{serverLog=(serverLog+chunk.toString()).slice(-65536);});
@@ -57,7 +62,7 @@ test('persistent queue ordering and automatic next episode',async({page})=>{
  await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();await page.getByLabel('List name',{exact:true}).fill('Evening queue');await page.getByLabel('List type',{exact:true}).selectOption('queue');await page.getByRole('button',{name:'Create list',exact:true}).click();
  const lists=await (await page.request.get('/api/v1/lists')).json();const queue=lists.find((l:{name:string})=>l.name==='Evening queue');expect(queue).toBeTruthy();
  for(const title of titles){
-  await page.getByRole('button',{name:'Movies & episodes',exact:true}).click();await page.getByRole('button',{name:new RegExp('TV ▶ '+title)}).click();await expect(page.locator('.player h2')).toHaveText(title);
+  await page.getByRole('button',{name:'All media',exact:true}).click();await page.getByRole('button',{name:new RegExp('TV ▶ '+title)}).click();await expect(page.locator('.player h2')).toHaveText(title);
   await page.getByLabel('Add to list',{exact:true}).selectOption(String(queue.id));await page.getByRole('button',{name:'Add title',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Added to Evening queue.'})).toBeVisible();await page.getByRole('button',{name:'Close player',exact:true}).click();
  }
  await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();await page.getByRole('button',{name:'Evening queue · queue',exact:true}).click();await expect(page.locator('ol li')).toHaveCount(2);
@@ -160,7 +165,7 @@ test('player lifecycle ignores delayed opening and closing',async({page})=>{
   await expect(page.locator('.player')).toHaveCount(0);
  }finally{releaseCursor();}
  await page.unrouteAll({behavior:'wait'});
- await page.getByRole('button',{name:'Movies & episodes',exact:true}).click();await second.click();
+ await page.getByRole('button',{name:'All media',exact:true}).click();await second.click();
  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
  let releasePlayback!:()=>void,playbackStarted!:()=>void,lateSession='';
  const playbackGate=new Promise<void>(r=>releasePlayback=r),playbackWaiting=new Promise<void>(r=>playbackStarted=r);
@@ -188,4 +193,37 @@ test('player lifecycle ignores delayed opening and closing',async({page})=>{
  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
 
  await expect(page.locator('.player h2')).toHaveText(items[1].title);
+});
+
+test('music library tags and decoded audio queue playback',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)
+  expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await page.goto('/');
+ await page.getByText('Manage libraries',{exact:true}).click();
+ await page.getByLabel('Name',{exact:true}).fill('Music fixture');
+ await page.getByLabel('Server folder').fill(music);
+ await page.getByLabel('Media type').selectOption('music');
+ await page.getByRole('button',{name:'Add library',exact:true}).click();
+ await expect(page.getByLabel('Library',{exact:true}).locator('option').filter({hasText:'Music fixture'})).toHaveCount(1);
+ expect((await page.request.post('/api/v1/scan',{headers})).status()).toBe(202);
+ await expect.poll(async()=> (await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ const libraries=await (await page.request.get('/api/v1/libraries')).json();
+ const library=libraries.find((l:{name:string})=>l.name==='Music fixture');
+ const tracks=await (await page.request.get('/api/v1/items?library='+library.id)).json();
+ expect(tracks.map((t:{title:string})=>t.title)).toEqual(['First track','Second track']);
+ expect((await page.request.post('/api/v1/lists',{headers,data:{Name:'Music queue',Kind:'queue',ItemIDs:tracks.map((t:{id:number})=>t.id)}})).status()).toBe(201);
+ await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();
+ await page.getByRole('button',{name:'Music queue · queue',exact:true}).click();
+ await page.getByRole('button',{name:'Resume queue',exact:true}).click();
+ const player=page.getByLabel('Music player',{exact:true});
+ await expect(page.locator('.player h2')).toHaveText('First track');
+ await expect(page.getByText('Fixture Artist · Fixture Album',{exact:true})).toBeVisible();
+ await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeGreaterThan(.25);
+ await player.evaluate((a:HTMLAudioElement)=>{a.currentTime=a.duration-.15;});
+ await expect(page.locator('.player h2')).toHaveText('Second track');
+ await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeGreaterThan(.25);
+ await page.getByRole('button',{name:'Close player',exact:true}).click();
+ await expect(player).toHaveCount(0);
 });

@@ -158,3 +158,26 @@ original file. Probe responses expose the two FFprobe disposition flags.
 HDR frame inspection and HLS video mappings use the selected stream index.
 This avoids probing color metadata from a different stream than the one
 encoded. This does not add alternate-angle selection or audio library support.
+
+## Music library preview
+
+Create a Music library to scan MP3, M4A, FLAC, Ogg, Opus and WAV paths.
+The scanner uses filenames and existing NFO import for browse titles; it
+does not interpret episode-like names as TV episodes. Opening a track reads
+a bounded subset of embedded tags (title, artist, album, album artist,
+track and disc), including stream-level audio tags when container tags
+are absent. It does not index those tags for album or artist browsing.
+
+The web player uses native audio controls and shares progress and queues
+with video. Automatic music playback checks the actual audio container,
+codec and channel count against the client report. Without a capability
+report, it accepts known mono/stereo MP3 only. Music playback does not
+allocate FFmpeg conversion sessions. Explicit direct mode checks that
+the input has audio and no playable video; embedded artwork is allowed.
+Current grants and resolved paths still gate probing and byte ranges.
+
+Music classification uses an additive table and preserves the v2 library
+rows, IDs and legacy kind constraint. Older binaries can preserve the
+database but see these libraries as movies and do not offer this music
+workflow. Audio conversion, tag indexing, album/artist grouping, artwork
+extraction and lyrics remain open.

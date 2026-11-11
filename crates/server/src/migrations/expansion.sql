@@ -12,3 +12,7 @@ CREATE TABLE IF NOT EXISTS ovl_list_entries (
  item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
  PRIMARY KEY(list_id,position)
 );
+-- Keep the legacy movie/TV CHECK constraint and library IDs intact.
+CREATE TABLE IF NOT EXISTS ovl_music_libraries (
+ library_id INTEGER PRIMARY KEY REFERENCES libraries(id) ON DELETE CASCADE
+);

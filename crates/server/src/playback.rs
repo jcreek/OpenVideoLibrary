@@ -197,7 +197,7 @@ pub async fn start(
     Path(item_id): Path<i64>,
     body: Bytes,
 ) -> Result<(StatusCode, Json<Value>)> {
-    let (path, library) = media::item(&app, u, item_id).await?;
+    let (path, library, kind) = media::item_with_kind(&app, u, item_id).await?;
     let mut b: Playback = parse(&body)?;
     if b.capabilities
         .as_ref()
@@ -217,6 +217,50 @@ pub async fn start(
     }
     if !["auto", "direct", "remux", "transcode"].contains(&b.mode.as_str()) {
         return Err(Error::new(400, "invalid playback mode"));
+    }
+    if kind == "music" {
+        if b.audio != 0 || b.subtitle.is_some() {
+            return Err(Error::new(400, "music playback uses the first audio track"));
+        }
+        if !matches!(b.mode.as_str(), "auto" | "direct") {
+            return Err(Error::new(422, "music conversion is unavailable"));
+        }
+        let info = media::inspect(&app, &path).await?;
+        let audio = info.streams.iter().find(|t| t.codec_type == "audio");
+        let Some(audio) = audio.filter(|_| info.video().is_none()) else {
+            return Err(Error::new(422, "expected an audio-only music track"));
+        };
+        if b.mode == "auto" {
+            let supported = if let Some(c) = &b.capabilities {
+                matches!(
+                    (info.format.format_name.as_str(), audio.codec_name.as_str()),
+                    ("mp3", "mp3")
+                        | ("m4a", "aac")
+                        | ("flac", "flac")
+                        | ("ogg", "vorbis" | "opus")
+                        | ("wav", "pcm_s16le")
+                ) && c.containers.contains(&info.format.format_name)
+                    && c.audio_codecs.contains(&audio.codec_name)
+                    && channels_supported(audio, Some(c))
+            } else {
+                info.format.format_name == "mp3"
+                    && audio.codec_name == "mp3"
+                    && channels_supported(audio, None)
+            };
+            if !supported {
+                return Err(Error::new(
+                    422,
+                    "client does not support this music track; music conversion is unavailable",
+                ));
+            }
+        }
+        return Ok((
+            StatusCode::OK,
+            Json(json!({
+                "url":format!("/api/v1/items/{item_id}/file"), "mode":"direct", "start":b.start,
+                "reason":"Direct music playback"
+            })),
+        ));
     }
     let mut info = Info::default();
     let mut reason = "Playback mode selected manually".to_owned();

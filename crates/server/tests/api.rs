@@ -3335,3 +3335,219 @@ async fn real_embedded_artwork_does_not_count_as_playable_video() {
     }
     app.shutdown().await;
 }
+
+#[cfg(unix)]
+#[tokio::test]
+#[ignore = "requires FFmpeg audio encoders and FFprobe"]
+async fn real_music_library_tags_playback_and_current_grants() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let dir = root.path().join("music");
+    std::fs::create_dir(&dir).unwrap();
+    let cases = [
+        ("mp3", "libmp3lame", "mp3", "mp3"),
+        ("m4a", "aac", "m4a", "aac"),
+        ("flac", "flac", "flac", "flac"),
+        ("ogg", "libvorbis", "ogg", "vorbis"),
+        ("opus", "libopus", "ogg", "opus"),
+        ("wav", "pcm_s16le", "wav", "pcm_s16le"),
+    ];
+    for (extension, encoder, _, _) in cases {
+        let path = dir.join(format!("S01E01 Music {extension}.{extension}"));
+        let args = [
+            "-nostdin",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:sample_rate=48000",
+            "-t",
+            "1",
+            "-c:a",
+            encoder,
+            "-metadata",
+            "TITLE=Tagged track",
+            "-metadata",
+            "ARTIST=Fixture artist",
+            "-metadata",
+            "ALBUM=Fixture album",
+            "-metadata",
+            "comment=private comment",
+            path.to_str().unwrap(),
+        ];
+        media::process(
+            &app,
+            "ffmpeg",
+            args.into_iter().map(str::to_owned).collect(),
+            None,
+            Duration::from_secs(20),
+            1024,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o444)).unwrap();
+    }
+    std::fs::write(dir.join("ignore.mp4"), b"not in the music library").unwrap();
+    let outside = root.path().join("outside.mp3");
+    std::fs::write(&outside, b"outside media").unwrap();
+    std::os::unix::fs::symlink(&outside, dir.join("escape.mp3")).unwrap();
+    let (status, library) = request(
+        &router,
+        "POST",
+        "/api/v1/libraries",
+        Some(&token),
+        Some(json!({"Name":"Music fixture","Path":dir,"Kind":"music"})),
+    )
+    .await;
+    assert_eq!(status, 201, "{library}");
+    assert_eq!(
+        request(&router, "POST", "/api/v1/scan", Some(&token), None)
+            .await
+            .0,
+        202
+    );
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while request(&router, "GET", "/api/v1/scan", Some(&token), None)
+            .await
+            .1["running"]
+            == true
+        {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let (_, items) = request(&router, "GET", "/api/v1/items", Some(&token), None).await;
+    assert_eq!(items.as_array().unwrap().len(), cases.len());
+    let (_, series) = request(&router, "GET", "/api/v1/series", Some(&token), None).await;
+    assert_eq!(
+        series,
+        json!([]),
+        "episode-like track names must not become TV series"
+    );
+    let (status,viewer)=request(&router,"POST","/api/v1/users",Some(&token),
+        Some(json!({"Name":"music-viewer","Password":"test-password-123","Libraries":[library["id"]]}))).await;
+    assert_eq!(status, 201, "{viewer}");
+    let listener = account(&router, "music-viewer").await;
+    for (extension, _, container, codec) in cases {
+        let item = items
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|v| v["title"] == format!("S01E01 Music {extension}"))
+            .unwrap();
+        let id = item["id"].as_i64().unwrap();
+        let (status, probe) = request(
+            &router,
+            "GET",
+            &format!("/api/v1/items/{id}/probe"),
+            Some(&listener),
+            None,
+        )
+        .await;
+        assert_eq!(status, 200, "{probe}");
+        assert_eq!(probe["format"]["format_name"], container);
+        assert!(probe["format"]["tags"].get("comment").is_none());
+        assert!(!probe.to_string().contains("private comment"));
+        if extension == "mp3" || extension == "opus" {
+            assert_eq!(probe["format"]["tags"]["artist"], "Fixture artist");
+            assert_eq!(probe["format"]["tags"]["album"], "Fixture album");
+        }
+        let path = format!("/api/v1/items/{id}/playback");
+        let (status, session) = request(
+            &router,
+            "POST",
+            &path,
+            Some(&listener),
+            Some(
+                json!({"Mode":"auto","Capabilities":{"containers":[container],"video_codecs":[],
+                "audio_codecs":[codec],"hdr":false}}),
+            ),
+        )
+        .await;
+        assert_eq!(status, 200, "{session}");
+        assert_eq!(session["mode"], "direct");
+        assert_eq!(session["url"], format!("/api/v1/items/{id}/file"));
+        assert_eq!(
+            request(
+                &router,
+                "POST",
+                &path,
+                Some(&listener),
+                Some(
+                    json!({"Mode":"auto","Capabilities":{"containers":[container],"video_codecs":[],
+                "audio_codecs":[],"hdr":false}})
+                )
+            )
+            .await
+            .0,
+            422
+        );
+        assert_eq!(
+            request(
+                &router,
+                "POST",
+                &path,
+                Some(&listener),
+                Some(json!({"Mode":"transcode"}))
+            )
+            .await
+            .0,
+            422
+        );
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(session["url"].as_str().unwrap())
+                    .header("Authorization", format!("Bearer {listener}"))
+                    .header("Range", "bytes=0-63")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 206);
+        let content = response.into_body().collect().await.unwrap().to_bytes();
+        let original =
+            std::fs::read(dir.join(format!("S01E01 Music {extension}.{extension}"))).unwrap();
+        assert_eq!(&content[..], &original[..64]);
+    }
+    assert!(app.streams.lock().await.is_empty());
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &format!("/api/v1/users/{}/access", viewer["id"]),
+            Some(&token),
+            Some(json!({"Libraries":[]}))
+        )
+        .await
+        .0,
+        200
+    );
+    let id = items[0]["id"].as_i64().unwrap();
+    for (method, suffix) in [
+        ("GET", "probe"),
+        ("GET", "file"),
+        ("POST", "playback"),
+        ("GET", "artwork"),
+    ] {
+        assert_eq!(
+            request(
+                &router,
+                method,
+                &format!("/api/v1/items/{id}/{suffix}"),
+                Some(&listener),
+                (method == "POST").then(|| json!({"Mode":"auto"}))
+            )
+            .await
+            .0,
+            404
+        );
+    }
+    app.shutdown().await;
+}

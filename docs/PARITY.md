@@ -32,7 +32,7 @@ A locally verified slice does not imply parity with every Jellyfin behavior.
 | Desktop web | Partial | Automated browser results recorded separately; accessibility and larger codec/device matrix pending |
 | Mobile web | Partial | Responsive UI exists; real iOS/Android acceptance pending |
 | Native mobile/TV apps | Missing | Later clients; existing Jellyfin apps are explicitly unsupported |
-| Music, albums/artists, lyrics, audio queues | Missing | Later media stage, with metadata/audio acceptance |
+| Music, albums/artists, lyrics, audio queues | Partial | Music scans, bounded embedded tag display, capability-checked direct audio and shared queues. Album/artist/disc grouping, metadata indexing, artwork, lyrics and audio conversion remain open; see [Jellyfin music](https://jellyfin.org/docs/general/server/media/music/) |
 | Books, comics, photos, music videos and other supported libraries | Missing | Inventory per pinned release and add media-specific clients/tests |
 | Live TV/IPTV and guide data | Missing | Dedicated later stage: tuners, XMLTV, guide and playback tests |
 | DVR, scheduling, conflicts, retention | Missing | Write only to a dedicated recording destination, never read-only library mounts |

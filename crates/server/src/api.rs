@@ -103,7 +103,7 @@ async fn libraries(
     Extension(u): Extension<User>,
 ) -> Result<Json<Value>> {
     Ok(Json(app.db.call(move|c|{
-        let mut s=c.prepare("SELECT id,name,kind,offline FROM libraries l WHERE ? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=l.id AND a.user_id=?) ORDER BY id")?;
+        let mut s=c.prepare("SELECT id,name,CASE WHEN EXISTS(SELECT 1 FROM ovl_music_libraries m WHERE m.library_id=l.id) THEN 'music' ELSE kind END,offline FROM libraries l WHERE ? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=l.id AND a.user_id=?) ORDER BY id")?;
         let rows=s.query_map(params![u.admin,u.id],|r|Ok(json!({"id":r.get::<_,i64>(0)?,"name":r.get::<_,String>(1)?,"kind":r.get::<_,String>(2)?,"offline":r.get::<_,bool>(3)?})))?;
         Ok(Value::Array(rows.collect::<std::result::Result<Vec<_>,_>>()?))
     }).await?))
@@ -122,7 +122,7 @@ async fn add_library(
 ) -> Result<impl axum::response::IntoResponse> {
     admin(u)?;
     let b: Library = parse(&body)?;
-    if b.name.is_empty() || !["movie", "tv"].contains(&b.kind.as_str()) {
+    if b.name.is_empty() || !["movie", "tv", "music"].contains(&b.kind.as_str()) {
         return Err(Error::new(400, "invalid library"));
     }
     let path = tokio::fs::canonicalize(b.path)
@@ -140,12 +140,26 @@ async fn add_library(
     let out = app
         .db
         .call(move |c| {
-            c.execute(
+            let tx = c.transaction()?;
+            let music = b.kind == "music";
+            tx.execute(
                 "INSERT INTO libraries(name,path,kind) VALUES(?,?,?)",
-                params![b.name, path.to_string_lossy(), b.kind],
+                params![
+                    b.name,
+                    path.to_string_lossy(),
+                    if music { "movie" } else { &b.kind }
+                ],
             )
             .map_err(|_| Error::new(409, "library exists"))?;
-            Ok(json!({"id":c.last_insert_rowid()}))
+            let id = tx.last_insert_rowid();
+            if music {
+                tx.execute(
+                    "INSERT INTO ovl_music_libraries(library_id) VALUES(?)",
+                    [id],
+                )?;
+            }
+            tx.commit()?;
+            Ok(json!({"id":id}))
         })
         .await?;
     Ok((axum::http::StatusCode::CREATED, Json(out)))

@@ -748,3 +748,29 @@ branch was not run. Independent review found no remaining blockers for the
 tested scopes. Full `make verify-local` passed, including 12 browser scenarios,
 CPU media, Rust/frontend checks, Python and generated types. Rust source
 and physical GPU evidence are unchanged. No hosted Actions ran.
+
+## Music direct playback preview (2026-11-11)
+
+A generated six-format API test verifies music-only extension scanning,
+episode-like track names staying out of TV series, bounded tag display,
+grant revocation, correct byte ranges and no conversion allocation.
+Container and audio-stream custom tags are excluded from the audio-only
+probe response. Review caught raw stream tags, and the generated test caught the legacy
+library-kind constraint; the final code clears the raw audio-only tags and records
+music classification in an additive table with a transactional create.
+
+Full local verification passed: 28 API tests plus socket shutdown, nine
+explicit CPU media/failure tests, seven Python tests, frontend/Rust checks,
+type consistency, benchmark-crate checks, 15 browser scenarios and cached
+Nginx. Chromium, Firefox and WebKit each exercised actual MP3 playback,
+embedded tag display and automatic music queue advancement. The six-format
+API test does not certify every codec in each browser. A separate live
+backup/restore smoke preserved music classification, the track queue and
+password login; the old session was rejected. See
+`validation-browser-music.json` and `validation-nginx-music.json`.
+
+All eight source-matched N100 checks passed over SSH, including separate
+software media and physical VAAPI SDR/HDR checks; see
+`validation-n100-music.json`. Installed-driver rejection, current container
+images, production benchmarks and native devices were not rerun. Music
+conversion, album/artist grouping and lyrics remain open. No hosted Actions ran.

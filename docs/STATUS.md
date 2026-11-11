@@ -153,3 +153,8 @@ Artwork-only media cannot allocate a video conversion session.
 A disposable native N100 Nginx drill now verifies the deployment locations,
 TLS, request limits, live backup/restore, same-binary snapshot rollback and
 graceful shutdown. Current images and production cutover remain unaccepted.
+
+Music libraries now have a direct audio preview with bounded tag display,
+native web controls and shared progress/queues. Classification preserves
+the legacy SQLite schema version through an additive table. Album/artist
+grouping, lyrics and audio conversion remain open.

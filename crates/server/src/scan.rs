@@ -39,6 +39,7 @@ fn read_nfo(path: &Path) -> std::io::Result<String> {
 }
 fn discover(
     root: &Path,
+    music: bool,
     cancel: &tokio_util::sync::CancellationToken,
     tx: mpsc::Sender<Found>,
 ) -> Result<usize> {
@@ -65,7 +66,12 @@ fn discover(
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_lowercase();
-        if !["mkv", "mp4", "m4v", "avi", "mov", "ts", "webm"].contains(&ext.as_str()) {
+        let extensions: &[&str] = if music {
+            &["mp3", "m4a", "flac", "ogg", "opus", "wav"]
+        } else {
+            &["mkv", "mp4", "m4v", "avi", "mov", "ts", "webm"]
+        };
+        if !extensions.contains(&ext.as_str()) {
             continue;
         }
         let real = std::fs::canonicalize(p)?;
@@ -80,7 +86,7 @@ fn discover(
         let mut series = String::new();
         let mut season = 0;
         let mut episode_num = 0;
-        if let Some(c) = episode.captures(&stem) {
+        if !music && let Some(c) = episode.captures(&stem) {
             series = c[1]
                 .replace('.', " ")
                 .trim_matches([' ', '-', '_'])
@@ -128,7 +134,7 @@ fn discover(
     }
     Ok(seen)
 }
-async fn library(app: &Arc<App>, id: i64, root: PathBuf) -> Result<()> {
+async fn library(app: &Arc<App>, id: i64, root: PathBuf, music: bool) -> Result<()> {
     tokio::fs::canonicalize(&root)
         .await
         .map_err(|_| Error::new(503, "library root unavailable"))?;
@@ -136,7 +142,8 @@ async fn library(app: &Arc<App>, id: i64, root: PathBuf) -> Result<()> {
     let cancel = app.cancel.child_token();
     let producer_cancel = cancel.clone();
     let _guard = cancel.clone().drop_guard();
-    let producer = tokio::task::spawn_blocking(move || discover(&root, &producer_cancel, tx));
+    let producer =
+        tokio::task::spawn_blocking(move || discover(&root, music, &producer_cancel, tx));
     let result:Result<()>=async{
         loop{let found=tokio::select!{_=cancel.cancelled()=>return Err(Error::new(499,"scan cancelled")),next=rx.recv()=>next};
             let Some(f)=found else{break;};
@@ -191,19 +198,23 @@ pub async fn start(app: Arc<App>) -> Result<()> {
         let libs = app
             .db
             .call(|c| {
-                let mut s = c.prepare("SELECT id,path FROM libraries ORDER BY id")?;
+                let mut s = c.prepare("SELECT id,path,CASE WHEN EXISTS(SELECT 1 FROM ovl_music_libraries m WHERE m.library_id=l.id) THEN 'music' ELSE kind END FROM libraries l ORDER BY id")?;
                 Ok(s.query_map([], |r| {
-                    Ok((r.get::<_, i64>(0)?, PathBuf::from(r.get::<_, String>(1)?)))
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        PathBuf::from(r.get::<_, String>(1)?),
+                        r.get::<_, String>(2)?,
+                    ))
                 })?
                 .collect::<std::result::Result<Vec<_>, _>>()?)
             })
             .await;
         if let Ok(libs) = libs {
-            for (id, root) in libs {
+            for (id, root, kind) in libs {
                 if app.cancel.is_cancelled() {
                     break;
                 }
-                let result = library(&app, id, root).await;
+                let result = library(&app, id, root, kind == "music").await;
                 let offline = result.is_err();
                 if let Err(e) = result {
                     tracing::warn!(library=id,error=%e,"scan incomplete; records preserved");

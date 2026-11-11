@@ -25,8 +25,17 @@ use tokio::{io::AsyncReadExt, process::Command};
 use tower::ServiceExt;
 
 pub async fn item(app: &App, u: User, id: i64) -> Result<(PathBuf, i64)> {
-    let (path,root,library)=app.db.call(move|c|{
-        let entry=c.query_row("SELECT f.path,l.path,l.id FROM media_files f JOIN libraries l ON l.id=f.library_id WHERE f.item_id=? AND (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=l.id AND a.user_id=?)) ORDER BY f.id LIMIT 1",params![id,u.admin,u.id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?))).optional()?;
+    let (path, library, _) = resolve_item(app, u, id, false).await?;
+    Ok((path, library))
+}
+
+pub(crate) async fn item_with_kind(app: &App, u: User, id: i64) -> Result<(PathBuf, i64, String)> {
+    resolve_item(app, u, id, true).await
+}
+
+async fn resolve_item(app: &App, u: User, id: i64, kind: bool) -> Result<(PathBuf, i64, String)> {
+    let (path,root,library,kind)=app.db.call(move|c|{
+        let entry=c.query_row("SELECT f.path,l.path,l.id,CASE WHEN ? THEN CASE WHEN EXISTS(SELECT 1 FROM ovl_music_libraries m WHERE m.library_id=l.id) THEN 'music' ELSE l.kind END ELSE '' END FROM media_files f JOIN libraries l ON l.id=f.library_id WHERE f.item_id=? AND (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=l.id AND a.user_id=?)) ORDER BY f.id LIMIT 1",params![kind,id,u.admin,u.id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?))).optional()?;
         entry.ok_or_else(||Error::new(404,"media unavailable"))
     }).await?;
     let real = tokio::fs::canonicalize(path)
@@ -43,7 +52,7 @@ pub async fn item(app: &App, u: User, id: i64) -> Result<(PathBuf, i64)> {
     {
         return Err(Error::new(404, "media unavailable"));
     }
-    Ok((real, library))
+    Ok((real, library, kind))
 }
 pub async fn serve(app: &App, path: PathBuf, req: Request) -> Result<Response> {
     let response = tower_http::services::ServeFile::new(path)
@@ -112,6 +121,8 @@ pub struct Format {
     pub format_name: String,
     pub start_time: String,
     pub duration: String,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub tags: HashMap<String, String>,
 }
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
 #[serde(default)]
@@ -298,6 +309,39 @@ pub async fn inspect_with_hdr_metadata(
                     }
                 }
             }
+        }
+    }
+    // Publish a bounded display subset rather than arbitrary container tags.
+    let tags = std::mem::take(&mut info.format.tags);
+    if info.video().is_none() {
+        let audio = info.streams.iter().find(|t| t.codec_type == "audio");
+        for field in ["title", "artist", "album", "album_artist", "track", "disc"] {
+            let value = tags
+                .iter()
+                .find(|(key, _)| key.eq_ignore_ascii_case(field))
+                .or_else(|| {
+                    audio.and_then(|t| {
+                        t.tags
+                            .iter()
+                            .find(|(key, _)| key.eq_ignore_ascii_case(field))
+                    })
+                });
+            if let Some((_, value)) = value {
+                let display: String = value
+                    .trim()
+                    .chars()
+                    .filter(|c| !c.is_control())
+                    .take(200)
+                    .collect();
+                if !display.is_empty() {
+                    info.format.tags.insert(field.into(), display);
+                }
+            }
+        }
+    }
+    if info.video().is_none() {
+        for track in &mut info.streams {
+            track.tags.clear();
         }
     }
     // FFprobe reports shared demuxer aliases, not the actual browser container.

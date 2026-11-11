@@ -1886,7 +1886,8 @@
             "type": "string",
             "enum": [
               "movie",
-              "tv"
+              "tv",
+              "music"
             ]
           },
           "offline": {
@@ -1975,7 +1976,8 @@
             "type": "string",
             "enum": [
               "movie",
-              "tv"
+              "tv",
+              "music"
             ]
           }
         },
@@ -2204,8 +2206,20 @@
             "type": "object",
             "description": "FFprobe flags for artwork and timed thumbnail tracks.",
             "properties": {
-              "attached_pic": { "type": "integer", "enum": [0, 1] },
-              "timed_thumbnails": { "type": "integer", "enum": [0, 1] }
+              "attached_pic": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              "timed_thumbnails": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              }
             },
             "additionalProperties": false
           },
@@ -2279,6 +2293,13 @@
               "start_time": {
                 "type": "string",
                 "description": "Raw source timestamp origin in seconds from FFprobe, or empty if unavailable. Playback Start is relative to this origin."
+              },
+              "tags": {
+                "type": "object",
+                "description": "Bounded display metadata for audio-only media (title, artist, album, album_artist, track and disc).",
+                "additionalProperties": {
+                  "type": "string"
+                }
               }
             },
             "required": [
