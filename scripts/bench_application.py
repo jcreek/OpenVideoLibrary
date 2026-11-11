@@ -9,6 +9,7 @@ import concurrent.futures
 import datetime
 import hashlib
 import http.client
+import itertools
 import json
 import os
 from pathlib import Path
@@ -48,7 +49,7 @@ def seed(data, count):
                        ((i, f'/synthetic/{i}.mp4') for i in range(1, count + 1)))
 
 
-def load(port, token, query, count, concurrency):
+def load(port, token, query, count, concurrency, duration=None):
     local = threading.local()
     connections = []
     lock = threading.Lock()
@@ -80,7 +81,22 @@ def load(port, token, query, count, concurrency):
     start = time.perf_counter()
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
-            values = list(pool.map(one, range(count)))
+            if duration is None:
+                values = list(pool.map(one, range(count)))
+            else:
+                deadline = start + duration
+                indices = itertools.count()
+
+                def worker(_):
+                    rows = []
+                    while time.perf_counter() < deadline:
+                        index = next(indices)
+                        if index >= count:
+                            break
+                        rows.append(one(index))
+                    return rows
+
+                values = [row for rows in pool.map(worker, range(concurrency)) for row in rows]
     finally:
         for connection in connections:
             connection.close()
@@ -92,7 +108,9 @@ def load(port, token, query, count, concurrency):
     for _, error in values:
         if error:
             errors[error] = errors.get(error, 0) + 1
-    return {'requests': count, 'seconds': elapsed, 'errors': count-len(latencies),
+    return {'requests': len(values), 'seconds': elapsed, 'errors': len(values)-len(latencies),
+            **({'target_seconds': duration, 'request_cap_reached': len(values) == count}
+               if duration is not None else {}),
             'error_types': errors, 'successful_rps': len(latencies)/elapsed,
             'p50_ms': percentile(.5), 'p95_ms': percentile(.95), 'p99_ms': percentile(.99)}
 
@@ -122,7 +140,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', default='target/release/ovl-server')
     parser.add_argument('--items', nargs='+', type=int, choices=[10000, 100000], default=[10000, 100000])
-    parser.add_argument('--requests', type=int, default=10000)
+    parser.add_argument('--requests', type=int, default=10000,
+                        help='Requests per trial, or hard request cap with --seconds')
+    parser.add_argument('--seconds', type=int,
+                        help='Start requests for this many seconds per trial, then drain in-flight requests')
     parser.add_argument('--repetitions', type=int, default=5)
     parser.add_argument('--concurrency', nargs='+', type=int, default=[1, 10, 25, 50, 100])
     parser.add_argument('--isolation-note', default='Shared host; caches not evicted; no harness media or background FFmpeg workloads')
@@ -132,6 +153,8 @@ def main():
     args = parser.parse_args()
     if args.requests < 1 or args.repetitions < 3 or any(c < 1 or c > 1000 for c in args.concurrency):
         parser.error('positive requests, at least three repetitions and concurrency 1–1000 required')
+    if args.seconds is not None and not (1 <= args.seconds <= 300 and args.requests <= 1_000_000):
+        parser.error('timed trials require 1–300 seconds and at most 1,000,000 requests')
     binary = Path(args.binary).resolve()
     hardware = {'cpu': platform.processor(), 'logical_cpus': os.cpu_count()}
     if platform.system() == 'Darwin':
@@ -211,7 +234,7 @@ def main():
                                 peak[0] = max(peak[0], sample(process.pid)[0])
                         monitor = threading.Thread(target=observe)
                         monitor.start()
-                        result = load(port, token, query, args.requests, concurrency)
+                        result = load(port, token, query, args.requests, concurrency, args.seconds)
                         after = sample(process.pid)
                         stop.set()
                         if args.process_cold:
@@ -240,6 +263,13 @@ def main():
                                           'errors':sum(r['errors'] for r in rows),
                                           'p95_median_ms':statistics.median(p95s) if p95s else None,
                                           'p95_run_stdev_ms':statistics.stdev(p95s) if len(p95s)>1 else None})
+                if args.seconds is not None:
+                    rates = [r['successful_rps'] for r in rows]
+                    report['summary'][-1].update({
+                        'request_cap_hits': sum(r['request_cap_reached'] for r in rows),
+                        'successful_rps_median': statistics.median(rates),
+                        'successful_rps_stdev': statistics.stdev(rates) if len(rates) > 1 else None,
+                    })
                 if args.process_cold:
                     cold = [r['process_cold_first_query'] for r in rows]
                     values = [r['p95_ms'] for r in cold if r['p95_ms'] is not None]
@@ -252,7 +282,8 @@ def main():
                     }
     report['complete'] = True
     output.write_text(json.dumps(report,indent=2)+'\n')
-    if any(r['errors'] or r.get('process_cold_first_query', {}).get('errors') for r in report['results']):
+    if any(r['errors'] or r.get('request_cap_reached') or r.get('process_cold_first_query', {}).get('errors')
+           for r in report['results']):
         raise SystemExit(1)
 
 

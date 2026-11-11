@@ -626,3 +626,20 @@ from the eight-check N100 artwork acceptance. Full `make verify-local`
 passed again, including 28 API tests plus socket shutdown, eight explicit CPU
 media/failure tests, seven Python tests, frontend checks, generated types,
 12 browser scenarios and disposable Nginx. No GitHub Actions ran.
+
+## Timed N100 saturation diagnostic (2026-11-11)
+
+Timed load now retains the authenticated page/result checks, bounds request
+count and drains outstanding work. Six local timed smoke trials completed
+without errors; a separate cap smoke verified six cap hits and exit status 1
+with no HTTP errors. Independent review found no blockers. Full
+`make verify-local` passed, including frontend, Rust, Python, contract,
+CPU media, 12 browser scenarios and disposable Nginx. No Actions ran.
+
+The N100 timed matrix ran over SSH with the same source and release binary as
+the process-cold run. All 20 trials completed with no cap hits; the expected
+nonzero exit records 374,886 overload responses at 100 clients. At 50 clients
+all 338,360 requests succeeded across the 100k browse/search trials. See
+`BENCHMARKS.md` for latency, resource and scope limits. Rust code is unchanged
+from the eight-check N100 artwork acceptance; the timed run did not rerun
+physical GPU tests or certify LAN, SMB, mixed load or the pinned baseline.

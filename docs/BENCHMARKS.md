@@ -199,3 +199,44 @@ a recently seeded database, on a shared host over loopback. It does not
 include startup time, OS-cold disk reads, LAN/SMB, saturation, scanning or a
 Jellyfin comparison. The first request and the later cache fill are distinct;
 the short follow-up p95 can hide the single fill.
+
+## Timed loopback saturation on N100
+
+Use the release server and run this on the N100 with no harness builds, scans
+or playback running alongside it:
+
+```sh
+cargo build --locked --release -p ovl-server
+python3 scripts/bench_application.py --items 100000 --seconds 20 \
+  --requests 200000 --repetitions 5 --concurrency 50 100 \
+  --output sustained-20s.json
+```
+
+Timed mode keeps a fixed number of closed-loop clients offering the same
+authenticated and result-checked requests as the count-based mode. It stops
+starting new requests at the deadline, then drains in-flight requests.
+Throughput uses full elapsed time including drain. Percentiles cover successful
+requests only; judge them alongside error counts. The request cap bounds memory
+and is reported per trial and in the summary. A capped trial or any request
+error exits nonzero even when the report is complete.
+
+[Recorded SSH run](benchmarks/rust-production-n100-sustained-20s.json):
+20 trials, 1,020,782 authenticated requests and no cap hits. The same N100
+release binary as the process-cold run was used. All 374,886 errors were HTTP
+503 at concurrency 100; the harness exited 1 after writing the complete report.
+
+| Clients | Workload | Requests | HTTP 503 | Successful RPS median (sample σ) | Success p95 median (sample σ), ms |
+| --- | --- | --- | --- | --- | --- |
+| 50 | Browse | 202,141 | 0 | 2,028 (23) | 26.09 (0.42) |
+| 50 | Search | 136,219 | 0 | 1,357 (30) | 39.24 (4.61) |
+| 100 | Browse | 287,068 | 99,694 | 1,890 (67) | 61.98 (5.98) |
+| 100 | Search | 395,354 | 275,192 | 1,185 (21) | 77.54 (1.16) |
+
+At 50 clients the worst per-run p95 was 26.81 ms for browse and 49.02 ms
+for search. At 100 clients, successful throughput fell and error rates rose
+to 34.7% and 69.6% respectively. The successful-request p95 does not qualify
+either overloaded case. The artifact records per-run core CPU and sampled
+RSS (maximum 16.42 MiB), source, binary and harness hashes and runtime versions.
+No harness FFmpeg processes ran. These are 20-second windows with a Python
+client on the shared server, not a long soak, an independently driven LAN
+capacity test, a mixed-media workload or a Jellyfin comparison.
