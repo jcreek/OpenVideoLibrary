@@ -149,3 +149,7 @@ acceptance still separate.
 Playback now distinguishes playable video from embedded artwork and timed
 thumbnails. HDR frame probing and HLS encoding use the selected stream index.
 Artwork-only media cannot allocate a video conversion session.
+
+A disposable native N100 Nginx drill now verifies the deployment locations,
+TLS, request limits, live backup/restore, same-binary snapshot rollback and
+graceful shutdown. Current images and production cutover remain unaccepted.

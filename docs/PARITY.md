@@ -40,7 +40,7 @@ A locally verified slice does not imply parity with every Jellyfin behavior.
 | Session/device management, synchronized playback | Missing | Concurrent client lifecycle and permission tests |
 | Parental rules, ratings and per-user preferences | Missing | Enforce on every browse, list and media path |
 | Tasks, notifications, reporting and administration | Partial | Bounded scans and structured logs; richer scheduling/dashboard/reporting pending |
-| Deployment and platform packaging | Implemented | Disposable real Nginx/TLS + live restore passes with macOS Rust backend; Native Linux amd64/ARM64 CI smoke passed at 97bc011; production-host acceptance pending |
+| Deployment and platform packaging | Implemented | Disposable N100 native Nginx/TLS, live restore and same-binary data rollback pass; Linux amd64/ARM64 CI smoke passed at 97bc011; current images, production mount/TLS and retained-binary rollback pending |
 | Plugin-equivalent integrations | Missing | Explicit selection required before implementation; no .NET binary loading |
 
 ## Plugin capability candidates (unselected)

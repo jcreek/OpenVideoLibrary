@@ -23,3 +23,43 @@ Rust preview is not the stable release. A stable release requires broader media
 and subtitle/HDR quality validation, real mobile browsers, physical GPU tests,
 sustained/cold-cache N100 performance, multi-architecture images, Nginx deployment
 validation and external security review. Registry publication is a separate action.
+
+A disposable native proxy drill can run over SSH without a container runtime
+or system package installation. In a test workspace on N100, download and
+extract a version available in the host's trusted APT index. The recorded
+version was `1.24.0-2ubuntu7.19`; verify the downloaded package hash against
+the index and retain its identity.
+
+```sh
+apt-get download nginx=1.24.0-2ubuntu7.19
+dpkg-deb -x nginx_1.24.0-2ubuntu7.19_amd64.deb ./nginx-test
+# From the staged source checkout, as an unprivileged user:
+python3 scripts/test_nginx.py --binary target/release/ovl-server \
+  --nginx-binary /absolute/path/to/nginx-test/usr/sbin/nginx \
+  --output nginx-native-acceptance.json
+```
+
+The drill renders the repository's Nginx locations into temporary TLS
+configuration, binds both processes to loopback and tests snapshot rollback
+after a trial queue edit. It uses the same Rust binary before and after the
+rollback. Production TLS configuration, a rollback to the retained older
+binary and the read-only production media mount still need an isolated
+deployment drill.
+
+The Docker Desktop VM had zero free space at the last check. No images,
+volumes or build caches were deleted. For current-source image acceptance,
+provide more Docker storage or an isolated Docker builder and runtime with
+adequate space. Build and test each platform separately, using disposable
+tags and keeping the media fixture mounted read-only:
+
+```sh
+docker buildx build --platform linux/amd64 --load -t ovl-acceptance:amd64 .
+python3 scripts/test_container.py --image ovl-acceptance:amd64 --output linux-amd64.json
+docker buildx build --platform linux/arm64 --load -t ovl-acceptance:arm64 .
+python3 scripts/test_container.py --image ovl-acceptance:arm64 --output linux-arm64.json
+```
+
+Use native target runtimes for platform acceptance. The tested N100 account
+has no container runtime and cannot create a user namespace. Its household
+SMB mount is writable; leave it untouched and provision a separate read-only
+test mount before SMB or production-host acceptance.

@@ -720,3 +720,31 @@ Buffered and unbuffered SSH regressions each passed five trials. Full
 `make verify-local` passed, including frontend, Rust, CPU media, Python,
 generated types, 12 browser scenarios and disposable Nginx. Rust source
 and physical GPU evidence are unchanged. No GitHub Actions ran.
+
+## Native N100 Nginx and snapshot rollback (2026-11-11)
+
+The N100 has no Docker/Podman/nerdctl runtime and user namespace creation
+failed. Docker Desktop's separate VM remains at 16 GiB used, zero free.
+No unrelated Docker objects were deleted. The existing writable SMB mount
+was not used or altered. Current multi-architecture image, in-container GPU,
+production TLS/mount and retained-binary rollback acceptance remain open.
+See `ROLLOUT.md` for reproducible commands and prerequisites.
+
+An unprivileged Nginx 1.24.0 Ubuntu package was downloaded and extracted
+in the N100 test workspace over SSH; its package hash matched the APT index.
+The native drill binds Nginx and Rust to loopback and renders the repository's
+Nginx locations with temporary TLS and ports. It passed trusted TLS cookies,
+CSRF, range bytes, proxy-origin 413/429, live WAL backup and session revocation.
+After editing the restored queue, a second restore rolled it back to the
+saved cursor. All three Rust processes and the native Nginx master exited
+cleanly and the proxy listener closed. This is data rollback with the same
+binary and a read-only fixture file, not a binary downgrade or mount test.
+
+`validation-nginx-n100-native.json` retains package, binary, source, config
+and harness identities. The cached Docker Desktop proxy passed the updated
+drill with the Rust backend also restricted to loopback; see
+`validation-nginx-cached-loopback.json`. The Linux cached Docker host-network
+branch was not run. Independent review found no remaining blockers for the
+tested scopes. Full `make verify-local` passed, including 12 browser scenarios,
+CPU media, Rust/frontend checks, Python and generated types. Rust source
+and physical GPU evidence are unchanged. No hosted Actions ran.
