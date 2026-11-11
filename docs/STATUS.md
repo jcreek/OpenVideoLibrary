@@ -145,3 +145,7 @@ Automatic HLS fallback now rejects explicitly incompatible H.264, output
 pixel format or AAC capability reports before allocating a session. This
 validates codec and pixel format support, with transport and device
 acceptance still separate.
+
+Playback now distinguishes playable video from embedded artwork and timed
+thumbnails. HDR frame probing and HLS encoding use the selected stream index.
+Artwork-only media cannot allocate a video conversion session.

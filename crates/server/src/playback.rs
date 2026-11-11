@@ -330,6 +330,7 @@ pub fn encoding_args(
     info: &Info,
     variants: &[Rendition],
 ) -> Vec<String> {
+    let video_map = format!("0:{}", info.video().map_or(0, |v| v.index));
     let bitmap = b.subtitle.filter(|index| {
         info.tracks("subtitle").get(*index).is_some_and(|track| {
             matches!(
@@ -361,9 +362,11 @@ pub fn encoding_args(
             a.extend(["-i".into(), path.to_string_lossy().into_owned()]);
         }
         let base = if info.hdr() {
-            "[0:v:0]zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p[base];"
+            format!(
+                "[{video_map}]zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p[base];"
+            )
         } else {
-            "[0:v:0]null[base];"
+            format!("[{video_map}]null[base];")
         };
         let mut graph = format!(
             "[{}:s:{subtitle}]setpts=PTS-{:.3}/TB[subs];{base}[base][subs]overlay=eof_action=pass:repeatlast=0[burn];[burn]split={}",
@@ -396,7 +399,7 @@ pub fn encoding_args(
             if bitmap.is_some() {
                 format!("[burn{i}]")
             } else {
-                "0:v:0".into()
+                video_map.clone()
             },
             "-map".into(),
             format!("0:a:{}?", b.audio),

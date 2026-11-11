@@ -147,3 +147,14 @@ six-channel report exercises direct selection without certifying a device.
 OVL_ACCELERATOR=cpu cargo test --locked --test api \
   real_surround_audio_negotiates_and_downmixes_selected_channels -- --ignored --nocapture
 ```
+
+## Playable video and embedded artwork
+
+Automatic, remux and transcode playback select the first video track that is
+neither attached artwork nor a timed thumbnail. A file with only audio and
+artwork returns HTTP 422 in those modes. Manual direct mode still serves the
+original file. Probe responses expose the two FFprobe disposition flags.
+
+HDR frame inspection and HLS video mappings use the selected stream index.
+This avoids probing color metadata from a different stream than the one
+encoded. This does not add alternate-angle selection or audio library support.

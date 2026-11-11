@@ -3196,3 +3196,142 @@ async fn real_surround_audio_negotiates_and_downmixes_selected_channels() {
     }
     app.shutdown().await;
 }
+
+#[test]
+fn playable_video_selection_skips_artwork_and_timed_thumbnails() {
+    let info: media::Info = serde_json::from_value(json!({"streams":[
+        {"index":0,"codec_type":"video","codec_name":"mjpeg","disposition":{"attached_pic":1}},
+        {"index":1,"codec_type":"video","codec_name":"h264","disposition":{"timed_thumbnails":1}},
+        {"index":2,"codec_type":"audio"},
+        {"index":3,"codec_type":"video","codec_name":"hevc","color_transfer":"smpte2084"}
+    ]}))
+    .unwrap();
+    assert_eq!(info.video().unwrap().index, 3);
+    assert!(info.hdr());
+    let args = playback::encoding_args(
+        Path::new("movie.mp4"),
+        &Playback {
+            mode: "transcode".into(),
+            ..Default::default()
+        },
+        &info,
+        &playback::ladder(320, 180, false),
+    );
+    assert!(args.windows(2).any(|a| a == ["-map", "0:3"]));
+}
+
+#[tokio::test]
+#[ignore = "requires FFmpeg AAC, MJPEG and H.264 encoders"]
+async fn real_embedded_artwork_does_not_count_as_playable_video() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let item = add_media(&app, root.path()).await;
+    let path = root.path().join("media/Example.S01E01.mp4");
+    for movie in [false, true] {
+        let mut args = vec![
+            "-nostdin",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=red:size=64x64:rate=1",
+        ];
+        if movie {
+            args.extend(["-f", "lavfi", "-i", "testsrc2=size=320x180:rate=12"]);
+        }
+        args.extend([
+            "-map",
+            "0:a:0",
+            "-map",
+            "1:v:0",
+            "-c:a",
+            "aac",
+            "-c:v:0",
+            "mjpeg",
+            "-threads:v:0",
+            "1",
+            "-frames:v:0",
+            "1",
+            "-disposition:v:0",
+            "attached_pic",
+        ]);
+        if movie {
+            args.extend([
+                "-map",
+                "2:v:0",
+                "-c:v:1",
+                "libx264",
+                "-threads:v:1",
+                "2",
+                "-pix_fmt:v:1",
+                "yuv420p",
+            ]);
+        }
+        args.extend(["-t", "2", path.to_str().unwrap()]);
+        media::process(
+            &app,
+            "ffmpeg",
+            args.into_iter().map(str::to_owned).collect(),
+            None,
+            Duration::from_secs(20),
+            1024,
+            app.cancel.child_token(),
+        )
+        .await
+        .unwrap();
+        let info = media::inspect(&app, &path).await.unwrap();
+        assert!(info.streams.iter().any(|t| t.disposition.attached_pic == 1));
+        assert_eq!(info.video().is_some(), movie);
+        let (status, session) = request(
+            &router,
+            "POST",
+            &format!("/api/v1/items/{item}/playback"),
+            Some(&token),
+            Some(json!({"Mode":"auto","CanPlayMP4":false})),
+        )
+        .await;
+        if !movie {
+            assert_eq!(status, 422, "{session}");
+            assert!(app.streams.lock().await.is_empty());
+            continue;
+        }
+        assert_eq!(status, 201, "{session}");
+        assert_eq!(session["mode"], "remux");
+        let (status, master) = request(
+            &router,
+            "GET",
+            session["url"].as_str().unwrap(),
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, 200, "{master}");
+        let id = session["id"].as_str().unwrap();
+        let output = app.config.data.join("transcodes").join(id).join("v0.m3u8");
+        let info = media::inspect(&app, &output).await.unwrap();
+        let v = info.video().unwrap();
+        assert_eq!(
+            (v.codec_name.as_str(), v.width, v.height),
+            ("h264", 320, 180)
+        );
+        assert_eq!(
+            request(
+                &router,
+                "DELETE",
+                &format!("/api/v1/playback/{id}"),
+                Some(&token),
+                None
+            )
+            .await
+            .0,
+            200
+        );
+    }
+    app.shutdown().await;
+}

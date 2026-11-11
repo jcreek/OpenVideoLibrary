@@ -73,6 +73,7 @@ pub struct Track {
     pub index: i32,
     pub codec_name: String,
     pub codec_type: String,
+    pub disposition: Disposition,
     pub channels: u32,
     pub width: u32,
     pub height: u32,
@@ -86,6 +87,19 @@ pub struct Track {
     #[serde(skip)]
     pub hdr_frame_metadata_checked: bool,
     pub tags: HashMap<String, String>,
+}
+#[derive(Clone, Default, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct Disposition {
+    pub attached_pic: u8,
+    pub timed_thumbnails: u8,
+}
+impl Track {
+    fn is_playable_video(&self) -> bool {
+        self.codec_type == "video"
+            && self.disposition.attached_pic == 0
+            && self.disposition.timed_thumbnails == 0
+    }
 }
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
 #[serde(default)]
@@ -107,7 +121,7 @@ pub struct Info {
 }
 impl Info {
     pub fn video(&self) -> Option<&Track> {
-        self.streams.iter().find(|t| t.codec_type == "video")
+        self.streams.iter().find(|t| t.is_playable_video())
     }
     pub fn tracks(&self, kind: &str) -> Vec<&Track> {
         self.streams
@@ -232,7 +246,10 @@ pub async fn inspect_with_hdr_metadata(
     // HEVC mastering/CLL (and some Dolby Vision signals) can be frame side data
     // rather than stream metadata. Decode at most eight packets, with bounded
     // output/time/threads. Failure leaves the conservative software path intact.
-    if enrich && info.hdr() {
+    if enrich
+        && info.hdr()
+        && let Some(position) = info.streams.iter().position(Track::is_playable_video)
+    {
         let frames = process(
             app,
             "ffprobe",
@@ -242,7 +259,7 @@ pub async fn inspect_with_hdr_metadata(
                 "-threads".into(),
                 "2".into(),
                 "-select_streams".into(),
-                "v:0".into(),
+                info.streams[position].index.to_string(),
                 "-read_intervals".into(),
                 "%+#8".into(),
                 "-show_frames".into(),
@@ -268,9 +285,8 @@ pub async fn inspect_with_hdr_metadata(
             struct Frames {
                 frames: Vec<Frame>,
             }
-            if let Ok(frames) = serde_json::from_slice::<Frames>(&bytes)
-                && let Some(video) = info.streams.iter_mut().find(|v| v.codec_type == "video")
-            {
+            if let Ok(frames) = serde_json::from_slice::<Frames>(&bytes) {
+                let video = &mut info.streams[position];
                 video.hdr_frame_metadata_checked = !frames.frames.is_empty();
                 for side in frames.frames.into_iter().flat_map(|f| f.side_data_list) {
                     if !video

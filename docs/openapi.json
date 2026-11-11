@@ -2200,6 +2200,15 @@
           "codec_name": {
             "type": "string"
           },
+          "disposition": {
+            "type": "object",
+            "description": "FFprobe flags for artwork and timed thumbnail tracks.",
+            "properties": {
+              "attached_pic": { "type": "integer", "enum": [0, 1] },
+              "timed_thumbnails": { "type": "integer", "enum": [0, 1] }
+            },
+            "additionalProperties": false
+          },
           "width": {
             "type": "integer"
           },

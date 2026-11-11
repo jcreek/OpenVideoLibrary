@@ -588,3 +588,25 @@ All eight source-matched checks in `validation-n100-fallback.json` passed
 over SSH, including separate CPU media and physical VAAPI SDR/HDR runs.
 Installed-driver rejection, production benchmarks, multi-architecture images
 and real-device acceptance were not rerun for this increment.
+
+## Embedded artwork and video stream selection (2026-11-11)
+
+Generated MP4 tests confirm audio with attached artwork alone returns 422
+without creating a video session. A mixed MP4 remuxes the 320×180 H.264 movie,
+with the cover excluded. MP4 may expose cover art after the movie, so a separate
+probe-metadata regression checks artwork and thumbnails before the movie and
+asserts the absolute video mapping. Independent review found no blockers and
+confirmed that the mixed MP4 does not independently exercise cover-first HDR
+enrichment or bitmap mapping.
+
+Local `make verify-local` passed: frontend build/check, formatting and Clippy,
+28 ordinary API tests and socket shutdown, eight explicit CPU media/failure
+tests, seven Python tests, generated types and benchmark-crate checks, 12
+browser scenarios and disposable Nginx acceptance. The browser and proxy
+artifacts are `validation-browser-artwork.json` and
+`validation-nginx-artwork.json`. No hosted Actions ran.
+
+All eight source-matched SSH checks passed on N100; see
+`validation-n100-artwork.json`. The report separates software media from
+physical VAAPI SDR/HDR. The installed-driver negative test, production
+benchmarks, multi-architecture images and real-device checks were not rerun.
