@@ -1070,3 +1070,8 @@ benchmark crate checks, 15 browser scenarios and the disposable Nginx drill.
 Independent review confirmed compatibility and the added boundary coverage.
 The initial N100 software run exposed a fixture requesting stereo while
 asserting mono PCM length. The final fixture requests and verifies mono.
+
+The corrected fixture passed all eight source-matched SSH checks on N100.
+The CPU media suite and the physical VAAPI SDR/HDR checks are distinct.
+See `validation-n100-audio-rate.json`. No new image, real-device or
+production performance results were collected, and no Actions ran.
