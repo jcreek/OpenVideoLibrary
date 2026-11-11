@@ -996,3 +996,11 @@ matrix, including the CPU-only media suite and separate physical VAAPI SDR
 and HDR graph checks with the process-local driver override. See
 `validation-n100-music-artists.json`. This run did not benchmark production
 performance or rerun the installed-driver rejection, image or device suites.
+
+A local Docker Desktop ARM64 build at `93a6022` stopped at Docker Hub
+metadata resolution for `node:22-bookworm-slim` with `DeadlineExceeded`.
+A direct pull of that ARM64 base also stalled and was stopped. The build
+never reached compilation or image smoke testing. The N100 test account
+has free disk space but no container runtime. Current image acceptance
+requires access to the base images from a native builder with sufficient
+storage. No Docker images, volumes or caches were pruned.
