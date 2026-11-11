@@ -1038,3 +1038,19 @@ AAC regression and separate physical VAAPI SDR and HDR graph checks with
 the process-local driver override. See `validation-n100-music-aac.json`.
 Music fallback itself uses CPU AAC encoding. Image, device and production
 performance acceptance were not part of this run.
+
+### Current ARM64 image retry at `1f4c629`
+
+The Docker Hub metadata lookup succeeded. The local native ARM64 builder
+then failed with `no space left on device` while ingesting the Rust base
+image into Docker Desktop's internal containerd store, before Rust compilation.
+A disposable Dockerfile using the smaller Rust slim base reproduced the
+same failure. Neither attempt produced an image to smoke-test. The normal
+Dockerfile is unchanged. No unrelated Docker data was pruned.
+
+The SSH preflight found about 281 GiB free on the x86-64 N100 root
+filesystem. It found no container CLI in PATH or socket at the Docker or
+containerd default locations. Increase Docker Desktop's available image storage or provide a
+native ARM64 builder with sufficient space. Native amd64 acceptance also
+requires a usable builder, for example a provisioned runtime on the N100.
+The build and smoke commands are in `ROLLOUT.md`.
