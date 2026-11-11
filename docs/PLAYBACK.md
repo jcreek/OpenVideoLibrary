@@ -179,6 +179,13 @@ admission, storage, cancellation and current-grant checks with video.
 Explicit direct mode checks for audio and allows embedded artwork.
 Music remux remains unavailable.
 
+API clients may report `max_audio_sample_rate` from 8,000 to 384,000 Hz.
+Automatic direct playback then requires a known source rate within the
+ceiling. AAC output selects an encoder-supported rate at or below that
+ceiling. Omitting the field preserves the previous negotiation and
+encoding behavior. The web player leaves the rate unset because its
+codec checks do not establish a device-wide sample-rate ceiling.
+
 Music classification and tag indexing use additive tables and preserve the v2 library
 rows, IDs and legacy kind constraint. Older binaries can preserve the
 database but see these libraries as movies and do not offer this music

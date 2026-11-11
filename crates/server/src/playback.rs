@@ -33,6 +33,8 @@ pub struct ClientCapabilities {
     #[serde(default)]
     pub max_audio_channels: Option<u8>,
     #[serde(default)]
+    pub max_audio_sample_rate: Option<u32>,
+    #[serde(default)]
     pub video_pixel_formats: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub hdr: bool,
@@ -111,8 +113,17 @@ fn pixel_format_supported(track: &media::Track, capabilities: Option<&ClientCapa
 fn channel_limit(capabilities: Option<&ClientCapabilities>) -> u32 {
     u32::from(capabilities.and_then(|c| c.max_audio_channels).unwrap_or(2))
 }
-fn channels_supported(track: &media::Track, capabilities: Option<&ClientCapabilities>) -> bool {
-    track.channels > 0 && track.channels <= channel_limit(capabilities)
+fn audio_limits_supported(track: &media::Track, capabilities: Option<&ClientCapabilities>) -> bool {
+    track.channels > 0
+        && track.channels <= channel_limit(capabilities)
+        && capabilities
+            .and_then(|c| c.max_audio_sample_rate)
+            .is_none_or(|max| {
+                track
+                    .sample_rate
+                    .parse::<u32>()
+                    .is_ok_and(|hz| hz > 0 && hz <= max)
+            })
 }
 pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
     if b.subtitle.is_some() {
@@ -130,7 +141,7 @@ pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
             && pixel_format_supported(v, Some(c))
             && (!info.hdr() || c.hdr);
         let audio_ok = audio.get(b.audio).is_none_or(|a| {
-            c.audio_codecs.contains(&a.codec_name) && channels_supported(a, Some(c))
+            c.audio_codecs.contains(&a.codec_name) && audio_limits_supported(a, Some(c))
         });
         let container_ok = info
             .format
@@ -160,7 +171,7 @@ pub fn negotiate(info: &Info, b: &Playback) -> (String, String) {
         );
     }
     let audio_ok = audio.get(b.audio).is_none_or(|a| {
-        ["aac", "mp3"].contains(&a.codec_name.as_str()) && channels_supported(a, None)
+        ["aac", "mp3"].contains(&a.codec_name.as_str()) && audio_limits_supported(a, None)
     });
     if b.can_play_mp4
         && info.format.format_name.contains("mp4")
@@ -209,6 +220,16 @@ pub async fn start(
             "max_audio_channels must be between 1 and 8",
         ));
     }
+    if b.capabilities
+        .as_ref()
+        .and_then(|c| c.max_audio_sample_rate)
+        .is_some_and(|rate| !(8_000..=384_000).contains(&rate))
+    {
+        return Err(Error::new(
+            400,
+            "max_audio_sample_rate must be between 8000 and 384000 Hz",
+        ));
+    }
     if !b.start.is_finite() || b.start < 0.0 {
         return Err(Error::new(400, "invalid stream options"));
     }
@@ -243,11 +264,11 @@ pub async fn start(
                         | ("wav", "pcm_s16le")
                 ) && c.containers.contains(&info.format.format_name)
                     && c.audio_codecs.contains(&audio.codec_name)
-                    && channels_supported(audio, Some(c))
+                    && audio_limits_supported(audio, Some(c))
             } else {
                 info.format.format_name == "mp3"
                     && audio.codec_name == "mp3"
-                    && channels_supported(audio, None)
+                    && audio_limits_supported(audio, None)
             };
             b.mode = if supported { "direct" } else { "transcode" }.into();
         }
@@ -401,7 +422,7 @@ pub fn encoding_args(
     ];
     if info.video().is_none() {
         a.extend(["-map".into(), "0:a:0".into(), "-vn".into()]);
-        a.extend(hls_audio_args(b, 0));
+        a.extend(hls_audio_args(b, info.tracks("audio").first().copied(), 0));
         return a;
     }
     if let Some(subtitle) = bitmap {
@@ -512,12 +533,35 @@ pub fn encoding_args(
         } else {
             a.extend(["-c:v".into(), "copy".into()]);
         }
-        a.extend(hls_audio_args(b, i));
+        a.extend(hls_audio_args(
+            b,
+            info.tracks("audio").get(b.audio).copied(),
+            i,
+        ));
     }
     a
 }
-fn hls_audio_args(b: &Playback, i: usize) -> [String; 19] {
-    [
+fn hls_audio_args(b: &Playback, audio: Option<&media::Track>, i: usize) -> Vec<String> {
+    let mut args = Vec::new();
+    if let Some(max) = b
+        .capabilities
+        .as_ref()
+        .and_then(|c| c.max_audio_sample_rate)
+    {
+        let input = audio
+            .and_then(|track| track.sample_rate.parse::<u32>().ok())
+            .unwrap_or(max);
+        let ceiling = max.min(input).max(8_000);
+        let rate = [
+            96_000, 88_200, 64_000, 48_000, 44_100, 32_000, 24_000, 22_050, 16_000, 12_000, 11_025,
+            8_000,
+        ]
+        .into_iter()
+        .find(|rate| *rate <= ceiling)
+        .unwrap_or(8_000);
+        args.extend(["-ar".into(), rate.to_string()]);
+    }
+    args.extend([
         "-c:a".into(),
         "aac".into(),
         "-ac".into(),
@@ -539,7 +583,8 @@ fn hls_audio_args(b: &Playback, i: usize) -> [String; 19] {
         "-hls_segment_filename".into(),
         format!("v{i}-%d.ts"),
         format!("v{i}.m3u8"),
-    ]
+    ]);
+    args
 }
 pub fn hardware_args(mut args: Vec<String>, name: &str, variants: &[Rendition]) -> Vec<String> {
     let input = args

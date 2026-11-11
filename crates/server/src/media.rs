@@ -97,6 +97,7 @@ pub struct Track {
     pub codec_type: String,
     pub disposition: Disposition,
     pub channels: u32,
+    pub sample_rate: String,
     pub width: u32,
     pub height: u32,
     pub color_transfer: String,

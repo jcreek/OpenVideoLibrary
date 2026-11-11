@@ -1054,3 +1054,19 @@ containerd default locations. Increase Docker Desktop's available image storage 
 native ARM64 builder with sufficient space. Native amd64 acceptance also
 requires a usable builder, for example a provisioned runtime on the N100.
 The build and smoke commands are in `ROLLOUT.md`.
+
+## Audio sample-rate capability ceiling
+
+The optional ceiling gates automatic direct play and selects an AAC output
+rate. Regression coverage includes the inclusive request boundaries, values
+just outside them, unknown and above-ceiling source rates, and 8 kHz output
+arguments. The generated FLAC case offers direct FLAC support with a 25 kHz
+ceiling, then follows HLS playlists and decodes 24 kHz mono AAC after a seek.
+
+Final local verification passed frontend checks and build, contract
+generation, Rust format and Clippy, one parser unit test, 31 API tests,
+socket shutdown, nine explicit CPU media/failure tests, ten Python tests,
+benchmark crate checks, 15 browser scenarios and the disposable Nginx drill.
+Independent review confirmed compatibility and the added boundary coverage.
+The initial N100 software run exposed a fixture requesting stereo while
+asserting mono PCM length. The final fixture requests and verifies mono.

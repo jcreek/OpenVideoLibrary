@@ -411,6 +411,7 @@ fn negotiation_handles_hdr_audio_container_and_subtitles() {
             video_codecs: vec!["hevc".into()],
             audio_codecs: vec!["truehd".into()],
             max_audio_channels: None,
+            max_audio_sample_rate: None,
             hdr: true,
             video_pixel_formats: [("hevc".into(), vec!["yuv420p10le".into()])].into(),
         }),
@@ -1201,6 +1202,7 @@ fn demuxer_aliases_do_not_claim_webm_compatibility_for_matroska() {
             video_codecs: vec!["vp9".into()],
             audio_codecs: vec!["opus".into()],
             max_audio_channels: None,
+            max_audio_sample_rate: None,
             hdr: false,
             video_pixel_formats: Default::default(),
         }),
@@ -2952,6 +2954,31 @@ fn negotiation_respects_audio_channel_limits_and_unknown_sources() {
             }
         );
     }
+    info.streams[1].channels = 2;
+    for (source, limit, mode) in [
+        ("", None, "direct"),
+        ("", Some(48_000), "remux"),
+        ("48000", Some(48_000), "direct"),
+        ("48001", Some(48_000), "remux"),
+        ("8000", Some(8_000), "direct"),
+        ("384000", Some(384_000), "direct"),
+    ] {
+        info.streams[1].sample_rate = source.into();
+        b.capabilities.as_mut().unwrap().max_audio_sample_rate = limit;
+        assert_eq!(
+            playback::negotiate(&info, &b).0,
+            mode,
+            "{source}, {limit:?}"
+        );
+    }
+    b.capabilities.as_mut().unwrap().max_audio_sample_rate = Some(8_000);
+    let args = playback::encoding_args(
+        std::path::Path::new("fixture.mp4"),
+        &b,
+        &info,
+        &playback::ladder(320, 180, false),
+    );
+    assert!(args.windows(2).any(|pair| pair == ["-ar", "8000"]));
     b.audio = 1;
     assert_eq!(
         playback::negotiate(&info, &b).0,
@@ -2989,6 +3016,20 @@ async fn invalid_audio_channel_reports_fail_before_probe_or_allocation() {
             assert_eq!(status, 400, "{mode}, {limit}: {body}");
             assert!(app.streams.lock().await.is_empty());
         }
+    }
+    for (rate, expected) in [(7999, 400), (8000, 200), (384000, 200), (384001, 400)] {
+        let (status, body) = request(
+            &router,
+            "POST",
+            &format!("/api/v1/items/{item}/playback"),
+            Some(&token),
+            Some(
+                json!({"Mode":"direct","Capabilities":{"containers":["mp4"],"video_codecs":["h264"],
+                "audio_codecs":["aac"],"hdr":false,"max_audio_sample_rate":rate}}),
+            ),
+        )
+        .await;
+        assert_eq!(status, expected, "{rate}: {body}");
     }
     let temporary = app.config.data.join("transcodes");
     assert!(!temporary.exists() || std::fs::read_dir(temporary).unwrap().count() == 0);
@@ -3735,7 +3776,7 @@ async fn real_music_library_tags_playback_and_current_grants() {
     let (status, converted) = request(
         &router, "POST", &format!("/api/v1/items/{}/playback", file_id("S01E01 Music flac")),
         Some(&listener), Some(json!({"Mode":"auto","Start":0.25,"Capabilities":{
-            "containers":["hls"],"video_codecs":[],"audio_codecs":["aac"],"max_audio_channels":1}})),
+            "containers":["flac","hls"],"video_codecs":[],"audio_codecs":["flac","aac"],"max_audio_channels":1,"max_audio_sample_rate":25000}})),
     ).await;
     assert_eq!(status, 201, "{converted}");
     assert_eq!(converted["mode"], "transcode");
@@ -3787,6 +3828,7 @@ async fn real_music_library_tags_playback_and_current_grants() {
     assert!(info.video().is_none());
     assert_eq!(info.tracks("audio")[0].codec_name, "aac");
     assert_eq!(info.tracks("audio")[0].channels, 1);
+    assert_eq!(info.tracks("audio")[0].sample_rate, "24000");
     let decoded = media::process(
         &app,
         "ffmpeg",

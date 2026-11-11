@@ -170,3 +170,6 @@ continue to omit lyric text.
 
 Music scans now build a bounded tag index for artist and album browsing, with
 album artist grouping, disc/track ordering and current grant checks.
+
+Clients can optionally report an audio sample-rate ceiling for automatic
+direct-play negotiation and AAC output. The web client leaves it unset.

@@ -2531,6 +2531,10 @@
           "color_range": {
             "type": "string"
           },
+          "sample_rate": {
+            "type": "string",
+            "description": "Audio sample rate in Hz as reported by FFprobe, or an empty string when unavailable."
+          },
           "channels": {
             "type": "integer",
             "minimum": 0,
@@ -2650,6 +2654,12 @@
                 "type": "string"
               }
             }
+          },
+          "max_audio_sample_rate": {
+            "type": ["integer", "null"],
+            "minimum": 8000,
+            "maximum": 384000,
+            "description": "Optional audio sample-rate ceiling in Hz for automatic negotiation and AAC output."
           },
           "max_audio_channels": {
             "type": [
