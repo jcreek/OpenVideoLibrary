@@ -1032,3 +1032,9 @@ benchmark crate checks, 15 browser scenarios and the disposable Nginx drill.
 See `validation-browser-music-aac.json`. Independent review confirmed the
 shared stream guards and verified the added playlist/browser coverage and
 lazy HLS loading. No hosted Actions ran.
+
+All eight source-matched N100 checks passed over SSH, including the CPU
+AAC regression and separate physical VAAPI SDR and HDR graph checks with
+the process-local driver override. See `validation-n100-music-aac.json`.
+Music fallback itself uses CPU AAC encoding. Image, device and production
+performance acceptance were not part of this run.
