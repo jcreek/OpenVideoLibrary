@@ -643,3 +643,23 @@ all 338,360 requests succeeded across the 100k browse/search trials. See
 `BENCHMARKS.md` for latency, resource and scope limits. Rust code is unchanged
 from the eight-check N100 artwork acceptance; the timed run did not rerun
 physical GPU tests or certify LAN, SMB, mixed load or the pinned baseline.
+
+## Browser decoded-frame diagnostic over LAN (2026-11-11)
+
+The initial synthetic browser page failed to fetch and produced no timing
+samples. Independent review also identified administrator token exposure as
+a blocker. The accepted harness uses a real N100 page, revokes the bootstrap
+admin session on loopback and verifies that the fixture viewer receives 403
+on an admin route before binding to the LAN. Follow-up review found no
+remaining blockers.
+
+The accepted run verified five decoded red startup frames and five blue
+seek frames, actual HTTP 206 fixture responses from the expected direct peer,
+and a clean N100 shutdown. SSH controlled the worker; it did not carry the
+browser media. The artifact's source and release binary match prior N100
+acceptance and its script hashes match the harness. No worker temp directories
+remained. See `BENCHMARKS.md` for timing and the buffered-seek/local-storage
+limitations. Rust code and the prior physical GPU evidence are unchanged.
+Full local verification passed again, including frontend, Rust, Python,
+CPU media, generated types, 12 browser scenarios and disposable Nginx.
+No GitHub Actions ran.

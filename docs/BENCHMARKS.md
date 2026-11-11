@@ -240,3 +240,45 @@ RSS (maximum 16.42 MiB), source, binary and harness hashes and runtime versions.
 No harness FFmpeg processes ran. These are 20-second windows with a Python
 client on the shared server, not a long soak, an independently driven LAN
 capacity test, a mixed-media workload or a Jellyfin comparison.
+
+## LAN browser direct startup and buffered seek
+
+Stage `scripts/lan_playback_worker.py` into the source checkout on the N100
+and build its release binary with `cargo build --locked --release -p ovl-server`.
+On a separate LAN client with the web dependencies and Playwright Chromium
+installed, run:
+
+```sh
+node web/bench-lan-playback.mjs --host USER@N100 --key /path/to/ssh-key \
+  --workspace /path/to/remote/source --listen N100_PRIVATE_IPV4 \
+  --output lan-direct-browser.json
+```
+
+SSH controls setup and shutdown. The browser uses direct HTTP to the N100
+private address and verifies the media response peer IP and port, HTTP 206,
+and the fixture size in Content-Range. The worker creates a disposable
+database and 61,980-byte, six-second H.264/AAC MP4 on local storage. Setup uses
+loopback, revokes the administrator session, and grants the browser only a
+disposable viewer with access to the fixture. This plaintext test listener is
+temporary and is intended only for a trusted LAN. It never uses the NAS.
+
+Each trial uses a fresh browser context and a minimal page served by the N100.
+Startup timing begins before the authenticated playback POST and ends at the
+first browser video frame callback. The test samples the decoded pixels,
+checks the frame dimensions/time and repeats after a seek to three seconds.
+The first frame is red; the seek frame is blue. This measures playback after
+the page has loaded, without the production Svelte UI or login in the timer.
+
+[Recorded run](benchmarks/rust-n100-lan-direct-browser.json): five repetitions
+from a separate Apple M4 client using Chromium 158.0.8127.18. All five startup
+samples passed the two-second gate for this fixture. Median was **16.30 ms**
+(range 11.30–134.00 ms; sample σ 53.14 ms), retaining the slower first sample.
+Buffered seek median was **10.30 ms** (7.90–16.90 ms; σ 3.48 ms); the target
+was already buffered in all five trials. No failures occurred in this run
+and the N100 worker recorded a clean shutdown. The report records hardware,
+runtime, source, binary, client and worker identities. No server FFmpeg jobs
+ran during direct playback.
+
+This is a LAN/local-storage diagnostic. It does not certify SMB, unbuffered
+seeking, long titles, stalls, mobile devices, other browsers, sustained
+concurrency, or a Jellyfin comparison. LAN bandwidth was not measured.
