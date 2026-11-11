@@ -66,6 +66,54 @@ metadata, clients and GPU access. The pin is verified; the comparison has not
 been run in this migration. Full cold-cache/mixed-load/playback orchestration
 remains acceptance work; the synthetic API runner is not a substitute.
 
+### Native N100 baseline preflight
+
+Over SSH, the N100 retrieved the pinned registry index, amd64 manifest and
+image config by digest. The final two layers contain the server and web
+assets. Both layer lengths and hashes were checked before extracting only
+regular files and directories under `jellyfin/` into a disposable workspace.
+The manifest, layer and binary identities are in `jellyfin-baseline.json`.
+
+The native executable used the N100's existing FFmpeg 6.1.1. An isolated
+startup verified a loopback-only listener, public version 12.4.0, Healthy
+status and the shipped web client. The first smoke stopped before core
+startup and needed a kill after a 10-second SIGTERM timeout. A fresh run
+waited for core startup before verifying endpoints, then exited zero on
+SIGTERM and released the listener.
+
+The following replays the smoke after staging. It assumes the verified
+server and web files have already been extracted. Create new data, config,
+cache and log directories and put this `network.xml` in the config
+directory, substituting a free test port for 18097:
+
+```xml
+<NetworkConfiguration>
+  <InternalHttpPort>18097</InternalHttpPort>
+  <EnableIPv4>true</EnableIPv4>
+  <EnableIPv6>false</EnableIPv6>
+  <EnableRemoteAccess>false</EnableRemoteAccess>
+  <AutoDiscovery>false</AutoDiscovery>
+  <EnableUPnP>false</EnableUPnP>
+  <LocalNetworkAddresses><string>127.0.0.1</string></LocalNetworkAddresses>
+</NetworkConfiguration>
+```
+
+Run:
+
+```sh
+"$stage/jellyfin/jellyfin" --datadir "$trial/data" --configdir "$trial/config" \
+  --cachedir "$trial/cache" --logdir "$trial/logs" \
+  --webdir "$stage/jellyfin/jellyfin-web" --ffmpeg /usr/bin/ffmpeg --nonetchange
+```
+
+Check `ss -ltn` for the bind address. After the core startup log, check
+`/health`, `/System/Info/Public` and `/web/index.html`, then send SIGTERM
+and verify process exit and listener removal. No media or existing Jellyfin
+configuration was used. This enables a native CPU diagnostic with the same
+host FFmpeg on both sides. The pinned container runtime, packaged FFmpeg
+and drivers, equivalent read-only corpus and performance trials remain
+unverified.
+
 ## Historical prototype evidence
 
 The original Go/Rust N100 results and environment reports remain in
