@@ -168,5 +168,5 @@ When a music track has no sidecar, embedded MP3, FLAC and Ogg lyrics can
 use the same bounded display and timing parser. Ordinary probe responses
 continue to omit lyric text.
 
-Music scans now build a bounded tag index for album browsing, with
+Music scans now build a bounded tag index for artist and album browsing, with
 album artist grouping, disc/track ordering and current grant checks.

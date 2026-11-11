@@ -31,6 +31,7 @@ pub fn routes(app: Arc<App>) -> Router {
         .route("/items", get(items))
         .route("/series", get(series))
         .route("/music/albums", get(crate::music::albums))
+        .route("/music/artists", get(crate::music::artists))
         .route("/music/tracks", get(crate::music::tracks))
         .route("/scan", get(scan_status).post(scan_start))
         .route("/items/{id}", axum::routing::patch(edit_item))

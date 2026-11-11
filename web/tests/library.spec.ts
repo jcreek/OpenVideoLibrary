@@ -222,6 +222,14 @@ test('music library tags and decoded audio queue playback',async({page})=>{
  await expect(page.locator('h1')).toHaveText('Fixture Album');
  await expect(page.getByRole('button',{name:/MUSIC ▶ First track/})).toBeVisible();
  await page.getByRole('button',{name:'Back to albums',exact:true}).click();
+ await page.getByRole('button',{name:'Music artists',exact:true}).click();
+ await page.getByRole('button',{name:/ARTIST Fixture Artist 1 albums · 2 tracks/}).click();
+ await expect(page.locator('h1')).toHaveText('Fixture Artist');
+ await expect(page.getByRole('button',{name:/ALBUM Fixture Album Fixture Artist · 2 tracks/})).toBeVisible();
+ await page.getByRole('button',{name:'All artist tracks',exact:true}).click();
+ await expect(page.getByRole('button',{name:/MUSIC ▶ Second track/})).toBeVisible();
+ await page.getByRole('button',{name:'Back to artists',exact:true}).click();
+ await expect(page.getByRole('button',{name:/ARTIST Fixture Artist/})).toBeVisible();
  const cover=await page.evaluate(async id=>{
   const image=new Image();image.src='/api/v1/items/'+id+'/artwork';await image.decode();
   return [image.naturalWidth,image.naturalHeight];

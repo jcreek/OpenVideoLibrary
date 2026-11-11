@@ -3522,6 +3522,26 @@ async fn real_music_library_tags_playback_and_current_grants() {
         albums,
         json!([{"library_id":library["id"],"artist":"Fixture band","album":"Fixture album","tracks":2}])
     );
+    let (status, artists) = request(
+        &router,
+        "GET",
+        "/api/v1/music/artists?q=Fixture%20band",
+        Some(&listener),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(
+        artists,
+        json!([{"library_id":library["id"],"artist":"Fixture band","albums":1,"tracks":2}])
+    );
+    let artist_tracks = format!(
+        "/api/v1/music/tracks?library={}&artist=Fixture%20band",
+        library["id"]
+    );
+    let (status, all_tracks) = request(&router, "GET", &artist_tracks, Some(&listener), None).await;
+    assert_eq!(status, 200);
+    assert_eq!(all_tracks.as_array().unwrap().len(), 2);
     let group_url = format!(
         "/api/v1/music/tracks?library={}&artist=Fixture%20band&album=Fixture%20album",
         library["id"]
@@ -3688,6 +3708,11 @@ async fn real_music_library_tags_playback_and_current_grants() {
         .0,
         200
     );
+    for url in ["/api/v1/music/artists", artist_tracks.as_str()] {
+        let (status, rows) = request(&router, "GET", url, Some(&listener), None).await;
+        assert_eq!(status, 200);
+        assert_eq!(rows, json!([]));
+    }
     assert_eq!(
         request(&router, "GET", &group_url, Some(&listener), None)
             .await

@@ -232,7 +232,7 @@ open has its own deadline and holds the permit until it returns. No image
 is written to the media or cache. Embedded artwork in other formats and
 artist-level images remain open.
 
-### Music albums
+### Music artists and albums
 
 The Music albums view groups indexed tracks by library, album artist
 (or track artist when absent) and album title. Select an album to see
@@ -240,7 +240,9 @@ tracks sorted by numeric disc and track, then stored title and ID.
 The album track view prefers embedded title tags; ordinary library
 titles and manual metadata are not overwritten. Album search matches
 album or artist text. Groups and tracks are paged in sets of 100 and
-filtered by current grants.
+filtered by current grants. The Music artists view groups indexed album
+artists (falling back to track artist) by library, counts albums and tracks,
+and opens either matching albums or all indexed tracks for the artist.
 
 A music scan admits up to 256 tag attempts per library during its
 first 60 seconds. Each probe opens a regular file through no-follow
@@ -250,4 +252,4 @@ admitted probe can finish after the admission window. Unchanged file
 fingerprints reuse tags; busy or timed-out probes can retry on a later
 scan. Rows with mismatched recorded fingerprints are hidden. Larger
 libraries may need repeated scans. Seek-dependent M4A metadata layouts,
-standalone artist browsing and large-library performance remain open.
+artist artwork, separate contributor browsing and large-library performance remain open.

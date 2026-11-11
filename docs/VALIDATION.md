@@ -973,3 +973,20 @@ styled-subtitle case that failed initially. Physical VAAPI SDR/HDR were
 verified separately. See `validation-n100-music-albums.json`.
 Installed-driver rejection, production benchmarks, current container
 images and real devices were not rerun.
+
+## Indexed music artist browsing (2026-11-11)
+
+The generated music regression checks artist grouping, all-track listing and
+empty artist and track results after revocation. The browser music workflow
+opens an artist, displays its album, opens all tracks and returns to the artist
+directory. Independent review found stale rows during navigation. The client
+now clears the previous results before fetching the next view.
+
+Local verification passed the frontend checks and build, Rust format and
+Clippy, parser unit test, 31 API tests, socket shutdown, nine explicit CPU
+media/failure tests, ten Python tests, contract generation and benchmark
+crate checks, and the disposable cached-image Nginx drill. After rebuilding
+the final frontend, all 15 browser scenarios passed across Chromium,
+Firefox and Playwright WebKit. See `validation-browser-music-artists.json`.
+Hosted Actions were not used. Artist artwork, contributor-level grouping and
+large-library performance were outside this validation.

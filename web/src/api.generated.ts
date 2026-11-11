@@ -30,3 +30,4 @@ export type MediaSideData = { "side_data_type": string };
 export type LyricLine = { "time_ms": (number | null); "text": string };
 export type Lyrics = { "lines": (LyricLine)[] };
 export type MusicAlbum = { "library_id": number; "artist": string; "album": string; "tracks": number };
+export type MusicArtist = { "library_id": number; "artist": string; "albums": number; "tracks": number };
