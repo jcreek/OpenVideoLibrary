@@ -208,3 +208,14 @@ limit, not a source byte-read limit. The inspection permit remains held
 through process cleanup. Ordinary media probes do not expose this lyric
 text. Embedded M4A/WAV lyrics, binary synchronized tags and enhanced word
 timing remain unsupported.
+
+### Local album covers
+
+Music cards use `cover.jpg`, `cover.png` or `cover.webp` from the track
+folder, then the same extensions for `folder`. The existing artwork
+cache is checked first. Artwork must resolve to the expected path, be
+a regular file smaller than 20 MiB and is served with an explicit image
+media type. Current media grants and library-root checks apply.
+Embedded covers and artist-level artwork remain open. The route still
+uses pathname opens after validation and does not claim protection
+against all concurrent replacement races.

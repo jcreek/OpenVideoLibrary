@@ -894,3 +894,28 @@ All eight source-matched N100 checks passed over SSH, with generated software
 media and physical VAAPI SDR/HDR recorded separately. See
 `validation-n100-embedded-lyrics.json`. Installed-driver rejection, current
 container builds, real devices and production benchmarks were not rerun.
+
+## Local album covers (2026-11-11)
+
+Music artwork checks conventional cover and folder image names in the
+track directory. Review identified that a symlink to a same-directory
+non-image could pass containment and receive an active media type. The
+final route requires the canonical image path to match the expected path
+and sets an explicit JPEG, PNG or WebP content type. The regression covers
+same-directory HTML and outside-directory symlinks, local cover precedence,
+preserved video fallback and grant revocation. Follow-up review found no
+blockers. This does not certify arbitrary image bytes or eliminate all
+concurrent pathname-open races.
+
+Full final-source local verification passed: parser unit test, 31 API
+tests plus socket shutdown, nine explicit CPU media/failure tests, ten
+Python tests, frontend/Rust checks, type consistency, benchmark-crate
+checks, 15 browser scenarios and cached Nginx. Chromium, Firefox and
+WebKit each decoded a generated PNG through the authenticated artwork
+endpoint. See `validation-browser-music-cover.json`. No hosted Actions ran.
+
+All eight final-source N100 checks passed over SSH, with software media
+and physical VAAPI SDR/HDR measured separately. The earlier run is not
+used for this claim. See `validation-n100-music-cover.json`. Installed-driver
+rejection, production benchmarks, current images and real devices were not
+rerun.

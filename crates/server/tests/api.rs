@@ -3787,3 +3787,96 @@ async fn replaced_library_root_is_unavailable_without_losing_queue_or_records() 
     );
     app.shutdown().await;
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn music_artwork_prefers_album_cover_and_enforces_grants() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let id = add_media(&app, root.path()).await;
+    let dir = root.path().join("media");
+    std::fs::write(dir.join("folder.jpg"), b"folder fixture").unwrap();
+    std::fs::write(dir.join("cover.png"), b"cover fixture").unwrap();
+    let url = format!("/api/v1/items/{id}/artwork");
+    async fn bytes(router: &Router, token: &str, url: &str) -> (StatusCode, Vec<u8>) {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(url)
+                    .header("Authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        (
+            response.status(),
+            response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec(),
+        )
+    }
+    assert_eq!(
+        bytes(&router, &token, &url).await,
+        (StatusCode::OK, b"folder fixture".to_vec())
+    );
+    app.db
+        .call(|c| {
+            c.execute(
+                "INSERT INTO ovl_music_libraries SELECT id FROM libraries",
+                [],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let (status, viewer) = request(
+        &router,
+        "POST",
+        "/api/v1/users",
+        Some(&token),
+        Some(json!({"Name":"cover-viewer","Password":"test-password-123","Libraries":[1]})),
+    )
+    .await;
+    assert_eq!(status, 201);
+    let viewer_token = account(&router, "cover-viewer").await;
+    assert_eq!(
+        bytes(&router, &viewer_token, &url).await,
+        (StatusCode::OK, b"cover fixture".to_vec())
+    );
+    std::fs::remove_file(dir.join("cover.png")).unwrap();
+    let nonimage = dir.join("payload.html");
+    std::fs::write(&nonimage, b"<script>test</script>").unwrap();
+    std::os::unix::fs::symlink(&nonimage, dir.join("cover.png")).unwrap();
+    assert_eq!(
+        bytes(&router, &viewer_token, &url).await,
+        (StatusCode::OK, b"folder fixture".to_vec())
+    );
+    std::fs::remove_file(dir.join("cover.png")).unwrap();
+    let outside = root.path().join("outside.png");
+    std::fs::write(&outside, b"outside fixture").unwrap();
+    std::os::unix::fs::symlink(outside, dir.join("cover.png")).unwrap();
+    assert_eq!(
+        bytes(&router, &viewer_token, &url).await,
+        (StatusCode::OK, b"folder fixture".to_vec())
+    );
+    assert_eq!(
+        request(
+            &router,
+            "PUT",
+            &format!("/api/v1/users/{}/access", viewer["id"]),
+            Some(&token),
+            Some(json!({"Libraries":[]}))
+        )
+        .await
+        .0,
+        200
+    );
+    assert_eq!(bytes(&router, &viewer_token, &url).await.0, 404);
+    app.shutdown().await;
+}

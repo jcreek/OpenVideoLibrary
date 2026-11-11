@@ -444,39 +444,71 @@ pub async fn probe(
     let (path, _) = item(&app, u, id).await?;
     Ok(Json(inspect(&app, &path).await?))
 }
+async fn serve_artwork(app: &App, path: PathBuf, req: Request) -> Result<Response> {
+    let mime = match path.extension().and_then(|v| v.to_str()) {
+        Some("jpg") => "image/jpeg",
+        Some("png") => "image/png",
+        Some("webp") => "image/webp",
+        _ => return Err(Error::new(404, "no local artwork")),
+    };
+    let mut response = serve(app, path, req).await?;
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        axum::http::HeaderValue::from_static(mime),
+    );
+    Ok(response)
+}
+
 pub async fn artwork(
     State(app): State<Arc<App>>,
     Extension(u): Extension<User>,
     Path(id): Path<i64>,
     req: Request,
 ) -> Result<Response> {
-    let (path, _) = item(&app, u, id).await?;
+    let (path, _, kind) = item_with_kind(&app, u, id).await?;
     let cache = app.config.data.join("artwork").join(format!("{id}.jpg"));
     if let Ok(real) = tokio::fs::canonicalize(&cache).await
-        && real.starts_with(app.config.data.join("artwork"))
+        && real == cache
         && let Ok(metadata) = tokio::fs::metadata(&real).await
         && metadata.is_file()
         && metadata.len() < 20 << 20
     {
-        return serve(&app, real, req).await;
+        return serve_artwork(&app, real, req).await;
     }
     let root = path
         .parent()
         .ok_or_else(|| Error::new(404, "artwork unavailable"))?;
     let base = path.with_extension("").to_string_lossy().into_owned();
-    for p in [
+    let album_covers = [
+        "cover.jpg",
+        "cover.png",
+        "cover.webp",
+        "folder.jpg",
+        "folder.png",
+        "folder.webp",
+    ];
+    let video_posters = [
         PathBuf::from(format!("{base}-poster.jpg")),
         PathBuf::from(format!("{base}-poster.png")),
         root.join("poster.jpg"),
         root.join("folder.jpg"),
-    ] {
-        if let Ok(real) = tokio::fs::canonicalize(p).await
-            && real.starts_with(root)
+    ];
+    let candidates = if kind == "music" {
+        album_covers
+            .iter()
+            .map(|name| root.join(name))
+            .collect::<Vec<_>>()
+    } else {
+        video_posters.into()
+    };
+    for p in candidates {
+        if let Ok(real) = tokio::fs::canonicalize(&p).await
+            && real == p
             && let Ok(m) = tokio::fs::metadata(&real).await
             && m.is_file()
             && m.len() < 20 << 20
         {
-            return serve(&app, real, req).await;
+            return serve_artwork(&app, real, req).await;
         }
     }
     Err(Error::new(404, "no local artwork"))

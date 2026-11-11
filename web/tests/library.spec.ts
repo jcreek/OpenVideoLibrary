@@ -17,6 +17,7 @@ test.beforeAll(async()=>{
  execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','sine=frequency=440','-t','4',
   '-c:a','libmp3lame','-metadata','artist=Fixture Artist','-metadata','album=Fixture Album',join(music,'First track.mp3')]);
  copyFileSync(join(music,'First track.mp3'),join(music,'Second track.mp3'));
+ execFileSync('ffmpeg',['-nostdin','-v','error','-f','lavfi','-i','color=red:size=32x32','-frames:v','1','-threads','1',join(music,'cover.png')]);
  writeFileSync(join(music,'First track.lrc'),'[00:00.10]Opening line\n[00:01.50]Jump here\n[offset:+500]\n');
 
  server=spawn(resolve('../bin/ovl'),[],{env:{...process.env,OVL_DATA:join(root,'data'),OVL_WEB:resolve('dist'),OVL_MIN_FREE_BYTES:'1048576',OVL_TRANSCODE_BYTES:'16777216',OVL_LISTEN:'127.0.0.1:18096',OVL_ACCELERATOR:'cpu',OVL_SECURE_COOKIES:'false'},stdio:'pipe'});
@@ -214,6 +215,11 @@ test('music library tags and decoded audio queue playback',async({page})=>{
  const library=libraries.find((l:{name:string})=>l.name==='Music fixture');
  const tracks=await (await page.request.get('/api/v1/items?library='+library.id)).json();
  expect(tracks.map((t:{title:string})=>t.title)).toEqual(['First track','Second track']);
+ const cover=await page.evaluate(async id=>{
+  const image=new Image();image.src='/api/v1/items/'+id+'/artwork';await image.decode();
+  return [image.naturalWidth,image.naturalHeight];
+ },tracks[0].id);
+ expect(cover).toEqual([32,32]);
  expect((await page.request.post('/api/v1/lists',{headers,data:{Name:'Music queue',Kind:'queue',ItemIDs:tracks.map((t:{id:number})=>t.id)}})).status()).toBe(201);
  await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();
  await page.getByRole('button',{name:'Music queue · queue',exact:true}).click();
