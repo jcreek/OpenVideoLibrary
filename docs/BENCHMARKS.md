@@ -455,3 +455,34 @@ CPU seconds are not directly comparable. This is a local-storage diagnostic
 with a zero changed-file ratio and two paced API clients. It does not
 qualify SMB, changed-file import, saturation, long-soak behavior or the
 Jellyfin baseline.
+
+### Rejected native 10k paired workload
+
+The N100 built the optimized Rust server with `cargo build --locked
+--release --package ovl-server`. Its binary SHA-256 was
+`8eb82e07f70e89825a04d495794aee89f01f8660b935149f591c9f8b00f29a9b`;
+the Rust source SHA-256 was
+`12219fb2f513591bf40b8df583cf00745928654dcfe98d111b8dba3da9740ae0`
+and matched the local source. A fresh native Jellyfin
+12.4 trial scanned 10,000 generated movie paths on local storage. Each
+path hard-linked the same small video and had unique local title and
+sort-title NFO metadata. The fixture directory and files had read-only
+mode bits. This did not exercise an SMB or read-only mount.
+
+The first library registration returned HTTP 401 with a token-only header.
+The retry used the MediaBrowser authorization header and registered the
+library. The persisted options disabled realtime monitoring and local
+metadata saves and contained empty metadata and image fetcher lists.
+The isolated database contained 10,000 movie rows, but an authenticated
+recursive `/Items` request with title sorting, a 50-item limit and total
+count disabled returned no rows at browse offset 9,950. Offset zero
+returned the first 50 titles in order. The search for `Fixture 00` returned
+a different title sequence from the planned prefix workload. Those results
+do not establish why Jellyfin filtered the rows.
+
+The harness withheld timing and never started the Rust comparison arm.
+The disposable Jellyfin process was stopped and reaped. A separate
+Jellyfin process was present on the shared N100 and was left alone.
+A subsequent paired run must first validate equal counts, tail pages,
+search matches and order, and record response size and server resources.
+No production or comparative timing gate was exercised.
