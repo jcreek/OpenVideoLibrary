@@ -610,3 +610,19 @@ All eight source-matched SSH checks passed on N100; see
 `validation-n100-artwork.json`. The report separates software media from
 physical VAAPI SDR/HDR. The installed-driver negative test, production
 benchmarks, multi-architecture images and real-device checks were not rerun.
+
+## Process-cold browse and search diagnostic (2026-11-11)
+
+The benchmark harness now times and validates the first authenticated query
+after a clean restart. A local smoke run completed six disposable restarts;
+six first queries and 12 follow-up requests passed. Follow-up independent
+review confirmed comparable pre-load query counts, child-liveness checks and
+preservation of a failed first query in an incomplete report.
+
+N100 release build and benchmark completed over SSH with source and harness
+hashes verified: 20 first queries and 2,000 follow-up requests, zero errors.
+See `BENCHMARKS.md` for measurements and limits. Rust source was unchanged
+from the eight-check N100 artwork acceptance. Full `make verify-local`
+passed again, including 28 API tests plus socket shutdown, eight explicit CPU
+media/failure tests, seven Python tests, frontend checks, generated types,
+12 browser scenarios and disposable Nginx. No GitHub Actions ran.

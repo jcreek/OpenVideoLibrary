@@ -163,3 +163,39 @@ generation and quality runs; it is not per-strategy RAM. Fixture storage is
 capped at 8 MiB; output and duration are bounded, with kill/reap on failure.
 This supports avoiding video preroll for the indexed synthetic PGS case.
 Long real-media/SMB seek latency and I/O remain unaccepted.
+
+## N100 first authenticated query after process restart
+
+Build the release binary, then run on the N100:
+
+```sh
+cargo build --locked --release -p ovl-server
+python3 scripts/bench_application.py --process-cold --items 10000 100000 \
+  --requests 100 --repetitions 5 --concurrency 1 --output process-cold.json
+```
+
+Each trial creates and seeds a disposable database, logs in, stops the server,
+and starts a fresh process against the same data. After readiness polling, the
+first authenticated query is timed and checked for correct result IDs and order.
+It also supplies the single prior query for the follow-up load; the canonical
+response hash is collected afterward. The first-query stats are separate from
+follow-up p95. OS filesystem caches are left intact.
+
+[Recorded N100 run](benchmarks/rust-production-n100-process-cold.json): five
+repeats per size/workload, 20 first queries and 2,000 follow-up requests, zero
+errors. The release binary and harness identities are in the report. Linux
+x86_64, Intel N100 (four logical CPUs), approximately 15.4 GiB RAM; Rust server
+0.1.0, SQLite 3.54.1. No harness FFmpeg workloads ran.
+
+| Items | Workload | First query median (min–max; sample σ), ms | Follow-up p95 median, ms |
+| --- | --- | --- | --- |
+| 10k | Browse | 1.78 (1.26–2.26; 0.36) | 1.65 |
+| 10k | Search | 6.04 (3.86–7.05; 1.55) | 1.66 |
+| 100k | Browse | 1.94 (1.71–2.37; 0.24) | 1.70 |
+| 100k | Search | 25.21 (24.15–30.05; 2.79) | 1.51 |
+
+This measures a fresh application process with persisted authentication and
+a recently seeded database, on a shared host over loopback. It does not
+include startup time, OS-cold disk reads, LAN/SMB, saturation, scanning or a
+Jellyfin comparison. The first request and the later cache fill are distinct;
+the short follow-up p95 can hide the single fill.

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Authenticated Rust browse/search benchmark with disposable synthetic databases.
 
-This is a warm loopback API measurement, not LAN, cold-cache, playback or Jellyfin
-acceptance. Never points at an existing application data directory.
+Measures warm loopback and optionally the first authenticated query after a
+process restart. This is not OS-cold, LAN, playback or Jellyfin acceptance. Never points at an existing application data directory.
 """
 import argparse
 import concurrent.futures
@@ -97,6 +97,27 @@ def load(port, token, query, count, concurrency):
             'p50_ms': percentile(.5), 'p95_ms': percentile(.95), 'p99_ms': percentile(.99)}
 
 
+def stop_server(process):
+    process.terminate()
+    try:
+        process.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def wait_for_server(process, port):
+    deadline = time.monotonic() + 15
+    while process.poll() is None and time.monotonic() <= deadline:
+        try:
+            api(port, 'status')
+            if process.poll() is None:
+                return
+        except OSError:
+            time.sleep(.05)
+    raise RuntimeError('benchmark server failed to start')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', default='target/release/ovl-server')
@@ -105,6 +126,8 @@ def main():
     parser.add_argument('--repetitions', type=int, default=5)
     parser.add_argument('--concurrency', nargs='+', type=int, default=[1, 10, 25, 50, 100])
     parser.add_argument('--isolation-note', default='Shared host; caches not evicted; no harness media or background FFmpeg workloads')
+    parser.add_argument('--process-cold', action='store_true',
+                        help='Restart after seeding, then measure the first authenticated query separately')
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     if args.requests < 1 or args.repetitions < 3 or any(c < 1 or c > 1000 for c in args.concurrency):
@@ -125,13 +148,15 @@ def main():
     source.update(Path('Cargo.toml').read_bytes())
     source.update(Path('rust-toolchain.toml').read_bytes())
     runtime = json.loads(subprocess.check_output([str(binary),'--version-json'],text=True))
-    report = {'runtime':runtime,'compiler':subprocess.check_output(['rustc','--version'],text=True).strip(),'hardware':hardware, 'source_sha256':source.hexdigest(), 'kind': 'Rust production authenticated API; warm loopback synthetic browse/search',
+    report = {'runtime':runtime,'compiler':subprocess.check_output(['rustc','--version'],text=True).strip(),'hardware':hardware, 'source_sha256':source.hexdigest(), 'kind': ('Rust production authenticated API; process-cold first query and warm loopback'
+                       if args.process_cold else 'Rust production authenticated API; warm loopback synthetic browse/search'),
               'utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'host': platform.platform(), 'cpu': platform.processor(),
               'logical_cpus': os.cpu_count(), 'sqlite_seed_version': sqlite3.sqlite_version,
               'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+              'harness_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
               'configuration': vars(args), 'isolation': args.isolation_note,
-              'results': [], 'summary': []}
+              'results': [], 'summary': [], 'complete': False}
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     rng = random.Random(42)
@@ -151,20 +176,34 @@ def main():
                     stop = threading.Event()
                     monitor = None
                     try:
-                        deadline = time.monotonic()+15
-                        while True:
-                            try:
-                                api(port, 'status')
-                                break
-                            except OSError:
-                                if process.poll() is not None or time.monotonic() > deadline:
-                                    raise RuntimeError('benchmark server failed to start')
-                                time.sleep(.05)
+                        wait_for_server(process, port)
                         password = secrets.token_urlsafe(24)
                         api(port, 'setup', data={'Name': 'benchmark', 'Password': password})
                         token = api(port, 'login', data={'Name': 'benchmark', 'Password': password})['token']
                         seed(root/'data', size)
-                        canonical = api(port, 'items?' + urllib.parse.urlencode({'q': query}), token)
+                        first_query = None
+                        if args.process_cold:
+                            stop_server(process)
+                            if process.returncode != 0:
+                                raise RuntimeError('benchmark server did not shut down cleanly')
+                            process = subprocess.Popen([str(binary)], env=env, stdout=log, stderr=log)
+                            wait_for_server(process, port)
+                            cold_before = sample(process.pid)
+                            first_query = load(port, token, query, 1, 1)
+                            cold_after = sample(process.pid)
+                            first_query.update(core_cpu_seconds=max(0, cold_after[1]-cold_before[1]),
+                                               core_rss_before_bytes=cold_before[0],
+                                               core_rss_after_bytes=cold_after[0])
+                            if first_query['errors']:
+                                report['failed_cold_trial'] = {
+                                    'items': size, 'repetition': rep, 'concurrency': concurrency,
+                                    'workload': 'search' if query else 'browse',
+                                    'process_cold_first_query': first_query,
+                                }
+                                output.write_text(json.dumps(report,indent=2)+'\n')
+                                raise RuntimeError('first authenticated query failed; see report')
+                        canonical_path = 'items?' + urllib.parse.urlencode({'q': query})
+                        canonical = None if args.process_cold else api(port, canonical_path, token)
                         before = sample(process.pid)
                         peak = [before[0]]
                         def observe():
@@ -174,11 +213,16 @@ def main():
                         monitor.start()
                         result = load(port, token, query, args.requests, concurrency)
                         after = sample(process.pid)
+                        stop.set()
+                        if args.process_cold:
+                            canonical = api(port, canonical_path, token)
                         result.update({'items': size, 'repetition': rep, 'concurrency': concurrency,
                                        'workload': 'search' if query else 'browse',
                                        'response_sha256': hashlib.sha256(json.dumps(canonical,sort_keys=True).encode()).hexdigest(),
                                        'core_peak_rss_bytes': max(peak[0],after[0]),
                                        'core_cpu_seconds': max(0,after[1]-before[1]), 'ffmpeg_processes': 0})
+                        if first_query is not None:
+                            result['process_cold_first_query'] = first_query
                         report['results'].append(result)
                         output.write_text(json.dumps(report,indent=2)+'\n')
                         print(size, result['workload'], concurrency, 'errors', result['errors'], flush=True)
@@ -186,12 +230,7 @@ def main():
                         stop.set()
                         if monitor:
                             monitor.join(timeout=2)
-                        process.terminate()
-                        try:
-                            process.wait(timeout=15)
-                        except subprocess.TimeoutExpired:
-                            process.kill()
-                            process.wait()
+                        stop_server(process)
     for size in args.items:
         for concurrency in args.concurrency:
             for workload in ['browse','search']:
@@ -201,8 +240,19 @@ def main():
                                           'errors':sum(r['errors'] for r in rows),
                                           'p95_median_ms':statistics.median(p95s) if p95s else None,
                                           'p95_run_stdev_ms':statistics.stdev(p95s) if len(p95s)>1 else None})
+                if args.process_cold:
+                    cold = [r['process_cold_first_query'] for r in rows]
+                    values = [r['p95_ms'] for r in cold if r['p95_ms'] is not None]
+                    report['summary'][-1]['process_cold_first_query'] = {
+                        'attempts': len(cold), 'errors': sum(r['errors'] for r in cold),
+                        'median_ms': statistics.median(values) if values else None,
+                        'min_ms': min(values) if values else None,
+                        'max_ms': max(values) if values else None,
+                        'stdev_ms': statistics.stdev(values) if len(values)>1 else None,
+                    }
+    report['complete'] = True
     output.write_text(json.dumps(report,indent=2)+'\n')
-    if any(r['errors'] for r in report['results']):
+    if any(r['errors'] or r.get('process_cold_first_query', {}).get('errors') for r in report['results']):
         raise SystemExit(1)
 
 
