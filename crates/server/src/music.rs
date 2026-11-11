@@ -212,13 +212,14 @@ pub async fn tracks(
     Query(q): Query<TracksQuery>,
 ) -> Result<Json<Value>> {
     if q.artist.len() > 800
-        || q.album
-            .as_ref()
-            .is_some_and(|a| a.is_empty() || a.len() > 800)
+        || q.album.as_ref().is_some_and(|a| a.len() > 800)
         || (q.album.is_none() && q.artist.is_empty())
         || !(0..=100_000).contains(&q.offset)
     {
         return Err(Error::new(400, "invalid music track query"));
+    }
+    if q.album.as_deref() == Some("") {
+        return Ok(Json(json!([])));
     }
     Ok(Json(
         app.db

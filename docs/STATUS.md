@@ -156,7 +156,7 @@ graceful shutdown. Current images and production cutover remain unaccepted.
 
 Music libraries now have a direct audio preview with bounded tag display,
 native web controls and shared progress/queues. Classification preserves
-the legacy SQLite schema version through an additive table. Standalone artist browsing and audio conversion remain open. Local UTF-8 LRC/TXT lyrics
+the legacy SQLite schema version through an additive table. Audio conversion remains open. Local UTF-8 LRC/TXT lyrics
 are supported with click-to-seek for timed lines.
 
 Media resolution and scanning now reject a library root whose resolved

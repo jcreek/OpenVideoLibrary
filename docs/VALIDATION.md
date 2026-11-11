@@ -1004,3 +1004,13 @@ never reached compilation or image smoke testing. The N100 test account
 has free disk space but no container runtime. Current image acceptance
 requires access to the base images from a native builder with sufficient
 storage. No Docker images, volumes or caches were pruned.
+
+The music regression now also scans an albumless MP3. It verifies that the
+artist directory counts the track without increasing its album count, that
+omitting the album filter returns the track, and that an explicit empty
+album retains the previous HTTP 200 empty-list response. Full local
+verification passed again, including 15 browser scenarios and the Nginx
+drill. All eight source-matched SSH checks passed on N100, with CPU
+media and physical VAAPI SDR/HDR recorded separately in
+`validation-n100-albumless.json`. This was a compatibility check, with no
+new container, device or production performance acceptance.

@@ -3454,6 +3454,32 @@ async fn real_music_library_tags_playback_and_current_grants() {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o444)).unwrap();
     }
+    let single = dir.join("Standalone track.mp3");
+    media::process(
+        &app,
+        "ffmpeg",
+        [
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            "-c:a",
+            "libmp3lame",
+            "-metadata",
+            "artist=Fixture band",
+            single.to_str().unwrap(),
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        None,
+        Duration::from_secs(20),
+        1024,
+        app.cancel.child_token(),
+    )
+    .await
+    .unwrap();
+    std::fs::set_permissions(single, std::os::unix::fs::PermissionsExt::from_mode(0o444)).unwrap();
     std::fs::write(dir.join("Disguised.mp3"), b"#EXTM3U\n#EXT-X-VERSION:3\n").unwrap();
     std::fs::write(dir.join("ignore.mp4"), b"not in the music library").unwrap();
     let outside = root.path().join("outside.mp3");
@@ -3486,7 +3512,7 @@ async fn real_music_library_tags_playback_and_current_grants() {
     .await
     .unwrap();
     let (_, items) = request(&router, "GET", "/api/v1/items", Some(&token), None).await;
-    assert_eq!(items.as_array().unwrap().len(), cases.len() + 1);
+    assert_eq!(items.as_array().unwrap().len(), cases.len() + 2);
     let (_, series) = request(&router, "GET", "/api/v1/series", Some(&token), None).await;
     assert_eq!(
         series,
@@ -3533,7 +3559,7 @@ async fn real_music_library_tags_playback_and_current_grants() {
     assert_eq!(status, 200);
     assert_eq!(
         artists,
-        json!([{"library_id":library["id"],"artist":"Fixture band","albums":1,"tracks":2}])
+        json!([{"library_id":library["id"],"artist":"Fixture band","albums":1,"tracks":3}])
     );
     let artist_tracks = format!(
         "/api/v1/music/tracks?library={}&artist=Fixture%20band",
@@ -3541,7 +3567,18 @@ async fn real_music_library_tags_playback_and_current_grants() {
     );
     let (status, all_tracks) = request(&router, "GET", &artist_tracks, Some(&listener), None).await;
     assert_eq!(status, 200);
-    assert_eq!(all_tracks.as_array().unwrap().len(), 2);
+    assert_eq!(all_tracks.as_array().unwrap().len(), 3);
+    assert_eq!(all_tracks[0]["title"], "Standalone track");
+    let (status, rows) = request(
+        &router,
+        "GET",
+        &format!("{artist_tracks}&album="),
+        Some(&listener),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(rows, json!([]));
     let group_url = format!(
         "/api/v1/music/tracks?library={}&artist=Fixture%20band&album=Fixture%20album",
         library["id"]

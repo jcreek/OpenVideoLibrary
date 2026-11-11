@@ -2001,7 +2001,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Exact album title, at most 800 UTF-8 bytes; omit for all tracks by a named artist."
+            "description": "Exact album title, at most 800 UTF-8 bytes. An empty value returns no matches. Omit to include all tracks by a named artist, including tracks without an album."
           },
           {
             "name": "offset",
