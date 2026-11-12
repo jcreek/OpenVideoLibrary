@@ -35,16 +35,34 @@ only in the operator's private notes.
 
 ## Pick up here
 
-The queue-capture increment is complete and committed. `addToList`
-captures the clicked title and list before awaiting, and clears stale
-notices. It has 3x3 browser repeats, a full local `make verify-local`, all
-eight N100 SSH checks and independent reviews with no blocking finding. One cosmetic display-only title nit was left as is. See the
-"Queue add captures the clicked title" section of VALIDATION.md. Next, take
-the first item below that can progress without new hardware, accounts or
-product decisions. That is preview and video acceptance corpus expansion:
-long-file seeking, more audio layouts, containers and subtitle fonts, with
-decoded picture and audio checks. Run each increment locally and on the N100,
-and record it the same way.
+Two increments from this session are complete and on PR #1.
+
+1. **Queue capture.** `addToList` captures the clicked title and list before
+   awaiting, and clears stale notices. See "Queue add captures the clicked
+   title" in VALIDATION.md.
+2. **Long-file seek timeline.** Remux reports the start it actually measures
+   (`-copyts` plus a bounded first-segment probe, clamped), and the client
+   skips the lead-in. MPEG-TS seeks onto the preceding keyframe, and only
+   MPEG-TS transcodes trim after decoding. A start abandoned mid-wait cancels
+   its session. A generated B-frame MP4/Matroska/MPEG-TS corpus verifies
+   decoded frames and A/V beep alignment. See "Long-file seek timeline and A/V
+   sync" in VALIDATION.md for evidence, N100 seek-start costs and known
+   limits: the 20 s fallback, video-only MPEG-TS lookup misses, open-GOP and
+   VAAPI with trim.
+
+Both increments passed a full local `make verify-local`, all eight N100 SSH
+checks, and independent adversarial reviews that left no blocking finding.
+
+Next, continue the corpus expansion without new hardware or decisions:
+
+- more audio layouts and profiles, including 7.1, unusual channel orders,
+  E-AC-3 and DTS fallback;
+- more containers, such as AVI, WebM and VC-1 or MPEG-2 in MPEG-TS;
+- subtitle fonts and styling.
+
+Each increment needs decoded picture and audio checks. Run it locally and on
+the N100 and record it the same way. Real-media and SMB/NAS seek latency
+needs a read-only fixture mount.
 
 ## What has evidence
 
@@ -55,9 +73,12 @@ and record it the same way.
   Queue adds keep the clicked title across in-flight requests
   (`validation-browser-queue-repeats.json`, `validation-browser-queue-capture.json`,
   `validation-n100-queue-capture.json`).
+  Long-file seeks keep the client timeline and A/V sync for remux and
+  transcode (`validation-n100-keyframe-seek.json`,
+  `validation-browser-keyframe-seek.json`).
   Queue coverage includes concurrent cursor updates, grant loss, offline
   entries and restart. The latest source-matched Rust SSH matrix is
-  `validation-n100-covering.json`. It records CPU media and physical VAAPI
+  `validation-n100-keyframe-seek.json`. It records CPU media and physical VAAPI
   SDR/HDR checks separately, using an isolated process-local driver override.
 - **Music:** Direct audio and AAC HLS fallback, indexed album/artist browse,
   embedded/local artwork and lyrics, shared progress and queues. Check
@@ -75,9 +96,10 @@ and record it the same way.
 
 ## Outstanding from the plan
 
-1. **Preview and video acceptance.** The queue-capture regression is done.
-   Expand the representative corpus for audio profiles/layouts, containers,
-   subtitles and fonts, long-file seeking, HDR/HLG and Dolby Vision. Verify
+1. **Preview and video acceptance.** The queue-capture regression and the
+   generated long-file seek matrix are done. Expand the representative corpus
+   for audio profiles/layouts, containers, subtitles and fonts, real-media
+   and SMB seek latency, HDR/HLG and Dolby Vision. Verify
    decoded picture and audio. Broader Intel hardware paths, AMD/NVIDIA and
    real desktop/mobile device playback still need acceptance.
 2. **Production benchmarks.** Use the pinned Jellyfin 12.4 baseline and

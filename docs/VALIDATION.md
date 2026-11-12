@@ -1198,3 +1198,88 @@ They included CPU media, and separate physical VAAPI SDR (mean SSIM 0.9738)
 and HDR checks. The Rust source hash matches `validation-n100-covering.json`,
 because this increment changes only web files. See
 `validation-n100-queue-capture.json`.
+
+## Long-file seek timeline and A/V sync — 2026-11-12
+
+A generated corpus encodes the source frame number as sixteen bars. Audio
+beeps at each source second with a tone that steps every minute. It found two
+seek defects. Remux used stream copy from FFmpeg's input seek, so video began
+at an earlier keyframe, up to one GOP before the requested start. The server
+still reported the requested start, which the client used as its timeline
+offset. Displayed and saved positions and client WebVTT cues were therefore
+wrong by up to a GOP, after a silent lead-in. MPEG-TS has no seek index, so
+transcodes started at the next keyframe. A 37.3 s request began at 40.0 s, and
+600.6 s began at 610.0 s.
+
+Remux now keeps source timestamps with `-copyts` and zero mux delay. The
+session response reports where the first published segment begins. A bounded
+segment probe measures it, and the value is accepted only between 0 and the
+request plus 0.1 s. Otherwise it falls back to the request. The client offsets
+its timeline by the reported start and then seeks past any lead-in to the
+requested position. For MPEG-TS only, remux and transcode first seek onto the
+preceding keyframe. A packet-header lookup finds it: one packet, then 2 s and
+8 s windows, with a 3 s deadline. Transcodes then trim the remaining gap after
+decoding. MP4 and Matroska transcodes keep the original accurate seek. If a
+client disconnects while the start waits for the first segment, the session is
+cancelled and FFmpeg is reaped.
+
+The independent review found a blocking flaw in the first design. Predicting
+FFmpeg's seek failed for Matroska with B-frames, where FFmpeg's DTS heuristic
+lands a GOP early. It also found an extra per-variant filter cost on every
+transcode seek. The rework above replaced both. Follow-up reviews found the
+orphaned-session window and wrong measurements from wrapped or shifted
+timestamps. Both were fixed with regression tests, and the final review found
+no blocking issue.
+
+Coverage:
+
+- `real_long_file_seeks_keep_source_timeline_and_av_sync` uses 10-minute
+  23.976 fps `-bf 3` MP4, Matroska and MPEG-TS files, plus a 180 s MP4 with a
+  45 s GOP. Remux and transcode seek to 37.3, 301.7, 580.4 and 134.0 s. It
+  checks that the first frame matches the reported start, that later frames
+  match the start plus stream time, and that each beep aligns within two
+  frames. Decoding uses closed playlist snapshots and timestamp selection,
+  because FFmpeg output seeking skews audio when audio starts after video.
+  The test fails on the previous source: a request for 37.3 was reported as
+  37.3, but the stream began at frame 720.
+- `abandoned_remux_start_cancels_the_session` fails with the guard
+  neutralised.
+- A unit test covers keyframe parsing, arguments and the measurement clamp.
+- A browser scenario reports a start 2 s earlier than requested. It checks
+  the lead-in skip and saved progress. With the previous client it fails by
+  2.02 s.
+
+The final `make verify-local` passed. It covered frontend check and build,
+Rust format and Clippy, 32 API tests, ten explicit CPU media and fault tests,
+ten Python tests, contract and benchmark checks, 18 browser cases (six
+scenarios in each of three engines) and the cached-Nginx drill. See
+`validation-browser-keyframe-seek.json`. An earlier full run failed
+one browser case because of a test race: selecting remux and clicking Apply
+each send a playback request. The test now acts only on the seek request, and
+then passed two full suites and the final run. All eight source-matched N100
+checks passed over SSH, including both new media tests and physical VAAPI SDR
+and HDR. See `validation-n100-keyframe-seek.json`.
+
+Seek-start cost on the N100 (Ubuntu FFmpeg 6.1.1, 1-minute load average about
+4.6 from unrelated host services, n=20 per row, warm cache):
+
+- the MPEG-TS keyframe lookup has a median of 112–171 ms, with p95 up to 205 ms;
+- the remux segment-start probe has a median of about 62 ms, with p95 68 ms;
+- the first remux segment took a median of 127–203 ms to appear. Clients
+  already had to wait for it before playback, so this cost moved into the
+  response rather than being added.
+
+These are diagnostics, not LAN first-frame acceptance.
+
+Known limits:
+
+- If the first segment does not appear within 20 s, remux reports the
+  requested start.
+- Video-only MPEG-TS with a missed keyframe lookup can start up to a GOP late,
+  or show a video lead-in.
+- Open-GOP sources are untested.
+- VAAPI with the MPEG-TS output trim is unrun.
+- Real media, SMB/NAS seek I/O, Safari/iOS native HLS and LAN seek latency
+  remain unverified.
+
+No Actions ran.

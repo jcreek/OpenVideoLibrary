@@ -289,6 +289,127 @@ async fn run_process(
     rx.await
         .map_err(|_| Error::new(503, "media worker unavailable"))?
 }
+/// FFmpeg's input seek on MPEG-TS (no seek index) can land after a keyframe and
+/// then start at the next one, up to a GOP late. This bounded lookup finds the
+/// latest video keyframe at or before `start` (seconds from the media origin)
+/// so callers can seek the input onto it. It reads packet headers only (no
+/// decoding): one packet, then 2 s and 8 s windows before the target, under a
+/// 3 s overall deadline. It is an accuracy aid, so a busy inspection slot,
+/// timeout or no visible keyframe returns `None` and callers keep FFmpeg's seek.
+pub async fn keyframe_at_or_before(
+    app: &Arc<App>,
+    path: &FsPath,
+    info: &Info,
+    start: f64,
+) -> Result<Option<f64>> {
+    let Some(video) = info.video() else {
+        return Ok(None);
+    };
+    if start <= 0.0 {
+        return Ok(None);
+    }
+    let origin = info
+        .format
+        .start_time
+        .parse::<f64>()
+        .ok()
+        .filter(|t| t.is_finite())
+        .unwrap_or(0.0);
+    let target = origin + start;
+    let Ok(_slot) = app.inspection.clone().try_acquire_owned() else {
+        return Ok(None);
+    };
+    let intervals = std::iter::once(format!("{target:.6}%+#1")).chain(
+        [2.0, 8.0]
+            .into_iter()
+            .map(|window: f64| format!("{:.6}%{:.6}", (target - window).max(0.0), target + 0.001)),
+    );
+    let lookup = async {
+        for interval in intervals {
+            let out = process(
+                app,
+                "ffprobe",
+                vec![
+                    "-v".into(),
+                    "error".into(),
+                    "-select_streams".into(),
+                    video.index.to_string(),
+                    "-read_intervals".into(),
+                    interval,
+                    "-show_entries".into(),
+                    "packet=pts_time,flags".into(),
+                    "-of".into(),
+                    "csv=p=0".into(),
+                    path.to_string_lossy().into_owned(),
+                ],
+                None,
+                Duration::from_secs(3),
+                1 << 20,
+                app.cancel.child_token(),
+            )
+            .await?;
+            if let Some(keyframe) = latest_keyframe(&String::from_utf8_lossy(&out), target) {
+                return Ok(Some((keyframe - origin).max(0.0)));
+            }
+        }
+        Ok(None)
+    };
+    // Dropping the future on deadline kills and reaps the running probe.
+    tokio::time::timeout(Duration::from_secs(3), lookup)
+        .await
+        .unwrap_or(Ok(None))
+}
+
+/// Source position at which a published remux segment begins. Remux runs with
+/// `-copyts`, so segment timestamps are source timestamps; the earliest stream
+/// start minus the source origin is where the client timeline begins.
+pub async fn segment_start(app: &Arc<App>, segment: &FsPath, origin: f64) -> Result<Option<f64>> {
+    let out = process(
+        app,
+        "ffprobe",
+        vec![
+            "-v".into(),
+            "error".into(),
+            "-show_entries".into(),
+            "stream=start_time".into(),
+            "-of".into(),
+            "csv=p=0".into(),
+            segment.to_string_lossy().into_owned(),
+        ],
+        None,
+        Duration::from_secs(5),
+        64 << 10,
+        app.cancel.child_token(),
+    )
+    .await?;
+    Ok(String::from_utf8_lossy(&out)
+        .lines()
+        .filter_map(|line| line.trim().trim_end_matches(',').parse::<f64>().ok())
+        .filter(|t| t.is_finite())
+        .reduce(f64::min)
+        .map(|first| (first - origin).max(0.0)))
+}
+
+/// Selects the latest keyframe packet time not after `target` from ffprobe
+/// `packet=pts_time,flags` CSV rows.
+pub fn latest_keyframe(output: &str, target: f64) -> Option<f64> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let mut pts = None;
+            let mut key = false;
+            for field in line.split(',').map(str::trim) {
+                if let Ok(value) = field.parse::<f64>() {
+                    pts = Some(value);
+                } else if field.starts_with('K') {
+                    key = true;
+                }
+            }
+            pts.filter(|t| key && t.is_finite() && *t <= target + 1e-6)
+        })
+        .reduce(f64::max)
+}
+
 pub async fn inspect(app: &Arc<App>, path: &FsPath) -> Result<Info> {
     let enrich = crate::hardware::wants_vaapi_hdr(
         &std::env::var("OVL_ACCELERATOR").unwrap_or("auto".into()),

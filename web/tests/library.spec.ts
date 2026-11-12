@@ -140,6 +140,43 @@ test('queue preserves offline entries and saved positions',async({page})=>{
  const recovered=await (await page.request.get('/api/v1/lists/'+id)).json();expect(recovered.entries).toHaveLength(2);expect(recovered.cursor).toBe(1);
 });
 
+test('HLS timeline follows the server-reported stream start',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Timeline TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+ // Earlier scenarios can leave titles offline until the next scan.
+ await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
+ await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+ await page.getByRole('button',{name:'All media',exact:true}).click();await page.getByRole('button',{name:new RegExp('TV ▶ '+item.title)}).click();
+ await page.getByLabel('Playback',{exact:true}).selectOption('remux');await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ // Remux streams can begin on an earlier keyframe than requested. Report the
+ // stream as beginning 2 s before the requested position.
+ let actual=-1;
+ await page.route('**/api/v1/items/'+item.id+'/playback',async route=>{
+  // Only the seek to 6 s is altered; settings-driven restarts pass through.
+  if(route.request().method()!=='POST'||route.request().postDataJSON().Start!==6)return route.fallback();
+  const response=await route.fetch();const body=await response.json();
+  actual=body.start;body.start=Math.max(0,body.start-2);await route.fulfill({response,json:body});
+ });
+ const created=page.waitForResponse(r=>r.url().endsWith('/items/'+item.id+'/playback')&&r.request().method()==='POST'&&r.request().postDataJSON().Start===6);
+ await page.getByLabel(/Jump to/).fill('6');
+ const response=await created;
+ const reported=(await response.json()).start;
+ // The real remux start is the measured stream start, at most one GOP early.
+ expect(actual).toBeLessThanOrEqual(6);expect(actual).toBeGreaterThan(4.9);expect(reported).toBeCloseTo(actual-2,6);
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ // The client skips the 2 s lead-in to land on the requested position.
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.currentTime)).toBeGreaterThanOrEqual(1.9);
+ const saved=page.waitForRequest(r=>r.url().endsWith('/items/'+item.id+'/progress')&&r.method()==='PUT');
+ const current=await page.locator('video').evaluate((v:HTMLVideoElement)=>{v.pause();return v.currentTime;});
+ const position=(await saved).postDataJSON().Position;
+ expect(Math.abs(position-(reported+current))).toBeLessThan(0.25);
+ expect(position).toBeGreaterThanOrEqual(5.9);
+ await page.getByRole('button',{name:'Close player',exact:true}).click();
+});
 test('player lifecycle ignores delayed opening and closing',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);

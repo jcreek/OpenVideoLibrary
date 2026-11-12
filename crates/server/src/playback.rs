@@ -50,6 +50,10 @@ pub struct Playback {
     #[serde(rename = "CanPlayMP4")]
     pub can_play_mp4: bool,
     pub capabilities: Option<ClientCapabilities>,
+    /// Server-resolved video keyframe at or before `start`, used as the input
+    /// seek; transcodes trim to `start` after decoding. Never client-supplied.
+    #[serde(skip)]
+    pub keyframe: Option<f64>,
 }
 pub struct Stream {
     pub owner: i64,
@@ -329,6 +333,24 @@ pub async fn start(
     if b.subtitle.is_some() && b.mode != "transcode" {
         return Err(Error::new(400, "subtitle burn-in requires transcoding"));
     }
+    if matches!(b.mode.as_str(), "remux" | "transcode")
+        && kind != "music"
+        && b.start > 0.0
+        && info.format.format_name.split(',').any(|f| f == "mpegts")
+    {
+        // MPEG-TS has no seek index: FFmpeg's input seek can land after the
+        // preceding keyframe and start at the next one, up to a GOP late. Seek the
+        // input onto the preceding keyframe; transcodes trim to the requested
+        // start after decoding. Other containers keep FFmpeg's accurate seek.
+        match media::keyframe_at_or_before(&app, &path, &info, b.start).await {
+            // Round up so the input seek cannot fall back to the previous GOP.
+            Ok(Some(keyframe)) => b.keyframe = Some((keyframe * 1000.0).ceil() / 1000.0),
+            Ok(None) => {}
+            Err(e) => {
+                tracing::warn!(error=%e,"keyframe lookup failed; keeping requested start")
+            }
+        }
+    }
     if b.mode == "direct" && b.audio > 0 {
         return Err(Error::new(
             400,
@@ -375,7 +397,16 @@ pub async fn start(
     });
     streams.insert(id.clone(), stream.clone());
     drop(streams);
-    let response = json!({"id":id,"url":format!("/api/v1/playback/{id}/index.m3u8"),"mode":b.mode,"start":b.start,"reason":reason});
+    let (mode, mut start, keyframe) = (b.mode.clone(), b.start, b.keyframe);
+    let origin = info
+        .format
+        .start_time
+        .parse::<f64>()
+        .ok()
+        .filter(|t| t.is_finite())
+        .unwrap_or(0.0);
+    let measured = stream.clone();
+    let session_id = id.clone();
     let task_app = app.clone();
     app.tasks.spawn(async move {
         let app=task_app;
@@ -388,7 +419,58 @@ pub async fn start(
         app.streams.lock().await.remove(&id);
         let _=done_tx.send(true);
     });
+    // A client that disconnects while this handler waits never learns the
+    // session id; cancel the session then so FFmpeg is reaped and the slot freed.
+    let abandon = measured.cancel.clone().drop_guard();
+    if mode == "remux" && start > 0.0 {
+        // Stream copy begins on a keyframe chosen by FFmpeg's container-specific
+        // seek. Remux keeps source timestamps, so report where the first published
+        // segment actually begins; the client offsets its timeline by it.
+        let segment = measured.dir.join("v0-0.ts");
+        let ready = tokio::time::timeout(Duration::from_secs(20), async {
+            while !tokio::fs::try_exists(&segment).await.unwrap_or(false) {
+                if measured.finished.load(Ordering::Acquire) || measured.cancel.is_cancelled() {
+                    return false;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+            true
+        })
+        .await
+        .unwrap_or(false);
+        let actual = if ready {
+            media::segment_start(&app, &segment, origin)
+                .await
+                .unwrap_or_else(|e| {
+                    tracing::warn!(error=%e,"remux start probe failed");
+                    None
+                })
+        } else {
+            None
+        };
+        let reported = remux_start(start, keyframe, actual);
+        if actual.is_none_or(|a| (a * 1000.0).floor() / 1000.0 != reported) {
+            tracing::warn!(requested=start,measured=?actual,reported,"remux start not measured; using fallback");
+        }
+        start = reported;
+        measured.touched.store(auth::now(), Ordering::Relaxed);
+    }
+    abandon.disarm();
+    let response = json!({"id":session_id,"url":format!("/api/v1/playback/{session_id}/index.m3u8"),"mode":mode,"start":start,"reason":reason});
     Ok((StatusCode::CREATED, Json(response)))
+}
+/// Chooses the remux start reported to the client. Copied video begins on a
+/// keyframe at or before the input seek, so a measured start is accepted only
+/// between 0 and `requested` + 0.1 s; anything else (for example timestamps
+/// shifted by MPEG-TS wrap-around or the muxer) falls back to the resolved
+/// keyframe or the requested start.
+pub fn remux_start(requested: f64, keyframe: Option<f64>, measured: Option<f64>) -> f64 {
+    let fallback = keyframe
+        .filter(|k| *k <= requested + 0.001)
+        .unwrap_or(requested);
+    measured
+        .filter(|m| m.is_finite() && *m >= 0.0 && *m <= requested + 0.1)
+        .map_or(fallback, |m| (m * 1000.0).floor() / 1000.0)
 }
 pub fn encoding_args(
     path: &std::path::Path,
@@ -409,17 +491,38 @@ pub fn encoding_args(
     // Its correctness path composes sequentially and trims the complete output.
     let sequential_bitmap =
         bitmap.is_some() && info.format.format_name.split(',').any(|f| f == "mpegts");
+    // Input seeking starts decoding at a resolved keyframe; transcodes then trim
+    // the remaining gap per output so the first output frame is `start`.
+    let input_seek = if sequential_bitmap {
+        0.0
+    } else {
+        b.keyframe
+            .filter(|k| *k <= b.start + 0.001)
+            .unwrap_or(b.start)
+    };
+    let output_seek = if sequential_bitmap {
+        Some(b.start)
+    } else {
+        Some(b.start - input_seek).filter(|gap| b.mode == "transcode" && *gap >= 0.001)
+    };
     let mut a = vec![
         "-nostdin".into(),
         "-hide_banner".into(),
         "-loglevel".into(),
         "error".into(),
         "-y".into(),
+    ];
+    if b.mode == "remux" {
+        // Keep source timestamps so the server can report the actual start.
+        a.push("-copyts".into());
+    }
+    a.extend([
         "-ss".into(),
-        format!("{:.3}", if sequential_bitmap { 0.0 } else { b.start }),
+        // Round up so a seek onto a keyframe can never fall before it.
+        format!("{:.3}", (input_seek * 1000.0).ceil() / 1000.0),
         "-i".into(),
         path.to_string_lossy().into_owned(),
-    ];
+    ]);
     if info.video().is_none() {
         a.extend(["-map".into(), "0:a:0".into(), "-vn".into()]);
         a.extend(hls_audio_args(b, info.tracks("audio").first().copied(), 0));
@@ -442,7 +545,7 @@ pub fn encoding_args(
         let mut graph = format!(
             "[{}:s:{subtitle}]setpts=PTS-{:.3}/TB[subs];{base}[base][subs]overlay=eof_action=pass:repeatlast=0[burn];[burn]split={}",
             if sequential_bitmap { 0 } else { 1 },
-            if sequential_bitmap { 0.0 } else { b.start },
+            input_seek,
             variants.len()
         );
         for i in 0..variants.len() {
@@ -462,8 +565,8 @@ pub fn encoding_args(
         ]);
     }
     for (i, v) in variants.iter().enumerate() {
-        if sequential_bitmap {
-            a.extend(["-ss".into(), format!("{:.3}", b.start)]);
+        if let Some(gap) = output_seek {
+            a.extend(["-ss".into(), format!("{gap:.3}")]);
         }
         a.extend([
             "-map".into(),
@@ -488,7 +591,9 @@ pub fn encoding_args(
                     .ok()
                     .filter(|t| t.is_finite())
                     .unwrap_or(0.0);
-                let seek = format!("{:.3}", b.start).parse::<f64>().unwrap_or(b.start);
+                let seek = format!("{input_seek:.3}")
+                    .parse::<f64>()
+                    .unwrap_or(input_seek);
                 let subtitle_offset = origin + seek;
                 // Input seeking rebases video PTS, while libass reads original cue times.
                 // Restore that timeline only around subtitle rendering, then preserve AV sync.
@@ -531,7 +636,15 @@ pub fn encoding_args(
                 ]);
             }
         } else {
-            a.extend(["-c:v".into(), "copy".into()]);
+            // Zero mux delay keeps segment timestamps equal to source timestamps.
+            a.extend([
+                "-c:v".into(),
+                "copy".into(),
+                "-muxdelay".into(),
+                "0".into(),
+                "-muxpreload".into(),
+                "0".into(),
+            ]);
         }
         a.extend(hls_audio_args(
             b,

@@ -4339,3 +4339,525 @@ async fn music_artwork_prefers_album_cover_and_enforces_grants() {
     assert_eq!(bytes(&router, &viewer_token, &url).await.0, 404);
     app.shutdown().await;
 }
+
+/// Decodes the first 416x240 frame presented at or after timestamp `t` of `src`
+/// (timestamps preserved) and returns the frame number encoded by the
+/// long-seek fixture's sixteen binary bars. Selecting by timestamp avoids
+/// FFmpeg's output-seek skew when a stream starts later than another.
+async fn coded_frame(app: &Arc<App>, src: &Path, t: f64) -> u32 {
+    let args = [
+        "-v",
+        "error",
+        "-copyts",
+        "-i",
+        src.to_str().unwrap(),
+        "-map",
+        "0:v:0",
+        "-vf",
+        &format!("select='gte(t\\,{t:.4})',scale=416:240"),
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "gray",
+        "-f",
+        "rawvideo",
+        "pipe:1",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    let gray = media::process(
+        app,
+        "ffmpeg",
+        args,
+        None,
+        Duration::from_secs(60),
+        1 << 20,
+        app.cancel.child_token(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(gray.len(), 416 * 240, "no decoded frame at {t}");
+    (0..16)
+        .filter(|bit| gray[120 * 416 + bit * 26 + 13] > 128)
+        .map(|bit| 1 << bit)
+        .sum()
+}
+
+/// Returns the delay after timestamp `t` of the next one-second beep onset in
+/// `src` (timestamps preserved) and the beep's tone.
+async fn beep_onset(app: &Arc<App>, src: &Path, t: f64) -> (f64, f64) {
+    let args = [
+        "-v",
+        "error",
+        "-copyts",
+        "-i",
+        src.to_str().unwrap(),
+        "-map",
+        "0:a:0",
+        "-af",
+        &format!("atrim=start={t:.4}:duration=1.3"),
+        "-ac",
+        "1",
+        "-ar",
+        "48000",
+        "-f",
+        "f32le",
+        "pipe:1",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    let pcm = media::process(
+        app,
+        "ffmpeg",
+        args,
+        None,
+        Duration::from_secs(60),
+        1 << 20,
+        app.cancel.child_token(),
+    )
+    .await
+    .unwrap();
+    let samples = pcm
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| f32::from_le_bytes(*b))
+        .collect::<Vec<_>>();
+    assert!(samples.len() > 48_000, "short audio at {t}");
+    let mut quiet = 0;
+    for (i, sample) in samples.iter().enumerate() {
+        if sample.abs() > 0.05 {
+            if quiet >= 2_400 {
+                let tone = &samples[i..(i + 3_600).min(samples.len())];
+                let rises = tone
+                    .windows(2)
+                    .filter(|w| w[0] <= 0.0 && w[1] > 0.0)
+                    .count();
+                return (
+                    i as f64 / 48_000.0,
+                    rises as f64 * 48_000.0 / tone.len() as f64,
+                );
+            }
+            quiet = 0;
+        } else {
+            quiet += 1;
+        }
+    }
+    panic!("no beep onset after {t}");
+}
+
+#[tokio::test]
+#[ignore = "generated 10-minute B-frame corpus requires FFmpeg libx264, AAC and lavfi; software acceptance"]
+async fn real_long_file_seeks_keep_source_timeline_and_av_sync() {
+    const FPS: f64 = 24_000.0 / 1_001.0;
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let item = add_media(&app, root.path()).await;
+    let media_dir = std::fs::canonicalize(root.path().join("media")).unwrap();
+    // Sixteen bars encode the source frame number; audio beeps for 0.1 s at each
+    // source second with a tone that steps every minute.
+    let bars = (0..16)
+        .map(|bit| {
+            format!(
+                "drawbox=x={}:y=0:w=26:h=240:color=white:t=fill:enable='gt(bitand(n\\,{})\\,0)'",
+                bit * 26,
+                1 << bit
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    // B-frames make FFmpeg's Matroska/MPEG-TS seeks differ from MP4; 23.976 fps
+    // puts keyframes off whole milliseconds. (file, format, seconds, GOP, seeks)
+    let fixtures: [(&str, &str, u32, u32, &[f64]); 4] = [
+        ("Long.S01E01.mp4", "mp4", 600, 240, &[37.3, 301.7, 580.4]),
+        ("Long.S01E02.mkv", "matroska", 600, 240, &[37.3, 301.7]),
+        ("Long.S01E03.ts", "mpegts", 600, 240, &[37.3, 301.7]),
+        ("Long.S01E04.mp4", "mp4", 180, 1080, &[134.0]),
+    ];
+    for (name, container, seconds, gop, starts) in fixtures {
+        let path = media_dir.join(name);
+        let status = std::process::Command::new("ffmpeg")
+            .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i"])
+            .arg(format!("color=black:size=416x240:rate=24000/1001,{bars}"))
+            .args([
+                "-f",
+                "lavfi",
+                "-i",
+                "aevalsrc='0.3*lt(mod(t\\,1)\\,0.1)*sin(2*PI*(200+100*floor(t/60))*t)':s=48000",
+                "-t",
+                &seconds.to_string(),
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-bf",
+                "3",
+                "-threads",
+                "2",
+                "-g",
+                &gop.to_string(),
+                "-keyint_min",
+                &gop.to_string(),
+                "-sc_threshold",
+                "0",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "64k",
+                "-f",
+                container,
+            ])
+            .arg(&path)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let stored = path.to_string_lossy().into_owned();
+        app.db
+            .call(move |c| {
+                c.execute(
+                    "UPDATE media_files SET path=? WHERE item_id=?",
+                    rusqlite::params![stored, item],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let gop_seconds = f64::from(gop) / FPS;
+        for &requested in starts {
+            for mode in ["remux", "transcode"] {
+                let (status, session) = request(
+                    &router,
+                    "POST",
+                    &format!("/api/v1/items/{item}/playback"),
+                    Some(&token),
+                    Some(json!({"Mode":mode,"Start":requested})),
+                )
+                .await;
+                assert_eq!(status, 201, "{session}");
+                let start = session["start"].as_f64().unwrap();
+                let case = format!("{name} {mode} requested {requested} reported {start}");
+                if mode == "remux" {
+                    // Copied video begins on a keyframe at or before the request.
+                    assert!(
+                        start <= requested + 0.002 && start > requested - gop_seconds - 0.2,
+                        "{case}"
+                    );
+                } else {
+                    assert!((start - requested).abs() < 0.001, "{case}");
+                }
+                let id = session["id"].as_str().unwrap().to_owned();
+                let stream = app.streams.lock().await.get(&id).unwrap().clone();
+                let output = stream.dir.join("v0.m3u8");
+                // The client skips any remux lead-in to land on the requested start.
+                let skip = requested - start;
+                let needed = skip + 25.0;
+                tokio::time::timeout(Duration::from_secs(180), async {
+                    loop {
+                        let listed = tokio::fs::read_to_string(&output)
+                            .await
+                            .unwrap_or_default()
+                            .lines()
+                            .filter_map(|l| l.strip_prefix("#EXTINF:"))
+                            .filter_map(|l| l.trim_end_matches(',').parse::<f64>().ok())
+                            .sum::<f64>();
+                        if listed >= needed
+                            || stream.finished.load(std::sync::atomic::Ordering::Acquire)
+                        {
+                            break;
+                        }
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                    }
+                })
+                .await
+                .unwrap_or_else(|_| panic!("{case}: output not published"));
+                let failure = stream.error.lock().await.clone();
+                assert!(failure.is_none(), "{case}: {failure:?}");
+                // Decode a closed snapshot of the published segments; FFmpeg treats
+                // a growing event playlist as live, which skews seek timestamps.
+                let listed = tokio::fs::read_to_string(&output).await.unwrap();
+                let mut snapshot = listed
+                    .lines()
+                    .filter(|l| *l != "#EXT-X-ENDLIST")
+                    .map(|l| {
+                        if l.starts_with('#') || l.is_empty() {
+                            l.to_owned()
+                        } else {
+                            stream.dir.join(l).to_string_lossy().into_owned()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                snapshot.push_str("\n#EXT-X-ENDLIST\n");
+                let output = root.path().join(format!("snapshot-{id}.m3u8"));
+                tokio::fs::write(&output, snapshot).await.unwrap();
+                let remaining = f64::from(seconds) - start;
+                // Stream time zero is the earliest presented timestamp.
+                let probe = media::process(
+                    &app,
+                    "ffprobe",
+                    [
+                        "-v",
+                        "error",
+                        "-show_entries",
+                        "format=start_time",
+                        "-of",
+                        "csv=p=0",
+                        output.to_str().unwrap(),
+                    ]
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect(),
+                    None,
+                    Duration::from_secs(30),
+                    4096,
+                    app.cancel.child_token(),
+                )
+                .await
+                .unwrap();
+                let zero = String::from_utf8_lossy(&probe)
+                    .trim()
+                    .parse::<f64>()
+                    .unwrap();
+                let first = coded_frame(&app, &output, zero).await;
+                assert!(
+                    (f64::from(first) / FPS - start).abs() <= 2.0 / FPS + 0.05,
+                    "{case}: stream begins at frame {first}"
+                );
+                for at in [skip + 0.2, skip + 3.0, skip + 20.0]
+                    .into_iter()
+                    .filter(|at| at + 2.0 < remaining)
+                {
+                    // The picture at stream time `at` is the source at reported start + at.
+                    let frame = coded_frame(&app, &output, zero + at).await;
+                    let error = f64::from(frame) / FPS - (start + at);
+                    assert!(
+                        error.abs() <= 2.0 / FPS + 0.05,
+                        "{case}: at {at} frame {frame} error {error:+.3}s"
+                    );
+                    // Audio and video agree: a beep starts on a whole source second.
+                    let (onset, tone) = beep_onset(&app, &output, zero + at).await;
+                    let beep = f64::from(coded_frame(&app, &output, zero + at + onset).await) / FPS;
+                    let drift = beep - beep.round();
+                    assert!(
+                        drift.abs() <= 2.0 / FPS + 0.01,
+                        "{case}: at {at} beep at source {beep:.3} drift {drift:+.3}s"
+                    );
+                    let expected = 200.0 + 100.0 * (beep.round() / 60.0).floor();
+                    assert!(
+                        (tone - expected).abs() < expected * 0.04 + 10.0,
+                        "{case}: at {at} tone {tone} expected {expected}"
+                    );
+                }
+                assert_eq!(
+                    request(
+                        &router,
+                        "DELETE",
+                        &format!("/api/v1/playback/{id}"),
+                        Some(&token),
+                        None
+                    )
+                    .await
+                    .0,
+                    200
+                );
+                assert!(
+                    !app.config.data.join("transcodes").join(&id).exists(),
+                    "{case}"
+                );
+            }
+        }
+    }
+    app.shutdown().await;
+}
+
+#[test]
+fn keyframe_selection_and_seek_arguments_keep_requested_start() {
+    // ffprobe packet CSV: pts_time,flags; non-key, N/A and later keys are ignored.
+    let rows = "29.958333,__\n30.021333,K_\nN/A,K_\n35.000000,__\n40.021333,K_\n";
+    assert_eq!(media::latest_keyframe(rows, 38.7), Some(30.021333));
+    assert_eq!(media::latest_keyframe(rows, 30.021333), Some(30.021333));
+    assert_eq!(media::latest_keyframe(rows, 30.0), None);
+    assert_eq!(media::latest_keyframe("", 10.0), None);
+    let info: media::Info = serde_json::from_value(json!({"streams":[{"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p","width":416,"height":240},{"codec_type":"audio","codec_name":"aac","channels":2}],"format":{"format_name":"mpegts","duration":"1200","start_time":"1.400000"}})).unwrap();
+    let variants = playback::ladder(416, 240, false);
+    let seeks = |b: &Playback| {
+        let args = playback::encoding_args(Path::new("media.ts"), b, &info, &variants);
+        args.windows(2)
+            .filter(|w| w[0] == "-ss")
+            .map(|w| w[1].clone())
+            .collect::<Vec<_>>()
+    };
+    // Transcode: decode from the keyframe, then trim to the requested start.
+    let transcode = Playback {
+        mode: "transcode".into(),
+        start: 37.3,
+        keyframe: Some(30.022),
+        ..Default::default()
+    };
+    assert_eq!(seeks(&transcode), ["30.022", "7.278"]);
+    // Text subtitles render on the decoded (keyframe) timeline.
+    let args = playback::encoding_args(
+        Path::new("media.ts"),
+        &Playback {
+            subtitle: Some(0),
+            ..transcode.clone()
+        },
+        &info,
+        &variants,
+    );
+    assert!(
+        args.iter().any(|a| a.contains("setpts=PTS+(31.422000)/TB")),
+        "{args:?}"
+    );
+    // Remux seeks onto the keyframe, keeps source timestamps for start
+    // measurement and never trims copied video.
+    let remux = Playback {
+        mode: "remux".into(),
+        start: 37.3,
+        keyframe: Some(30.022),
+        ..Default::default()
+    };
+    assert_eq!(seeks(&remux), ["30.022"]);
+    let args = playback::encoding_args(Path::new("media.ts"), &remux, &info, &variants);
+    assert!(args.contains(&"-copyts".to_owned()));
+    assert!(args.windows(2).any(|w| w[0] == "-muxdelay" && w[1] == "0"));
+    let args = playback::encoding_args(Path::new("media.ts"), &transcode, &info, &variants);
+    assert!(!args.contains(&"-copyts".to_owned()));
+    // Without a resolved keyframe the original single input seek is kept,
+    // rounded up so it can never fall before a keyframe.
+    let unresolved = Playback {
+        mode: "transcode".into(),
+        start: 37.3,
+        ..Default::default()
+    };
+    assert_eq!(seeks(&unresolved), ["37.300"]);
+    assert_eq!(
+        seeks(&Playback {
+            start: 8.3412,
+            ..unresolved.clone()
+        }),
+        ["8.342"]
+    );
+    // A keyframe after the start is never used.
+    assert_eq!(
+        seeks(&Playback {
+            keyframe: Some(40.0),
+            ..unresolved.clone()
+        }),
+        ["37.300"]
+    );
+    // Measured remux starts are accepted only between 0 and the request + 0.1 s.
+    assert_eq!(playback::remux_start(37.3, None, Some(30.0304)), 30.03);
+    assert_eq!(playback::remux_start(37.3, None, Some(37.39)), 37.39);
+    // Wrapped or shifted timestamps fall back to the keyframe or the request.
+    assert_eq!(playback::remux_start(20.0, None, Some(42.34)), 20.0);
+    assert_eq!(
+        playback::remux_start(37.3, Some(30.022), Some(80.0)),
+        30.022
+    );
+    assert_eq!(
+        playback::remux_start(37.3, Some(30.022), Some(-1.0)),
+        30.022
+    );
+    assert_eq!(playback::remux_start(37.3, Some(40.0), None), 37.3);
+    assert_eq!(playback::remux_start(37.3, None, Some(f64::NAN)), 37.3);
+    // Clients cannot supply the server-resolved keyframe.
+    assert!(
+        serde_json::from_value::<Playback>(json!({"Mode":"remux","Start":5,"Keyframe":0})).is_err()
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires FFmpeg libx264 and AAC; software acceptance"]
+async fn abandoned_remux_start_cancels_the_session() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let item = add_media(&app, root.path()).await;
+    let path = std::fs::canonicalize(root.path().join("media/Example.S01E01.mp4")).unwrap();
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-nostdin",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=size=640x360:rate=24",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440",
+            "-t",
+            "120",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-g",
+            "240",
+            "-c:a",
+            "aac",
+        ])
+        .arg(&path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    // Drop the start request at increasing delays. Whenever a session already
+    // existed, it must be cancelled promptly rather than linger until the idle
+    // reaper (5 s here), holding a stream slot.
+    let mut abandoned_mid_wait = 0;
+    for delay in (0..60).map(|step| Duration::from_millis(step * 5)) {
+        let body = json!({"Mode":"remux","Start":37.3});
+        let started = tokio::time::timeout(
+            delay,
+            request(
+                &router,
+                "POST",
+                &format!("/api/v1/items/{item}/playback"),
+                Some(&token),
+                Some(body),
+            ),
+        )
+        .await;
+        match started {
+            Ok((status, session)) => {
+                assert_eq!(status, 201, "{session}");
+                let id = session["id"].as_str().unwrap();
+                request(
+                    &router,
+                    "DELETE",
+                    &format!("/api/v1/playback/{id}"),
+                    Some(&token),
+                    None,
+                )
+                .await;
+            }
+            Err(_) => {
+                if !app.streams.lock().await.is_empty() {
+                    abandoned_mid_wait += 1;
+                }
+            }
+        }
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while !app.streams.lock().await.is_empty() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("session left running after a {delay:?} disconnect"));
+    }
+    assert!(
+        abandoned_mid_wait > 0,
+        "no request was dropped while waiting"
+    );
+    assert!(
+        std::fs::read_dir(app.config.data.join("transcodes"))
+            .map(|d| d.count())
+            .unwrap_or(0)
+            == 0
+    );
+    app.shutdown().await;
+}
