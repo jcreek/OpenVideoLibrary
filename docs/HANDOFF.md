@@ -35,7 +35,13 @@ only in the operator's private notes.
 
 ## Pick up here
 
-Four increments from this session are complete and on PR #1.
+Four increments from this session are complete and on PR #1. The current
+Linux images also pass the container smoke. With the user's approval,
+history from the first handoff commit onward was rewritten to remove the
+N100's private address and key filename, then force-pushed. PR #1's
+commit IDs changed, but no file content did. A local-only backup ref,
+`local-backup-before-history-scrub`, keeps the old history on the
+development machine. Do not push it.
 
 1. **Queue capture.** `addToList` captures the clicked title and list before
    awaiting, and clears stale notices. See "Queue add captures the clicked
@@ -119,7 +125,12 @@ needs a read-only fixture mount.
    fonts, real-media and SMB seek latency, HDR/HLG and Dolby Vision. Verify
    decoded picture and audio. Broader Intel hardware paths, AMD/NVIDIA and
    real desktop/mobile device playback still need acceptance.
-2. **Production benchmarks.** Use the pinned Jellyfin 12.4 baseline and
+2. **Production benchmarks.** The user approved the N100 as the bench host,
+   including during household use; label noisy results as such. OS-cold
+   trials still need root page-cache control on a dedicated host. Never evict
+   the shared N100's caches. Next, build a Jellyfin playback client harness
+   for paired direct, remux and transcode first-segment and concurrency
+   trials. Use the pinned Jellyfin 12.4 baseline and
    equivalent read-only media, metadata, output quality and background
    work. Complete broader search comparison, OS-cold trials on a dedicated
    host, sustained saturation, and mixed scanning/streaming. Compare LAN
@@ -128,12 +139,13 @@ needs a read-only fixture mount.
    under 2 s. Rust-only LAN and mixed-load diagnostics already exist.
    Record errors, source/binary identity, repeat uncertainty, server and
    FFmpeg resources separately. Profile before changing query semantics.
-3. **Current deployment acceptance.** Build and smoke-test Linux amd64 and
-   arm64 images with sufficient builder storage. Complete isolated
-   production-host Nginx/TLS, read-only mounts and cutover/rollback. Docker
-   Desktop ran out of internal storage even with the slim Rust base. The
-   N100 test account cannot create a rootless user namespace, and no usable
-   container runtime was found. The existing SMB mount is writable. Leave
+3. **Current deployment acceptance.** Current Linux arm64 (native) and
+   amd64 (built and run under emulation) images now pass the container
+   smoke. See "Current Linux images" in VALIDATION.md; the build cache was
+   pruned with authorisation. Native x86 image runs and GPU-in-container
+   remain open. Complete isolated production-host Nginx/TLS, read-only mounts
+   and cutover/rollback. The N100 test account cannot create a rootless user
+   namespace, and no usable container runtime was found. The existing SMB mount is writable. Leave
    it untouched and provision a separate read-only fixture mount. Never
    prune unrelated Docker images, caches or volumes.
 4. **Subsequent parity.** Audit the inventory against pinned Jellyfin, then

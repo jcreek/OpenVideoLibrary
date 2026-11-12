@@ -1,0 +1,23 @@
+{
+  "recorded_utc": "2026-11-12T20:53:58.652439+00:00",
+  "scope": "Linux image API/range/read-only/shutdown smoke; no GPU, browser or stream capacity claim",
+  "image": "ovl:acceptance-amd64",
+  "image_id": "sha256:0ba34aa9702cecb4b54e392c066d4c9f9b32e958165640979834c88dadcec63c",
+  "runtime": {
+    "architecture": "x86_64",
+    "os": "linux",
+    "server_version": "0.1.0",
+    "sqlite_version": "3.54.1"
+  },
+  "checks": [
+    "authenticated setup/login",
+    "unauthorized media denied",
+    "read-only mount scan",
+    "range bytes verified",
+    "viewer grants enforced",
+    "queue revision conflicts",
+    "media write denied and fixture unchanged",
+    "SIGTERM exit zero without OOM"
+  ],
+  "complete": true
+}

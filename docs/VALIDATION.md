@@ -1395,3 +1395,36 @@ Other limits:
 - The fixture covers only one early cue.
 
 No Actions ran.
+
+## Current Linux images — 2026-11-12
+
+Linux arm64 and amd64 images were built locally with Docker Buildx from
+source tree `acf25de812ea52aa54715b1a82ee78609b7ef1e9`, the PR head after the
+history rewrite. The rewrite changed no file contents. With the user's
+authorisation, only Docker's build cache was pruned to make space, before
+each build. No images or volumes were removed.
+
+| Image | How it was built and run | Image ID | Size |
+| --- | --- | --- | --- |
+| arm64 | native build | `sha256:14a9dde3…` | 196 MB |
+| amd64 | built under emulation on the arm64 Mac | `sha256:0ba34aa9…` | 218 MB |
+
+Both passed every `scripts/test_container.py` check:
+
+- authenticated setup and login;
+- unauthorised media denial;
+- a read-only mount scan;
+- range bytes;
+- viewer grants;
+- queue revision conflicts;
+- media writes denied with the fixture unchanged;
+- SIGTERM exit zero without OOM.
+
+See `validation-image-arm64-current.json` and
+`validation-image-amd64-current.json`.
+
+The amd64 container also ran under emulation, not on native x86 hardware. GPU
+devices, browser playback and stream capacity are outside this smoke. The
+N100 still has no container runtime for the test account, so the images were
+not run there. The Docker Desktop disk had 160 MB free after the amd64 build.
+Further builds need more disk or another authorised build-cache prune.
