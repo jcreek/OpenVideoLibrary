@@ -698,3 +698,27 @@ bytes. Each projected trial checked a title edit, a file reassignment
 to another item and library, and cascade deletion. The prototype omits
 the production schema, disk durability and live scan behavior. It
 measures the relative cost of this local experiment only.
+
+### N100 matched 100k Rust browse after page-first query
+
+The before-and-after SSH run used the same 100k fixture, scoped query,
+10 clients, page distribution and five 300-request trials per arm.
+Both releases validated all sampled pages and all timed responses,
+returned the same aggregate response bytes per trial, and exited zero.
+The baseline ran first. The candidate also includes the quota cleanup
+fix, outside the measured browse path.
+
+| Arm | Errors / requests | p95 median (min–max; sample σ), ms | Successful RPS median | Server core CPU seconds per trial, median |
+| --- | ---: | ---: | ---: | ---: |
+| Before | 0 / 1,500 | 795.70 (732.95–988.16; 109.02) | 15.31 | 19.67 |
+| Page-first | 0 / 1,500 | 258.87 (246.26–268.76; 8.20) | 50.05 | 6.06 |
+
+The page-first query improved the matched workload. All five trials
+still exceeded the 150 ms gate. This warm local diagnostic does not
+establish production throughput or SMB performance. The
+[raw report](benchmarks/n100-native-100k-rust-before-after.json)
+contains trial resource measurements and both binary and source
+identities. Recreate the exact harness by applying
+`n100-native-100k-rust-before-after.patch` to the archived 10k browse
+script with `patch -o`, then use the prepared 100k fixture path as its
+argument on the N100.
