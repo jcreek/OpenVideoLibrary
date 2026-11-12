@@ -4748,6 +4748,21 @@ fn keyframe_selection_and_seek_arguments_keep_requested_start() {
         }),
         ["37.300"]
     );
+    // Starting at 0 adds no input seek (it fails on unindexed FLV), and
+    // hardware decode options still precede the input.
+    let at_zero = Playback {
+        mode: "transcode".into(),
+        ..Default::default()
+    };
+    assert!(seeks(&at_zero).is_empty());
+    let args = playback::hardware_args(
+        playback::encoding_args(Path::new("media.ts"), &at_zero, &info, &variants),
+        "vaapi",
+        &variants,
+    );
+    let hwaccel = args.iter().position(|a| a == "-hwaccel").unwrap();
+    let input = args.iter().position(|a| a == "-i").unwrap();
+    assert!(hwaccel < input, "{args:?}");
     // Measured remux starts are accepted only between 0 and the request + 0.1 s.
     assert_eq!(playback::remux_start(37.3, None, Some(30.0304)), 30.03);
     assert_eq!(playback::remux_start(37.3, None, Some(37.39)), 37.39);
@@ -4859,5 +4874,504 @@ async fn abandoned_remux_start_cancels_the_session() {
             .unwrap_or(0)
             == 0
     );
+    app.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "generated surround corpus requires FFmpeg AC-3/E-AC-3/DTS/TrueHD/FLAC/PCM/Opus/AAC encoders and libx264; software acceptance"]
+async fn real_surround_codec_corpus_downmixes_with_correct_channel_routing() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let item = add_media(&app, root.path()).await;
+    let media_dir = std::fs::canonicalize(root.path().join("media")).unwrap();
+    // Each source channel carries its own tone; a stereo downmix must keep left
+    // channels left, right channels right, centre in both and drop the LFE.
+    let tone = |c: &str| match c {
+        "FL" => 400.0,
+        "FR" => 600.0,
+        "FC" => 800.0,
+        "LFE" => 60.0,
+        "BL" => 1000.0,
+        "BR" => 1200.0,
+        "SL" => 1400.0,
+        _ => 1600.0,
+    };
+    let layouts = |layout: &str| match layout {
+        "5.1" => vec!["FL", "FR", "FC", "LFE", "BL", "BR"],
+        "5.1(side)" => vec!["FL", "FR", "FC", "LFE", "SL", "SR"],
+        _ => vec!["FL", "FR", "FC", "LFE", "BL", "BR", "SL", "SR"],
+    };
+    let cases: [(&str, &str, &str, &[&str]); 8] = [
+        ("ac3", "5.1", "ac3", &["-c:a", "ac3", "-b:a", "448k"]),
+        (
+            "eac3",
+            "5.1(side)",
+            "eac3",
+            &["-c:a", "eac3", "-b:a", "640k"],
+        ),
+        (
+            "dts",
+            "5.1",
+            "dts",
+            &["-c:a", "dca", "-strict", "-2", "-b:a", "1509k"],
+        ),
+        (
+            "truehd",
+            "5.1",
+            "truehd",
+            &["-c:a", "truehd", "-strict", "-2"],
+        ),
+        ("flac", "7.1", "flac", &["-c:a", "flac"]),
+        ("pcm", "7.1", "pcm_s24le", &["-c:a", "pcm_s24le"]),
+        ("opus", "7.1", "opus", &["-c:a", "libopus", "-b:a", "448k"]),
+        ("aac", "7.1", "aac", &["-c:a", "aac", "-b:a", "512k"]),
+    ];
+    for (name, layout, codec, encode) in cases {
+        let channels = layouts(layout);
+        let expr = channels
+            .iter()
+            .map(|c| format!("0.1*sin(2*PI*{}*t)", tone(c)))
+            .collect::<Vec<_>>()
+            .join("|");
+        let path = media_dir.join(format!("Surround.{name}.mkv"));
+        let status = std::process::Command::new("ffmpeg")
+            .args([
+                "-nostdin",
+                "-v",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=320x180:rate=12",
+                "-f",
+                "lavfi",
+                "-i",
+            ])
+            .arg(format!("aevalsrc={expr}:s=48000:c={layout}"))
+            .args([
+                "-t",
+                "3",
+                "-map",
+                "0:v",
+                "-map",
+                "1:a",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-threads",
+                "2",
+                "-g",
+                "12",
+            ])
+            .args(encode)
+            .arg(&path)
+            .status()
+            .unwrap();
+        assert!(status.success(), "{name}: fixture encode failed");
+        let stored = path.to_string_lossy().into_owned();
+        app.db
+            .call(move |c| {
+                c.execute(
+                    "UPDATE media_files SET path=? WHERE item_id=?",
+                    rusqlite::params![stored, item],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let (status, probe) = request(
+            &router,
+            "GET",
+            &format!("/api/v1/items/{item}/probe"),
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, 200, "{probe}");
+        let info: media::Info = serde_json::from_value(probe).unwrap();
+        let source = info.tracks("audio")[0];
+        assert_eq!(source.codec_name, codec, "{name}");
+        assert_eq!(source.channels as usize, channels.len(), "{name}");
+        // Stereo and mono AAC-only browsers; DTS also proves the mono fold-down.
+        let limits: &[u32] = if name == "dts" { &[2, 1] } else { &[2] };
+        for &limit in limits {
+            let (status, session) = request(
+                &router,
+                "POST",
+                &format!("/api/v1/items/{item}/playback"),
+                Some(&token),
+                Some(json!({"Mode":"auto","Capabilities":{"containers":["mov","mp4","m4a","3gp","3g2","mj2"],"video_codecs":["h264"],"audio_codecs":["aac"],"hdr":false,"max_audio_channels":limit}})),
+            )
+            .await;
+            assert_eq!(status, 201, "{name}: {session}");
+            assert_eq!(session["mode"], "remux", "{name}: {session}");
+            let id = session["id"].as_str().unwrap().to_owned();
+            let stream = app.streams.lock().await.get(&id).unwrap().clone();
+            tokio::time::timeout(Duration::from_secs(60), async {
+                while !stream.finished.load(std::sync::atomic::Ordering::Acquire) {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            })
+            .await
+            .unwrap();
+            let failure = stream.error.lock().await.clone();
+            assert!(failure.is_none(), "{name}: {failure:?}");
+            let output = stream.dir.join("v0.m3u8");
+            let converted = media::inspect(&app, &output).await.unwrap();
+            assert_eq!(converted.tracks("audio")[0].codec_name, "aac");
+            assert_eq!(converted.tracks("audio")[0].channels, limit, "{name}");
+            let args = [
+                "-v",
+                "error",
+                "-i",
+                output.to_str().unwrap(),
+                "-map",
+                "0:a:0",
+                "-af",
+                "atrim=start=1:duration=0.5",
+                "-ar",
+                "48000",
+                "-f",
+                "f32le",
+                "pipe:1",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+            let pcm = media::process(
+                &app,
+                "ffmpeg",
+                args,
+                None,
+                Duration::from_secs(30),
+                1 << 20,
+                app.cancel.child_token(),
+            )
+            .await
+            .unwrap();
+            let samples: Vec<f64> = pcm
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|b| f64::from(f32::from_le_bytes(*b)))
+                .collect();
+            let width = limit as usize;
+            assert!(samples.len() >= 23_000 * width, "{name}: short audio");
+            assert!(
+                samples.iter().all(|s| s.is_finite() && s.abs() < 0.98),
+                "{name}: nonfinite or clipped audio"
+            );
+            let amplitude = |channel: usize, hz: f64| {
+                let signal: Vec<_> = samples.iter().skip(channel).step_by(width).collect();
+                let (mut re, mut im) = (0.0, 0.0);
+                for (n, sample) in signal.iter().enumerate() {
+                    let phase = std::f64::consts::TAU * hz * n as f64 / 48_000.0;
+                    re += *sample * phase.cos();
+                    im += *sample * phase.sin();
+                }
+                2.0 * f64::hypot(re, im) / signal.len() as f64
+            };
+            for channel in &channels {
+                let hz = tone(channel);
+                if width == 1 {
+                    let level = amplitude(0, hz);
+                    if *channel == "LFE" {
+                        assert!(level < 0.01, "{name} mono: LFE {level:.3}");
+                    } else {
+                        assert!(level > 0.01, "{name} mono: {channel} missing {level:.3}");
+                    }
+                    continue;
+                }
+                let (left, right) = (amplitude(0, hz), amplitude(1, hz));
+                let detail = format!("{name}: {channel} L={left:.3} R={right:.3}");
+                match *channel {
+                    "FL" | "BL" | "SL" => assert!(left > 0.02 && right < 0.005, "{detail}"),
+                    "FR" | "BR" | "SR" => assert!(right > 0.02 && left < 0.005, "{detail}"),
+                    "FC" => assert!(
+                        left > 0.02 && right > 0.02 && (left - right).abs() < 0.2 * left.max(right),
+                        "{detail}"
+                    ),
+                    _ => assert!(left < 0.01 && right < 0.01, "{detail}"),
+                }
+            }
+            assert_eq!(
+                request(
+                    &router,
+                    "DELETE",
+                    &format!("/api/v1/playback/{id}"),
+                    Some(&token),
+                    None
+                )
+                .await
+                .0,
+                200
+            );
+        }
+    }
+    app.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "generated legacy container corpus requires FFmpeg MPEG-1/2, WMV2, FLV, Theora, AV1 (SVT), HEVC and their audio encoders; software acceptance"]
+async fn real_legacy_container_corpus_converts_with_exact_timeline_and_sync() {
+    const FPS: f64 = 24.0;
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let item = add_media(&app, root.path()).await;
+    let media_dir = std::fs::canonicalize(root.path().join("media")).unwrap();
+    let bars = (0..16)
+        .map(|bit| {
+            format!(
+                "drawbox=x={}:y=0:w=26:h=240:color=white:t=fill:enable='gt(bitand(n\\,{})\\,0)'",
+                bit * 26,
+                1 << bit
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    // (file, muxer, video encoder args, audio encoder args, expected mode)
+    type Case<'a> = (&'a str, &'a str, &'a [&'a str], &'a [&'a str], &'a str);
+    let cases: [Case; 9] = [
+        (
+            "Legacy.mpeg1.mpg",
+            "mpeg",
+            &["-c:v", "mpeg1video", "-b:v", "2M"],
+            &["-c:a", "mp2"],
+            "transcode",
+        ),
+        (
+            "Legacy.mpeg2.mpg",
+            "vob",
+            &["-c:v", "mpeg2video", "-b:v", "3M", "-g", "60"],
+            &["-c:a", "ac3"],
+            "transcode",
+        ),
+        (
+            "Legacy.mpeg2.ts",
+            "mpegts",
+            &["-c:v", "mpeg2video", "-b:v", "3M", "-g", "60"],
+            &["-c:a", "ac3"],
+            "transcode",
+        ),
+        (
+            "Legacy.wmv2.wmv",
+            "asf",
+            &["-c:v", "wmv2", "-b:v", "2M"],
+            &["-c:a", "wmav2"],
+            "transcode",
+        ),
+        (
+            "Legacy.sorenson.flv",
+            "flv",
+            &["-c:v", "flv", "-b:v", "2M"],
+            &["-c:a", "libmp3lame", "-ar", "44100"],
+            "transcode",
+        ),
+        (
+            "Legacy.h264.flv",
+            "flv",
+            &["-c:v", "libx264", "-preset", "ultrafast", "-g", "24"],
+            &["-c:a", "aac"],
+            "remux",
+        ),
+        (
+            "Legacy.theora.ogv",
+            "ogg",
+            &["-c:v", "libtheora", "-q:v", "7"],
+            &["-c:a", "libvorbis"],
+            "transcode",
+        ),
+        (
+            "Legacy.av1.mkv",
+            "matroska",
+            &["-c:v", "libsvtav1", "-preset", "12", "-g", "48"],
+            &["-c:a", "libopus"],
+            "transcode",
+        ),
+        (
+            "Legacy.hevc.mp4",
+            "mp4",
+            &[
+                "-c:v",
+                "libx265",
+                "-preset",
+                "ultrafast",
+                "-tag:v",
+                "hvc1",
+                "-x265-params",
+                "log-level=error",
+            ],
+            &["-c:a", "aac"],
+            "transcode",
+        ),
+    ];
+    for (name, muxer, video, audio, expected_mode) in cases {
+        let path = media_dir.join(name);
+        let status = std::process::Command::new("ffmpeg")
+            .args(["-nostdin", "-v", "error", "-y", "-f", "lavfi", "-i"])
+            .arg(format!(
+                "color=black:size=416x240:rate=24,{bars},format=yuv420p"
+            ))
+            .args([
+                "-f",
+                "lavfi",
+                "-i",
+                "aevalsrc='0.3*lt(mod(t\\,1)\\,0.1)*sin(2*PI*800*t)':s=48000:c=stereo",
+                "-t",
+                "10",
+                "-threads",
+                "2",
+            ])
+            .args(video)
+            .args(audio)
+            .args(["-f", muxer])
+            .arg(&path)
+            .status()
+            .unwrap();
+        assert!(status.success(), "{name}: fixture encode failed");
+        let stored = path.to_string_lossy().into_owned();
+        app.db
+            .call(move |c| {
+                c.execute(
+                    "UPDATE media_files SET path=? WHERE item_id=?",
+                    rusqlite::params![stored, item],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        // Mid-GOP and just past a keyframe (MPEG-2 fixtures use a 2.5 s GOP).
+        for requested in [0.0, 4.3, 5.02] {
+            let (status, session) = request(
+                &router,
+                "POST",
+                &format!("/api/v1/items/{item}/playback"),
+                Some(&token),
+                Some(json!({"Mode":"auto","Start":requested,"Capabilities":{"containers":["mov","mp4","m4a","3gp","3g2","mj2","hls"],"video_codecs":["h264"],"audio_codecs":["aac"],"hdr":false,"max_audio_channels":2}})),
+            )
+            .await;
+            assert_eq!(status, 201, "{name}: {session}");
+            assert_eq!(session["mode"], expected_mode, "{name}: {session}");
+            let start = session["start"].as_f64().unwrap();
+            let case = format!("{name} requested {requested} reported {start}");
+            assert!(
+                start <= requested + 0.002 && start > requested - 2.2,
+                "{case}"
+            );
+            let id = session["id"].as_str().unwrap().to_owned();
+            let stream = app.streams.lock().await.get(&id).unwrap().clone();
+            tokio::time::timeout(Duration::from_secs(120), async {
+                while !stream.finished.load(std::sync::atomic::Ordering::Acquire) {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            })
+            .await
+            .unwrap_or_else(|_| panic!("{case}: conversion did not finish"));
+            let failure = stream.error.lock().await.clone();
+            assert!(failure.is_none(), "{case}: {failure:?}");
+            let output = stream.dir.join("v0.m3u8");
+            let converted = media::inspect(&app, &output).await.unwrap();
+            assert_eq!(converted.video().unwrap().codec_name, "h264", "{case}");
+            assert_eq!(converted.tracks("audio")[0].codec_name, "aac", "{case}");
+            let probe = media::process(
+                &app,
+                "ffprobe",
+                [
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=start_time",
+                    "-of",
+                    "csv=p=0",
+                    output.to_str().unwrap(),
+                ]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+                None,
+                Duration::from_secs(30),
+                4096,
+                app.cancel.child_token(),
+            )
+            .await
+            .unwrap();
+            let zero = String::from_utf8_lossy(&probe)
+                .trim()
+                .parse::<f64>()
+                .unwrap();
+            let first = coded_frame(&app, &output, zero).await;
+            assert!(
+                (f64::from(first) / FPS - start).abs() <= 2.0 / FPS + 0.05,
+                "{case}: stream begins at frame {first}"
+            );
+            if expected_mode == "transcode" {
+                // Converted audio and video begin together (no dropped lead-in).
+                let starts = media::process(
+                    &app,
+                    "ffprobe",
+                    [
+                        "-v",
+                        "error",
+                        "-show_entries",
+                        "stream=start_time",
+                        "-of",
+                        "csv=p=0",
+                        stream.dir.join("v0-0.ts").to_str().unwrap(),
+                    ]
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect(),
+                    None,
+                    Duration::from_secs(30),
+                    4096,
+                    app.cancel.child_token(),
+                )
+                .await
+                .unwrap();
+                let starts = String::from_utf8_lossy(&starts)
+                    .lines()
+                    .filter_map(|l| l.trim().trim_end_matches(',').parse::<f64>().ok())
+                    .collect::<Vec<_>>();
+                // Program and stream sections both list each stream's start.
+                let spread = starts.iter().copied().fold(f64::MIN, f64::max)
+                    - starts.iter().copied().fold(f64::MAX, f64::min);
+                assert!(
+                    starts.len() >= 2 && spread < 0.1,
+                    "{case}: stream starts {starts:?}"
+                );
+            }
+            let skip = requested - start;
+            for at in [skip + 0.4, skip + 2.4] {
+                let frame = coded_frame(&app, &output, zero + at).await;
+                let error = f64::from(frame) / FPS - (start + at);
+                assert!(
+                    error.abs() <= 2.0 / FPS + 0.05,
+                    "{case}: at {at} frame {frame} error {error:+.3}s"
+                );
+                let (onset, tone) = beep_onset(&app, &output, zero + at).await;
+                let beep = f64::from(coded_frame(&app, &output, zero + at + onset).await) / FPS;
+                let drift = beep - beep.round();
+                assert!(
+                    drift.abs() <= 2.0 / FPS + 0.01,
+                    "{case}: at {at} beep at source {beep:.3} drift {drift:+.3}s"
+                );
+                assert!((tone - 800.0).abs() < 50.0, "{case}: tone {tone}");
+            }
+            assert_eq!(
+                request(
+                    &router,
+                    "DELETE",
+                    &format!("/api/v1/playback/{id}"),
+                    Some(&token),
+                    None
+                )
+                .await
+                .0,
+                200
+            );
+        }
+    }
     app.shutdown().await;
 }

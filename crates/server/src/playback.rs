@@ -336,7 +336,7 @@ pub async fn start(
     if matches!(b.mode.as_str(), "remux" | "transcode")
         && kind != "music"
         && b.start > 0.0
-        && info.format.format_name.split(',').any(|f| f == "mpegts")
+        && unindexed_seek(&info.format.format_name)
     {
         // MPEG-TS has no seek index: FFmpeg's input seek can land after the
         // preceding keyframe and start at the next one, up to a GOP late. Seek the
@@ -459,6 +459,14 @@ pub async fn start(
     let response = json!({"id":session_id,"url":format!("/api/v1/playback/{session_id}/index.m3u8"),"mode":mode,"start":start,"reason":reason});
     Ok((StatusCode::CREATED, Json(response)))
 }
+/// Containers without a seek index, where FFmpeg's input seek can land after
+/// the preceding keyframe and start at the next one (MPEG-TS, MPEG program
+/// streams and elementary MPEG video).
+pub fn unindexed_seek(format_name: &str) -> bool {
+    format_name
+        .split(',')
+        .any(|f| matches!(f, "mpegts" | "mpeg" | "mpegvideo"))
+}
 /// Chooses the remux start reported to the client. Copied video begins on a
 /// keyframe at or before the input seek, so a measured start is accepted only
 /// between 0 and `requested` + 0.1 s; anything else (for example timestamps
@@ -500,6 +508,9 @@ pub fn encoding_args(
             .filter(|k| *k <= b.start + 0.001)
             .unwrap_or(b.start)
     };
+    // One millisecond value, rounded up so a seek onto a keyframe can never fall
+    // before it, drives the input seek and every subtitle timeline offset.
+    let input_seek = (input_seek * 1000.0).ceil() / 1000.0;
     let output_seek = if sequential_bitmap {
         Some(b.start)
     } else {
@@ -516,13 +527,12 @@ pub fn encoding_args(
         // Keep source timestamps so the server can report the actual start.
         a.push("-copyts".into());
     }
-    a.extend([
-        "-ss".into(),
-        // Round up so a seek onto a keyframe can never fall before it.
-        format!("{:.3}", (input_seek * 1000.0).ceil() / 1000.0),
-        "-i".into(),
-        path.to_string_lossy().into_owned(),
-    ]);
+    // Seeking to 0 is a no-op elsewhere but fails on unindexed FLV, where the
+    // demuxer then drops leading audio; FFmpeg rebases timestamps either way.
+    if input_seek > 0.0 {
+        a.extend(["-ss".into(), format!("{input_seek:.3}")]);
+    }
+    a.extend(["-i".into(), path.to_string_lossy().into_owned()]);
     if info.video().is_none() {
         a.extend(["-map".into(), "0:a:0".into(), "-vn".into()]);
         a.extend(hls_audio_args(b, info.tracks("audio").first().copied(), 0));
@@ -591,10 +601,7 @@ pub fn encoding_args(
                     .ok()
                     .filter(|t| t.is_finite())
                     .unwrap_or(0.0);
-                let seek = format!("{input_seek:.3}")
-                    .parse::<f64>()
-                    .unwrap_or(input_seek);
-                let subtitle_offset = origin + seek;
+                let subtitle_offset = origin + input_seek;
                 // Input seeking rebases video PTS, while libass reads original cue times.
                 // Restore that timeline only around subtitle rendering, then preserve AV sync.
                 filters.push(format!("setpts=PTS+({subtitle_offset:.6})/TB"));
@@ -700,9 +707,10 @@ fn hls_audio_args(b: &Playback, audio: Option<&media::Track>, i: usize) -> Vec<S
     args
 }
 pub fn hardware_args(mut args: Vec<String>, name: &str, variants: &[Rendition]) -> Vec<String> {
+    // Hardware options precede the first input's options (its seek, if any).
     let input = args
         .iter()
-        .position(|v| v == "-ss")
+        .position(|v| v == "-ss" || v == "-i")
         .expect("input arguments");
     args.splice(input..input, crate::hardware::pre(name, true));
     let mut rendition = 0;

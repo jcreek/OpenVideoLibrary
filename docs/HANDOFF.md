@@ -35,7 +35,7 @@ only in the operator's private notes.
 
 ## Pick up here
 
-Two increments from this session are complete and on PR #1.
+Three increments from this session are complete and on PR #1.
 
 1. **Queue capture.** `addToList` captures the clicked title and list before
    awaiting, and clears stale notices. See "Queue add captures the clicked
@@ -50,15 +50,25 @@ Two increments from this session are complete and on PR #1.
    limits: the 20 s fallback, video-only MPEG-TS lookup misses, open-GOP and
    VAAPI with trim.
 
-Both increments passed a full local `make verify-local`, all eight N100 SSH
+3. **Surround and legacy corpus.** The surround corpus verifies that
+   AC-3, E-AC-3, DTS and TrueHD 5.1, and FLAC, PCM, Opus and AAC 7.1, route
+   correctly through stereo and mono downmix. The legacy corpus covers
+   MPEG-1/2 PS and TS, WMV, FLV, Theora, AV1 and HEVC conversion, with exact
+   timelines and A/V sync at three seek phases. Two defects were fixed:
+   - MPEG program streams now get the keyframe lookup;
+   - starts at 0 no longer pass `-ss 0`, which dropped leading FLV audio.
+   See "Surround codecs and legacy containers" in VALIDATION.md.
+
+Each increment passed a full local `make verify-local`, all eight N100 SSH
 checks, and independent adversarial reviews that left no blocking finding.
 
 Next, continue the corpus expansion without new hardware or decisions:
 
-- more audio layouts and profiles, including 7.1, unusual channel orders,
-  E-AC-3 and DTS fallback;
-- more containers, such as AVI, WebM and VC-1 or MPEG-2 in MPEG-TS;
-- subtitle fonts and styling.
+- surround passthrough to capable clients (E-AC-3/AC-3 copy) and
+  layout/profile negotiation;
+- DVD VOB with `dvd_subtitle` burn-in after a seek, and PTS discontinuities;
+- broader subtitle fonts and styling;
+- HLG and HDR10+ software paths.
 
 Each increment needs decoded picture and audio checks. Run it locally and on
 the N100 and record it the same way. Real-media and SMB/NAS seek latency
@@ -78,7 +88,7 @@ needs a read-only fixture mount.
   `validation-browser-keyframe-seek.json`).
   Queue coverage includes concurrent cursor updates, grant loss, offline
   entries and restart. The latest source-matched Rust SSH matrix is
-  `validation-n100-keyframe-seek.json`. It records CPU media and physical VAAPI
+  `validation-n100-media-corpus.json`. It records CPU media and physical VAAPI
   SDR/HDR checks separately, using an isolated process-local driver override.
 - **Music:** Direct audio and AAC HLS fallback, indexed album/artist browse,
   embedded/local artwork and lyrics, shared progress and queues. Check
@@ -97,9 +107,9 @@ needs a read-only fixture mount.
 ## Outstanding from the plan
 
 1. **Preview and video acceptance.** The queue-capture regression and the
-   generated long-file seek matrix are done. Expand the representative corpus
-   for audio profiles/layouts, containers, subtitles and fonts, real-media
-   and SMB seek latency, HDR/HLG and Dolby Vision. Verify
+   generated long-file seek matrix, surround downmix and legacy container
+   corpora are done. Expand coverage for surround passthrough, subtitles and
+   fonts, real-media and SMB seek latency, HDR/HLG and Dolby Vision. Verify
    decoded picture and audio. Broader Intel hardware paths, AMD/NVIDIA and
    real desktop/mobile device playback still need acceptance.
 2. **Production benchmarks.** Use the pinned Jellyfin 12.4 baseline and

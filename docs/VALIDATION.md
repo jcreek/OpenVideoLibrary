@@ -1283,3 +1283,69 @@ Known limits:
   remain unverified.
 
 No Actions ran.
+
+## Surround codecs and legacy containers — 2026-11-12
+
+Two generated corpora extend the video acceptance slice.
+
+**Surround routing.** Each source channel carries its own tone:
+AC-3 5.1, E-AC-3 5.1(side), DTS 5.1 and TrueHD 5.1, and FLAC, PCM s24, Opus
+and AAC 7.1, all in Matroska. Each plays through automatic remux for an
+AAC-only stereo browser, and DTS also for a mono browser. Decoded output keeps
+left channels left and right channels right, places centre equally in both,
+and drops the LFE. Mono keeps every non-LFE tone. This adds coverage only: it
+also passes on the previous source. A deliberately inverted expectation fails,
+which shows that the assertions run.
+
+**Legacy containers.** The corpus covers:
+
+- MPEG-1 and MPEG-2 program streams;
+- MPEG-2 with AC-3 in MPEG-TS;
+- WMV2/WMA in ASF;
+- Sorenson FLV with MP3, and H.264/AAC FLV (remux);
+- Theora/Vorbis in Ogg;
+- SVT-AV1/Opus in Matroska;
+- HEVC (`hvc1`) in MP4.
+
+Each case plays in automatic mode for an H.264/AAC browser at 0 s, 4.3 s
+(mid-GOP) and 5.02 s (just after a keyframe). The MPEG-2 fixtures use a 2.5 s
+GOP. Checks cover the first frame against the reported start, frames and beep
+alignment after the start, and audio/video segment starts within 0.1 s.
+
+The corpus found two defects:
+
+- MPEG-2 in a program stream (format `mpeg`) started at the next GOP after a
+  seek, as MPEG-TS did. A 4.3 s request began at 4.5 s. The keyframe lookup
+  now covers `mpegts`, `mpeg` and `mpegvideo`.
+- The server always passed an input `-ss`. At 0 it failed on FLV without a
+  keyframe index, and the demuxer then dropped about 1.7 s of leading audio.
+  Starts at 0 now omit the input seek. FFmpeg rebases timestamps the same way,
+  and hardware options are placed before `-i` when there is no seek. The
+  review compared first-segment timestamps and packet counts with and without
+  `-ss 0` for B-frame MP4, Matroska, MPEG-TS and open-GOP Matroska, and found
+  them identical.
+
+One rounded-up millisecond value now drives the input seek and every subtitle
+offset. The legacy test fails on the previous source at the MPEG-2 program
+stream seek. Unit coverage asserts that a start at 0 has no `-ss` and that
+`-hwaccel` precedes `-i`.
+
+Independent review found nothing blocking. Its rounding nit and its request
+for more seek phases were applied.
+
+Known limits:
+
+- ASF, Ogg, FLV and AVI keep FFmpeg's seek; non-zero seeks measured accurate.
+- The raw `mpegvideo` lookup is best effort.
+- DVD VOB cells with PTS discontinuities, and program-stream bitmap burn-in
+  after a seek, are untested.
+- About 0.7% of millisecond start values round 1 ms late.
+- Surround passthrough to capable clients and real-media audio remain open.
+
+The first full local run stopped at a Clippy type-complexity error in the new
+test, which a type alias fixed. The final `make verify-local` passed. It
+covered frontend check and build, Rust format and Clippy, 32 API tests, 12
+explicit CPU media and fault tests, ten Python tests, contract and benchmark
+checks, 18 browser cases and the cached-Nginx drill. See
+`validation-browser-media-corpus.json`. The N100 SSH matrix is in
+`validation-n100-media-corpus.json`. No Actions ran.
