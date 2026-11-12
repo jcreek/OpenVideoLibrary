@@ -7,27 +7,28 @@ before changing code or making acceptance claims.
 
 ## Checkout and publication
 
-- Rust checkout on this machine: `/Volumes/256 NVMe/Development/repos/GitHub/OpenVideoLibrary`.
-  The older Go reference was archived separately at
-  `/Volumes/256 NVMe/Development/repos/GitHub/.ovl-legacy-reference-2026-11-12`.
-  It is not a git checkout and has no handoff file.
-- With the user's authorization, branch `rust-migration` was pushed to
-  `origin`. [Draft PR #1](https://github.com/jcreek/OpenVideoLibrary/pull/1)
-  targets `main` and contains every local commit, including the queue-capture
-  increment. Start with `git status -sb` and `gh pr view 1` to confirm the head.
-  The only workflow (`Verify Rust`) is manual-dispatch and disabled. Pushes
-  spend no Actions minutes. Do not re-enable or dispatch it.
-- N100 access: `ssh -i ~/.ssh/<n100-key> ovlbench@<n100-host>` (Ubuntu
-  24.04, unprivileged, strict host trust). `scripts/validate_n100.py` stages
-  source into `~/ovl-rust-acceptance/source`. Use
-  `--vaapi-driver-path /home/ovlbench/ovl-rust-acceptance/driver-full/extracted/usr/lib/x86_64-linux-gnu/dri`
-  for the isolated full Intel driver. The N100 has no Node or Playwright.
-- Local tools: FFmpeg/FFprobe are not on PATH. Static binaries are in
-  `/private/tmp/ovl-tools/node_modules/{ffmpeg-static/ffmpeg,ffprobe-static/bin/darwin/arm64/ffprobe}`.
-  This is a temporary directory, so reinstall it if it is gone. Use
-  `PLAYWRIGHT_CHROMIUM_CHANNEL=chromium`,
-  `PLAYWRIGHT_BROWSERS_PATH="/Volumes/256 NVMe/Development/ovl-browser-cache"`
-  and `OVL_NGINX_IMAGE=b972f831f200`.
+This repository is public. Keep host addresses, account names, key file
+names and machine-specific paths out of committed files, and record them
+only in the operator's private notes.
+
+- Use the Rust checkout on the development machine. The older Go reference
+  was archived outside the repository as a non-git snapshot with no handoff.
+- With the user's authorization, branch `rust-migration` was pushed to `origin`.
+  [Draft PR #1](https://github.com/jcreek/OpenVideoLibrary/pull/1) targets
+  `main` and carries every commit, including the queue-capture increment.
+  Confirm with `git status -sb` and `gh pr view 1`. The only workflow,
+  `Verify Rust`, is manual-dispatch and disabled. Pushes spend no Actions
+  minutes. Do not re-enable or dispatch it.
+- On the N100, use the established unprivileged SSH test account and
+  approved key. It runs Ubuntu 24.04 and uses strict host trust.
+  `scripts/validate_n100.py` stages source into
+  `<workspace>/source`. Pass `--vaapi-driver-path` with the isolated full
+  Intel driver directory recorded in `validation-n100-covering.json`.
+  The N100 has no Node or Playwright, so Linux browser runs are blocked.
+- FFmpeg/FFprobe may be absent from PATH on the development machine. Put
+  static binaries on PATH, and set `PLAYWRIGHT_CHROMIUM_CHANNEL=chromium`,
+  `PLAYWRIGHT_BROWSERS_PATH` and `OVL_NGINX_IMAGE` (a cached Nginx image) as
+  described in LOCAL-VERIFICATION.md.
 - After a checkout rename or move, run `cargo clean -p ovl-server` first.
   Cached test binaries embed `CARGO_MANIFEST_DIR`. The backup API test failed
   on a stale pre-rename path until the crate was rebuilt.
@@ -37,7 +38,7 @@ before changing code or making acceptance claims.
 The queue-capture increment is complete and committed. `addToList`
 captures the clicked title and list before awaiting, and clears stale
 notices. It has 3x3 browser repeats, a full local `make verify-local`, all
-eight N100 SSH checks and two independent reviews with no open finding. See the
+eight N100 SSH checks and independent reviews with no blocking finding. One cosmetic display-only title nit was left as is. See the
 "Queue add captures the clicked title" section of VALIDATION.md. Next, take
 the first item below that can progress without new hardware, accounts or
 product decisions. That is preview and video acceptance corpus expansion:
@@ -52,7 +53,8 @@ and record it the same way.
   HLS, audio selection, subtitle conversion/burn-in, software HDR, and
   persistent collections, playlists and queues have automated coverage.
   Queue adds keep the clicked title across in-flight requests
-  (`validation-browser-queue-capture.json`, `validation-n100-queue-capture.json`).
+  (`validation-browser-queue-repeats.json`, `validation-browser-queue-capture.json`,
+  `validation-n100-queue-capture.json`).
   Queue coverage includes concurrent cursor updates, grant loss, offline
   entries and restart. The latest source-matched Rust SSH matrix is
   `validation-n100-covering.json`. It records CPU media and physical VAAPI

@@ -1173,7 +1173,9 @@ requires the error alert, no success notice and unchanged persisted entries.
 Server-side stale-revision rejection remains covered by the API tests.
 
 The updated scenario passed three repeats in each of Chromium, Firefox and
-Playwright WebKit on macOS. With only the capture fix reverted, it failed in
+Playwright WebKit on macOS. A rerun of those repeats is archived in
+`validation-browser-queue-repeats.json`. The revert checks are recorded only in
+this text. With only the capture fix reverted, it failed in
 Chromium on persisted order. With only the notice clear removed, it failed in
 Chromium on the leftover success notice. Two independent read-only reviews
 found no blocking issue. The first review's stale-notice finding and its two
@@ -1186,8 +1188,8 @@ Rebuilding the workspace crate fixed it, with no source change. The final
 `make verify-local` then exited zero on the reviewed revision. It covered
 frontend check and build, Rust format and Clippy, 31 API tests, nine explicit
 CPU media and fault tests, ten Python tests, generated contract and benchmark
-crate checks, all 15 browser scenarios, and the cached-Nginx drill. See
-`validation-browser-queue-capture.json`. No Actions ran. Linux browser engines
+crate checks, 15 browser cases (five scenarios in each of three engines),
+and the cached-Nginx drill. See `validation-browser-queue-capture.json`. No Actions ran. Linux browser engines
 remain unrun because the N100 has no Node or Playwright, and installing them
 would need system packages.
 
