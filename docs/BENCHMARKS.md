@@ -632,3 +632,38 @@ cover 1,500 distinct pages per server, validating every response.
 The harness requires zero errors and clean shutdown in both arms.
 Search probes are untimed. The queued run had not started when this
 preparation evidence was recorded.
+
+### N100 100k native authenticated browse results
+
+Both preparations completed and exited zero. Jellyfin reached 100,000
+distinct presentation keys and an idle refresh task after approximately
+7,212 seconds of low-priority polling. The paired SSH run validated 102
+sampled pages per server and every timed response across 1,500 distinct
+pages. Each arm used ten persistent clients and five 300-request trials.
+
+| Arm | Errors / requests | p95 median (min–max; sample σ), ms | Successful RPS median | Server core CPU seconds per trial, median |
+| --- | ---: | ---: | ---: | ---: |
+| Jellyfin | 0 / 1,500 | 10,015.08 (8,800.11–10,341.00; 697.93) | 1.41 | 579.00 |
+| Rust | 0 / 1,500 | 1,176.57 (1,127.56–1,226.55; 38.70) | 10.47 | 28.75 |
+
+Every Rust trial missed the 150 ms browse gate for this deep-offset
+workload. Profile the library-scoped query and pagination before tuning.
+The median response bytes per trial were 7,950,568 for Jellyfin and
+1,993,542 for Rust. The arms ran sequentially on the shared N100 and
+returned different JSON payloads. The [raw report](benchmarks/n100-native-100k-browse.json)
+includes p99, before/after server RSS and binary identities. FFmpeg
+resources were not sampled separately in this browse-only run. Search
+was untimed because broad matches differed. SMB and cold-cache
+acceptance remain open.
+
+A read-only diagnostic on the completed Rust fixture used the N100 host's
+SQLite 3.45.1, distinct from the Rust server's bundled build. The current
+library-scoped plan starts from the media-files library index and uses a
+temporary B-tree for title ordering. Seven warm repetitions at offsets
+0, 50,000 and 99,950 gave median SQL times of 19.62, 83.71 and 92.80 ms.
+Forcing the existing title index removed the large sort and measured
+0.10, 23.44 and 47.00 ms. Deferring the progress join until after page
+selection measured 3.58, 22.71 and 41.56 ms with this planner. These are
+SQL-only diagnostics on one fixture. No application query was changed,
+and neither candidate has passed a paired workload or a sparse-library
+regression check.
