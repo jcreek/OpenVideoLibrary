@@ -1103,7 +1103,7 @@ run collected no performance measurements.
 ## Single-library browse pagination
 
 The profiled query selects ordered file rows before reading metadata
-and user progress. The regression verifies revoked or absent grants,
+and user progress. The regression verifies absent and newly granted access,
 per-user progress, duplicate files crossing the page boundary, and
 identical results with the original multi-library path. Independent
 review confirmed those semantics. Local verification passed frontend
@@ -1111,3 +1111,8 @@ checks/build, contract generation, Rust format/Clippy, parser unit,
 31 API and socket shutdown tests, nine explicit CPU media/fault tests,
 ten Python tests, benchmark crate checks, 15 browser scenarios, and
 the disposable Nginx drill. No Actions ran.
+
+All eight source-matched N100 checks passed over SSH. CPU media and
+physical VAAPI SDR/HDR were verified separately. See
+`validation-n100-scoped-browse.json`. The matched 100k timing run
+started after the functional tests and release build finished.
