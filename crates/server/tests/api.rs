@@ -1280,6 +1280,39 @@ async fn browse_pagination_preserves_order_search_and_current_grants() {
         .unwrap()
         .is_empty()
     );
+    let page = "/api/v1/items?library=1&offset=2900";
+    assert_eq!(
+        request(&router, "GET", page, Some(&viewer), None).await.1,
+        json!([])
+    );
+    app.db.call(|c| {
+        c.execute("INSERT INTO access(user_id,library_id) SELECT id,1 FROM users WHERE name='no-grants'", [])?;
+        c.execute("INSERT INTO progress(user_id,item_id,position,watched,updated) SELECT id,100,12,1,0 FROM users WHERE name='no-grants'", [])?;
+        Ok(())
+    }).await.unwrap();
+    let (_, single) = request(&router, "GET", page, Some(&viewer), None).await;
+    assert_eq!(single[0]["position"].as_f64(), Some(12.0));
+    assert_eq!(single[0]["watched"], true);
+    app.db.call(|c| {
+        c.execute("INSERT INTO media_files(item_id,library_id,path,mtime,size) VALUES(101,1,'/synthetic/alternate.mp4',0,0)", [])?;
+        Ok(())
+    }).await.unwrap();
+    let (_, single) = request(&router, "GET", page, Some(&viewer), None).await;
+    assert_eq!(single[0]["id"], 101);
+    assert_eq!(single[1]["id"], 100);
+
+    app.db
+        .call(|c| {
+            c.execute(
+                "INSERT INTO libraries(id,name,path,kind) VALUES(2,'Sparse','/sparse','movie')",
+                [],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    let (_, multiple) = request(&router, "GET", page, Some(&viewer), None).await;
+    assert_eq!(single, multiple);
     app.shutdown().await;
 }
 

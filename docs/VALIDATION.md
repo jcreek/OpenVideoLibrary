@@ -1099,3 +1099,15 @@ Physical VAAPI SDR and HDR passed separately with the isolated driver
 override. See `validation-n100-quota.json`. The separate low-priority
 Jellyfin fixture scan was active during these functional checks. This
 run collected no performance measurements.
+
+## Single-library browse pagination
+
+The profiled query selects ordered file rows before reading metadata
+and user progress. The regression verifies revoked or absent grants,
+per-user progress, duplicate files crossing the page boundary, and
+identical results with the original multi-library path. Independent
+review confirmed those semantics. Local verification passed frontend
+checks/build, contract generation, Rust format/Clippy, parser unit,
+31 API and socket shutdown tests, nine explicit CPU media/fault tests,
+ten Python tests, benchmark crate checks, 15 browser scenarios, and
+the disposable Nginx drill. No Actions ran.

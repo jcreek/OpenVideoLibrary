@@ -334,6 +334,56 @@ pub fn item_query(
     u: User,
     q: &HashMap<String, String>,
 ) -> Result<(String, Vec<Sql>)> {
+    let limit = q
+        .get("limit")
+        .and_then(|v| v.parse::<i64>().ok())
+        .filter(|v| *v > 0 && *v <= 200)
+        .unwrap_or(100);
+    let offset = q
+        .get("offset")
+        .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(0)
+        .max(0);
+    let continuing = q.get("continue").is_some_and(|v| v == "true");
+    if !continuing
+        && ["q", "series", "season"]
+            .iter()
+            .all(|key| q.get(*key).is_none_or(String::is_empty))
+        && let Some(library) = q.get("library").and_then(|id| id.parse::<i64>().ok())
+        && c.query_row(
+            "SELECT id FROM libraries WHERE NOT EXISTS (SELECT 1 FROM libraries LIMIT 1 OFFSET 1)",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?
+            == Some(library)
+    {
+        // A covering title scan is selective when the only library is requested.
+        // Select file rows first so offsets do not read discarded progress or metadata.
+        let sql = "WITH page AS MATERIALIZED (
+            SELECT i.id, f.library_id, i.title
+            FROM items i INDEXED BY items_title JOIN media_files f ON f.item_id=i.id
+            WHERE f.library_id=? AND (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=? AND a.user_id=?))
+            ORDER BY i.title,i.id LIMIT ? OFFSET ?
+        )
+        SELECT i.id,page.library_id,i.title,i.series,i.season,i.episode,i.overview,
+            coalesce(p.position,0),coalesce(p.watched,0)
+        FROM page CROSS JOIN items i ON i.id=page.id
+        LEFT JOIN progress p ON p.item_id=i.id AND p.user_id=?
+        ORDER BY page.title,page.id";
+        return Ok((
+            sql.into(),
+            vec![
+                library.into(),
+                (u.admin as i64).into(),
+                library.into(),
+                u.id.into(),
+                limit.into(),
+                offset.into(),
+                u.id.into(),
+            ],
+        ));
+    }
     let mut sql = String::from(
         "SELECT i.id,f.library_id,i.title,i.series,i.season,i.episode,i.overview,coalesce(p.position,0),coalesce(p.watched,0) FROM items i JOIN media_files f ON f.item_id=i.id LEFT JOIN progress p ON p.item_id=i.id AND p.user_id=? WHERE (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=f.library_id AND a.user_id=?))",
     );
@@ -352,7 +402,6 @@ pub fn item_query(
             args.push(v.clone().into());
         }
     }
-    let continuing = q.get("continue").is_some_and(|v| v == "true");
     if continuing {
         sql.push_str(" AND p.position>0 AND p.watched=0");
     }
@@ -364,20 +413,7 @@ pub fn item_query(
         " ORDER BY i.title,i.id"
     });
     sql.push_str(" LIMIT ? OFFSET ?");
-    args.push(
-        q.get("limit")
-            .and_then(|v| v.parse::<i64>().ok())
-            .filter(|v| *v > 0 && *v <= 200)
-            .unwrap_or(100)
-            .into(),
-    );
-    args.push(
-        q.get("offset")
-            .and_then(|v| v.parse::<i64>().ok())
-            .unwrap_or(0)
-            .max(0)
-            .into(),
-    );
+    args.extend([limit.into(), offset.into()]);
     // The measured unfiltered browse plan otherwise scans every media file and
     // sorts the whole library. The title index can stop after offset + limit.
     // A bounded census distinguishes broad FTS matches from selective searches.

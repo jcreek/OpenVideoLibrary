@@ -667,3 +667,12 @@ selection measured 3.58, 22.71 and 41.56 ms with this planner. These are
 SQL-only diagnostics on one fixture. No application query was changed,
 and neither candidate has passed a paired workload or a sparse-library
 regression check.
+
+For the same fixture, forcing the title index and selecting a page before
+joining metadata and progress measured 0.13, 19.19 and 38.70 ms at
+offsets 0, 50,000 and 99,950 in the host SQLite diagnostic. The query
+keeps a grant check and pages file rows, including duplicate files
+for an item. The optimized application path is limited to unfiltered
+title browse of the only registered library. Sparse multi-library
+queries retain their original plan. Application latency must be
+measured separately with the same deep-offset request distribution.
