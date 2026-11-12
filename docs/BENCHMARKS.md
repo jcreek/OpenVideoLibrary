@@ -769,3 +769,19 @@ fixture and scans disposable Rust indexes. Both arms must finish five
 complete error-free trials with clean exits. Full search result
 equivalence remains separate. This run was in progress at the time
 of recording.
+
+### N100 100k native exact-title top-hit results
+
+Both servers returned the expected top hit for 100 sampled titles,
+and each completed five trials of 300 requests with zero errors and
+a clean exit. The warm loopback run used ten persistent clients and
+ran Jellyfin first. Median trial p95 was 817.61 ms for Jellyfin
+(range 809.10–876.16 ms) and 3.78 ms for Rust (3.06–4.19 ms).
+Every Rust trial was below the 150 ms gate for this workload.
+
+Jellyfin returned 172,800 response bytes per trial and Rust 40,161.
+Rust trials lasted about 0.08 seconds. This result covers exact-title
+top hits, with sustained capacity, full search equivalence and SMB
+still open. The [raw report](benchmarks/n100-native-100k-exact-search.json)
+contains per-trial latency, throughput, CPU, RSS samples and source
+and binary identities.
