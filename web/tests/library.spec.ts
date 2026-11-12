@@ -64,10 +64,49 @@ test('persistent queue ordering and automatic next episode',async({page})=>{
  const titles=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).slice(0,2).map((i:{title:string})=>i.title);expect(titles).toHaveLength(2);
  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
  await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();await page.getByLabel('List name',{exact:true}).fill('Evening queue');await page.getByLabel('List type',{exact:true}).selectOption('queue');await page.getByRole('button',{name:'Create list',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Evening queue',exact:true})).toBeVisible();
  const lists=await (await page.request.get('/api/v1/lists')).json();const queue=lists.find((l:{name:string})=>l.name==='Evening queue');expect(queue).toBeTruthy();
- for(const title of titles){
-  await page.getByRole('button',{name:'All media',exact:true}).click();await page.getByRole('button',{name:new RegExp('TV ▶ '+title)}).click();await expect(page.locator('.player h2')).toHaveText(title);
-  await page.getByLabel('Add to list',{exact:true}).selectOption(String(queue.id));await page.getByRole('button',{name:'Add title',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Added to Evening queue.'})).toBeVisible();await page.getByRole('button',{name:'Close player',exact:true}).click();
+ for(const [index,title] of titles.entries()){
+  await page.getByRole('button',{name:'All media',exact:true}).click();
+  await page.getByRole('button',{name:new RegExp('TV ▶ '+title)}).click();
+  await expect(page.locator('.player h2')).toHaveText(title);
+  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+  await page.getByLabel('Add to list',{exact:true}).selectOption(String(queue.id));
+  const add=page.getByRole('button',{name:'Add title',exact:true});
+  if(index===0){
+   let release!:()=>void,started!:()=>void,gatedMethod='';
+   const gate=new Promise<void>(resolve=>{release=resolve;});
+   const waiting=new Promise<void>(resolve=>{started=resolve;});
+   await page.route('**/api/v1/lists/'+queue.id,async route=>{
+    gatedMethod=route.request().method();
+    started();
+    await gate;
+    await route.continue();
+   },{times:1});
+   try{
+    await add.click();
+    await waiting;
+    expect(gatedMethod).toBe('GET');
+    await page.getByRole('button',{name:new RegExp('TV ▶ '+titles[1])}).click();
+    await expect(page.locator('.player h2')).toHaveText(titles[1]);
+   }finally{release();}
+  }else await add.click();
+  await expect(page.getByRole('status').filter({hasText:'Added to Evening queue.'})).toBeVisible();
+  await expect.poll(async()=>{
+   const saved=await (await page.request.get('/api/v1/lists/'+queue.id)).json();
+   return saved.entries.map((entry:{item:{title:string}})=>entry.item.title);
+  }).toEqual(titles.slice(0,index+1));
+  if(index===1){
+   // A rejected write must replace the previous success notice with the error.
+   await page.route('**/api/v1/lists/'+queue.id,route=>route.request().method()==='PUT'?route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'list changed; reload before saving'})}):route.continue(),{times:2});
+   await add.click();
+   await expect(page.getByRole('alert')).toHaveText('list changed; reload before saving');
+   await expect(page.getByRole('status').filter({hasText:'Added to Evening queue.'})).toHaveCount(0);
+   await page.unrouteAll();
+   const saved=await (await page.request.get('/api/v1/lists/'+queue.id)).json();
+   expect(saved.entries.map((entry:{item:{title:string}})=>entry.item.title)).toEqual(titles);
+  }
+  await page.getByRole('button',{name:'Close player',exact:true}).click();
  }
  await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();await page.getByRole('button',{name:'Evening queue · queue',exact:true}).click();await expect(page.locator('ol li')).toHaveCount(2);
  await page.getByRole('button',{name:'Move '+titles[1]+' up',exact:true}).click();await expect(page.locator('ol li span').first()).toHaveText(titles[1]);

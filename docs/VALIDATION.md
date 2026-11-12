@@ -1160,3 +1160,39 @@ write request. The unchanged full rerun passed all 15 browser scenarios,
 the default same-binary cached-Nginx drill, frontend and Rust checks,
 31 API tests, nine explicit CPU media and fault tests, ten Python tests,
 and generated contract and benchmark crate checks. No Actions ran.
+
+## Queue add captures the clicked title — 2026-11-12
+
+`addToList` now captures the selected title and target list before awaiting
+the list GET, and clears the previous notice when a new add starts. Switching
+titles during the request can no longer add the newly opened title, and a
+rejected write no longer leaves an earlier success notice beside its error.
+The browser regression delays the first list GET, switches titles, and polls
+persisted queue order. A second step returns a mocked 409 for the list PUT and
+requires the error alert, no success notice and unchanged persisted entries.
+Server-side stale-revision rejection remains covered by the API tests.
+
+The updated scenario passed three repeats in each of Chromium, Firefox and
+Playwright WebKit on macOS. With only the capture fix reverted, it failed in
+Chromium on persisted order. With only the notice clear removed, it failed in
+Chromium on the leftover success notice. Two independent read-only reviews
+found no blocking issue. The first review's stale-notice finding and its two
+test-robustness nits were fixed. A display-only title change during an admin
+metadata edit was left as cosmetic.
+
+The first full local run failed one API backup test because cached test
+binaries embedded the checkout's pre-rename path through `CARGO_MANIFEST_DIR`.
+Rebuilding the workspace crate fixed it, with no source change. The final
+`make verify-local` then exited zero on the reviewed revision. It covered
+frontend check and build, Rust format and Clippy, 31 API tests, nine explicit
+CPU media and fault tests, ten Python tests, generated contract and benchmark
+crate checks, all 15 browser scenarios, and the cached-Nginx drill. See
+`validation-browser-queue-capture.json`. No Actions ran. Linux browser engines
+remain unrun because the N100 has no Node or Playwright, and installing them
+would need system packages.
+
+All eight N100 checks passed over SSH with the isolated full-driver override.
+They included CPU media, and separate physical VAAPI SDR (mean SSIM 0.9738)
+and HDR checks. The Rust source hash matches `validation-n100-covering.json`,
+because this increment changes only web files. See
+`validation-n100-queue-capture.json`.

@@ -147,7 +147,15 @@ async function writeList(list:MediaList,entries:MediaListEntry[],cursor=list.cur
  if(activeList?.id===list.id)activeList=updated;if(playingQueue?.id===list.id)playingQueue=updated;await loadLists();return updated;
 }
 async function createList(){const result=await api('lists','POST',{Kind:newListKind,Name:newListName,ItemIDs:[]});newListName='';await loadLists();await selectList(result.id);}
-async function addToList(){if(!selected||!targetListID)return;const list:MediaList=await api('lists/'+targetListID);if(list.kind==='collection'&&list.entries.some(e=>e.item.id===selected?.id)){notice='Already in this collection.';return;}await writeList(list,[...list.entries,{position:list.entries.length,item:selected}]);notice='Added to '+list.name+'.';}
+async function addToList(){
+ const item=selected,listID=targetListID;
+ if(!item||!listID)return;
+ notice='';
+ const list:MediaList=await api('lists/'+listID);
+ if(list.kind==='collection'&&list.entries.some(e=>e.item.id===item.id)){notice='Already in this collection.';return;}
+ await writeList(list,[...list.entries,{position:list.entries.length,item}]);
+ notice='Added to '+list.name+'.';
+}
 async function moveEntry(index:number,direction:number){if(!activeList)return;const entries=[...activeList.entries],other=index+direction;if(other<0||other>=entries.length)return;[entries[index],entries[other]]=[entries[other],entries[index]];await writeList(activeList,entries,0);}
 async function removeEntry(index:number){if(activeList)await writeList(activeList,activeList.entries.filter((_,i)=>i!==index),0);}
 async function moveCursor(list:MediaList,cursor:number){
