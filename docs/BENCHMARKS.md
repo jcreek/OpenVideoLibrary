@@ -608,3 +608,27 @@ and have 100,000 distinct presentation keys. A 20 GiB free-space
 threshold applies during polling. Shutdown targets only the isolated
 server process group. Scan duration under reduced priority is setup
 evidence. Timed trials require a separate run after readiness.
+
+The Rust preparation arm verified the expected 50 titles at offsets zero
+and 99,950 and zero titles at offset 100,000, then exited zero. Jellyfin
+started its isolated refresh afterward. The timed browse harness is
+queued after the preparation process exits. It requires both successful
+preparation records, matching server binary and seed clip hashes, and
+100,000 distinct Jellyfin presentation keys before timing. The seed
+clip hash identifies the generated video, while public page checks
+verify metadata and ordering.
+
+Recreate the staged timing script from the browse archive:
+
+```sh
+patch -s -o /tmp/ovl-100k-browse.py docs/benchmarks/n100-native-10k-browse.py \\
+  < docs/benchmarks/n100-native-100k-browse.patch
+```
+
+Run the resulting Python script on the N100 with the completed fixture
+directory as its argument. Before timing, it checks 102 sampled pages,
+including the final page and empty tail. Five trials of 300 requests
+cover 1,500 distinct pages per server, validating every response.
+The harness requires zero errors and clean shutdown in both arms.
+Search probes are untimed. The queued run had not started when this
+preparation evidence was recorded.
