@@ -35,7 +35,7 @@ only in the operator's private notes.
 
 ## Pick up here
 
-Three increments from this session are complete and on PR #1.
+Four increments from this session are complete and on PR #1.
 
 1. **Queue capture.** `addToList` captures the clicked title and list before
    awaiting, and clears stale notices. See "Queue add captures the clicked
@@ -58,6 +58,11 @@ Three increments from this session are complete and on PR #1.
    - MPEG program streams now get the keyframe lookup;
    - starts at 0 no longer pass `-ss 0`, which dropped leading FLV audio.
    See "Surround codecs and legacy containers" in VALIDATION.md.
+4. **DVD VOB subtitles.** A two-input burn-in showed DVD cues from the
+   stream start. Bitmap burn-in from MPEG program streams now uses the
+   sequential single-input path. A long-file seek costs about 23x real time
+   on the N100, so a 25-minute DVD seek takes roughly 65 s (extrapolated). See
+   "DVD VOB bitmap subtitles" in VALIDATION.md.
 
 Each increment passed a full local `make verify-local`, all eight N100 SSH
 checks, and independent adversarial reviews that left no blocking finding.
@@ -66,7 +71,9 @@ Next, continue the corpus expansion without new hardware or decisions:
 
 - surround passthrough to capable clients (E-AC-3/AC-3 copy) and
   layout/profile negotiation;
-- DVD VOB with `dvd_subtitle` burn-in after a seek, and PTS discontinuities;
+- a proven-correct bounded pre-roll for program-stream and MPEG-TS bitmap
+  burn-in seeks, VOB cell PTS discontinuities, and probing late first DVD
+  subpictures;
 - broader subtitle fonts and styling;
 - HLG and HDR10+ software paths.
 
@@ -88,7 +95,7 @@ needs a read-only fixture mount.
   `validation-browser-keyframe-seek.json`).
   Queue coverage includes concurrent cursor updates, grant loss, offline
   entries and restart. The latest source-matched Rust SSH matrix is
-  `validation-n100-media-corpus.json`. It records CPU media and physical VAAPI
+  `validation-n100-dvd-subtitles.json`. It records CPU media and physical VAAPI
   SDR/HDR checks separately, using an isolated process-local driver override.
 - **Music:** Direct audio and AAC HLS fallback, indexed album/artist browse,
   embedded/local artwork and lyrics, shared progress and queues. Check

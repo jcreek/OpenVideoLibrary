@@ -337,6 +337,8 @@ pub async fn start(
         && kind != "music"
         && b.start > 0.0
         && unindexed_seek(&info.format.format_name)
+        // Sequential bitmap burn-in decodes from the start and ignores a keyframe.
+        && !sequential_bitmap(&b, &info)
     {
         // MPEG-TS has no seek index: FFmpeg's input seek can land after the
         // preceding keyframe and start at the next one, up to a GOP late. Seek the
@@ -467,6 +469,22 @@ pub fn unindexed_seek(format_name: &str) -> bool {
         .split(',')
         .any(|f| matches!(f, "mpegts" | "mpeg" | "mpegvideo"))
 }
+/// The selected subtitle track when it is a bitmap format that must be burned in.
+fn bitmap_subtitle(b: &Playback, info: &Info) -> Option<usize> {
+    b.subtitle.filter(|index| {
+        info.tracks("subtitle").get(*index).is_some_and(|track| {
+            matches!(
+                track.codec_name.as_str(),
+                "hdmv_pgs_subtitle" | "dvd_subtitle" | "dvb_subtitle" | "xsub"
+            )
+        })
+    })
+}
+/// Bitmap burn-in from an unindexed container composes from the file start
+/// with a single input and trims the output to the requested start.
+fn sequential_bitmap(b: &Playback, info: &Info) -> bool {
+    bitmap_subtitle(b, info).is_some() && unindexed_seek(&info.format.format_name)
+}
 /// Chooses the remux start reported to the client. Copied video begins on a
 /// keyframe at or before the input seek, so a measured start is accepted only
 /// between 0 and `requested` + 0.1 s; anything else (for example timestamps
@@ -487,18 +505,11 @@ pub fn encoding_args(
     variants: &[Rendition],
 ) -> Vec<String> {
     let video_map = format!("0:{}", info.video().map_or(0, |v| v.index));
-    let bitmap = b.subtitle.filter(|index| {
-        info.tracks("subtitle").get(*index).is_some_and(|track| {
-            matches!(
-                track.codec_name.as_str(),
-                "hdmv_pgs_subtitle" | "dvd_subtitle" | "dvb_subtitle" | "xsub"
-            )
-        })
-    });
-    // MPEG-TS input seeks/probed origins can discard DVB state or yield no frames.
-    // Its correctness path composes sequentially and trims the complete output.
-    let sequential_bitmap =
-        bitmap.is_some() && info.format.format_name.split(',').any(|f| f == "mpegts");
+    let bitmap = bitmap_subtitle(b, info);
+    // MPEG-TS input seeks/probed origins can discard DVB state or yield no frames,
+    // and a second program-stream input shows DVD cues from the stream start.
+    // Their correctness path composes sequentially and trims the complete output.
+    let sequential_bitmap = sequential_bitmap(b, info);
     // Input seeking starts decoding at a resolved keyframe; transcodes then trim
     // the remaining gap per output so the first output frame is `start`.
     let input_seek = if sequential_bitmap {

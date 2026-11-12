@@ -2327,10 +2327,12 @@ async fn real_bitmap_subtitles_select_seek_clear_and_scale() {
         for (codec, extension, expected_codec) in [
             ("copy", "mkv", "hdmv_pgs_subtitle"),
             ("dvdsub", "mkv", "dvd_subtitle"),
+            // DVD-style MPEG program stream: MPEG-2 video, AC-3 and dvd_subtitle.
+            ("dvdsub", "vob", "dvd_subtitle"),
             ("dvbsub", "ts", "dvb_subtitle"),
             ("xsub", "avi", "xsub"),
         ] {
-            if hdr && codec == "xsub" {
+            if hdr && (codec == "xsub" || extension == "vob") {
                 continue;
             }
             let path = if codec == "copy" {
@@ -2359,6 +2361,24 @@ async fn real_bitmap_subtitles_select_seek_clear_and_scale() {
                 .collect();
                 if codec == "xsub" {
                     args.extend(["-bsf:v".into(), "h264_mp4toannexb".into()]);
+                }
+                if extension == "vob" {
+                    args.extend(
+                        [
+                            "-c:v",
+                            "mpeg2video",
+                            "-g",
+                            "12",
+                            "-b:v",
+                            "4M",
+                            "-c:a",
+                            "ac3",
+                            "-f",
+                            "vob",
+                        ]
+                        .into_iter()
+                        .map(str::to_owned),
+                    );
                 }
                 args.push(output.to_string_lossy().into_owned());
                 media::process(
@@ -2415,7 +2435,13 @@ async fn real_bitmap_subtitles_select_seek_clear_and_scale() {
                 for (at, visible) in [(0.25, false), (1.5, true), (3.5, false)] {
                     let graph = format!(
                         "[0:v:0][{}:s:{track}]overlay=eof_action=pass:repeatlast=0[v]",
-                        if codec == "dvbsub" { 0 } else { 1 }
+                        // A second program-stream input shows DVD cues from its
+                        // start, so stream-based fixtures composite one input.
+                        if codec == "dvbsub" || extension == "vob" {
+                            0
+                        } else {
+                            1
+                        }
                     );
                     let mut args: Vec<String> = [
                         "-v",
@@ -2439,7 +2465,7 @@ async fn real_bitmap_subtitles_select_seek_clear_and_scale() {
                     .into_iter()
                     .map(str::to_owned)
                     .collect();
-                    if codec != "dvbsub" {
+                    if codec != "dvbsub" && extension != "vob" {
                         args.splice(4..4, ["-i".into(), path.to_string_lossy().into_owned()]);
                     }
                     let pixels = media::process(

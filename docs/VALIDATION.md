@@ -1349,3 +1349,49 @@ explicit CPU media and fault tests, ten Python tests, contract and benchmark
 checks, 18 browser cases and the cached-Nginx drill. See
 `validation-browser-media-corpus.json`. The N100 SSH matrix is in
 `validation-n100-media-corpus.json`. No Actions ran.
+
+## DVD VOB bitmap subtitles — 2026-11-12
+
+The bitmap subtitle matrix now includes a DVD-style MPEG program stream: MPEG-2
+video, AC-3 audio and `dvd_subtitle`, muxed as VOB. Burn-in used a second
+program-stream input for the subtitle. That composited the first DVD cue from
+the start of the stream: the cue pixel read 254 at 0.25 s, when the cue starts
+at 1.0 s. The independent review traced the cause to the unmapped second
+input, which supplies no blank sub2video heartbeat before the first cue.
+Decoding that input's video corrected it, and Matroska PGS and DVD tracks were
+unaffected.
+
+Bitmap burn-in from MPEG program streams now uses the single-input sequential
+path that MPEG-TS already used. It composes from the file start and trims the
+output to the requested start. That path ignores a keyframe, so `start()` no
+longer runs the keyframe lookup for it. The VOB row covers cue selection,
+clearing, a 2.3 s seek across an active cue, and single and adaptive scaling.
+It fails on the previous source, where the cue was visible at 0.25 s.
+
+The final `make verify-local` passed. It covered frontend check and build,
+Rust format and Clippy, 32 API tests, 12 explicit CPU media and fault tests,
+ten Python tests, contract and benchmark checks, 18 browser cases and the
+cached-Nginx drill. See `validation-browser-dvd-subtitles.json`. All eight
+source-matched N100 checks passed with Ubuntu FFmpeg 6.1.1. See
+`validation-n100-dvd-subtitles.json`.
+
+Seek cost is the known limit. Sequential burn-in decodes, overlays and scales
+every frame before the start. On the N100, decoding 5 minutes of 720x480
+MPEG-2 took 3.4 s with 2 threads and 58 MB RSS. A closer approximation
+decoded, scaled to 1280x720 and encoded 4 s of x264 after an output seek to
+280 s. It took 11.8–12.0 s over n=3 runs with 151 MB RSS, at a 1-minute load
+average of about 2. That is about 23x real time, which extrapolates to roughly
+65 s for a 25-minute seek and 2.6 minutes at 60 minutes. These figures are
+extrapolations, not measured long-file runs. MPEG-TS bitmap burn-in already
+had the same cost. A bounded pre-roll would need proof of correctness: the
+review showed that a naive input seek on a program stream leaves cue and video
+timelines inconsistent.
+
+Other limits:
+
+- A VOB whose first subpicture falls after FFmpeg's default probe window
+  lists no subtitle track.
+- Cells with PTS discontinuities are untested.
+- The fixture covers only one early cue.
+
+No Actions ran.
