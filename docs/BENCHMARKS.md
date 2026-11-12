@@ -687,3 +687,14 @@ progress, grant checks, write maintenance and API concurrency, and does
 not establish N100 performance. A production projection would need
 transactional updates for file moves, deletes and title edits, plus
 migration/backfill, recovery and scan-cost measurements.
+
+The same local SQLite environment also exercised a trigger-maintained
+projection with a file-ID primary key and a covering library/title index.
+Five in-memory 100k bulk inserts measured a median of 43.87 ms without
+the projection and 107.81 ms with it. Creating and backfilling the
+projection after the original inserts took a median of 30.83 ms.
+The synthetic database grew from 4,882,432 to 11,210,752 allocated
+bytes. Each projected trial checked a title edit, a file reassignment
+to another item and library, and cascade deletion. The prototype omits
+the production schema, disk durability and live scan behavior. It
+measures the relative cost of this local experiment only.
