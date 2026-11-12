@@ -486,3 +486,26 @@ Jellyfin process was present on the shared N100 and was left alone.
 A subsequent paired run must first validate equal counts, tail pages,
 search matches and order, and record response size and server resources.
 No production or comparative timing gate was exercised.
+
+A second SSH diagnostic restarted the same disposable Jellyfin index.
+Explicit library scope and enabling total counts did not recover the
+tail. Jellyfin reported 2,575 visible browse rows. Its database held
+10,000 unique movie paths and titles, but only 2,574 distinct populated
+presentation keys. The remaining 7,426 rows had null keys. The API count
+is consistent with grouping the populated keys plus one null group. The
+initial scan had been stopped before finishing metadata processing, so
+10,000 database rows alone were an insufficient readiness check.
+
+The Rust release independently scanned the same fixture over SSH.
+Authenticated browse returned titles 1–50 and 9,951–10,000 in order, then
+an empty page at offset 10,000. Search for `Fixture 00` returned titles
+1–50, the final 49 matches at offset 950, and no rows at offset 999.
+Rust exited zero. No request latency was measured while Jellyfin was
+scanning.
+
+For the paired workload, wait for Jellyfin's `RefreshLibrary` task to be
+idle after a completed scan. Inspect presentation-key completeness
+through a read-only connection to the disposable database, then verify
+public browse and search boundaries again. The missing keys indicate that
+the index may be incomplete. It does not substitute for API result
+validation.
