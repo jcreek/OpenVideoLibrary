@@ -294,6 +294,15 @@ async fn v1_migration_preserves_accounts_files_progress_and_sessions() {
     let (_, items) = request(&router, "GET", "/api/v1/items", Some("legacy-token"), None).await;
     assert_eq!(items[0]["id"], 9);
     assert_eq!(items[0]["position"], 42.0);
+    let (_, scoped) = request(
+        &router,
+        "GET",
+        "/api/v1/items?library=4",
+        Some("legacy-token"),
+        None,
+    )
+    .await;
+    assert_eq!(items, scoped);
     let _ = account(&router, "legacy").await;
     app.db
         .call(|c| {
@@ -643,6 +652,16 @@ async fn live_backup_restore_preserves_lists_and_revokes_sessions() {
     .await;
     assert_eq!(lists["name"], "Preserved");
     assert_eq!(lists["entries"][0]["item"]["id"], item);
+    let library = lists["entries"][0]["item"]["library_id"].as_i64().unwrap();
+    let page = format!("/api/v1/items?library={library}");
+    let (status, restored_page) =
+        request(&restored_router, "GET", &page, Some(&new_token), None).await;
+    assert_eq!(status, 200);
+    assert_eq!(restored_page[0]["id"], item);
+    assert_eq!(
+        restored_page,
+        request(&router, "GET", &page, Some(&token), None).await.1
+    );
     restored_app.shutdown().await;
     app.shutdown().await;
 }
@@ -1313,6 +1332,62 @@ async fn browse_pagination_preserves_order_search_and_current_grants() {
         .unwrap();
     let (_, multiple) = request(&router, "GET", page, Some(&viewer), None).await;
     assert_eq!(single, multiple);
+    let (_, original) = request(
+        &router,
+        "GET",
+        "/api/v1/items?library=1.0&offset=2900",
+        Some(&viewer),
+        None,
+    )
+    .await;
+    assert_eq!(single, original);
+    app.db.call(|c| {
+        c.execute("UPDATE media_files SET library_id=2,item_id=100 WHERE path='/synthetic/alternate.mp4'", [])?;
+        c.execute("UPDATE items SET title='Renamed' WHERE id=100", [])?;
+        Ok(())
+    }).await.unwrap();
+    let (status, moved) = request(
+        &router,
+        "GET",
+        "/api/v1/items?library=2",
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(moved[0]["title"], "Renamed");
+    assert_eq!(moved[0]["id"], 100);
+    assert_eq!(
+        request(
+            &router,
+            "GET",
+            "/api/v1/items?library=2",
+            Some(&viewer),
+            None
+        )
+        .await
+        .1,
+        json!([])
+    );
+    app.db
+        .call(|c| {
+            c.execute("DELETE FROM items WHERE id=100", [])?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        request(
+            &router,
+            "GET",
+            "/api/v1/items?library=2",
+            Some(&token),
+            None
+        )
+        .await
+        .1,
+        json!([])
+    );
     app.shutdown().await;
 }
 

@@ -350,27 +350,19 @@ pub fn item_query(
             .iter()
             .all(|key| q.get(*key).is_none_or(String::is_empty))
         && let Some(library) = q.get("library").and_then(|id| id.parse::<i64>().ok())
-        && c.query_row(
-            "SELECT id FROM libraries WHERE NOT EXISTS (SELECT 1 FROM libraries LIMIT 1 OFFSET 1)",
-            [],
-            |row| row.get::<_, i64>(0),
-        )
-        .optional()?
-            == Some(library)
     {
-        // A covering title scan is selective when the only library is requested.
-        // Select file rows first so offsets do not read discarded progress or metadata.
+        // Page the covering library/title index before fetching progress or metadata.
         let sql = "WITH page AS MATERIALIZED (
-            SELECT i.id, f.library_id, i.title
-            FROM items i INDEXED BY items_title JOIN media_files f ON f.item_id=i.id
-            WHERE f.library_id=? AND (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=? AND a.user_id=?))
-            ORDER BY i.title,i.id LIMIT ? OFFSET ?
+            SELECT item_id AS id,library_id,title,file_id
+            FROM ovl_browse_order
+            WHERE library_id=? AND (? OR EXISTS(SELECT 1 FROM access a WHERE a.library_id=? AND a.user_id=?))
+            ORDER BY title,item_id,file_id LIMIT ? OFFSET ?
         )
         SELECT i.id,page.library_id,i.title,i.series,i.season,i.episode,i.overview,
             coalesce(p.position,0),coalesce(p.watched,0)
         FROM page CROSS JOIN items i ON i.id=page.id
         LEFT JOIN progress p ON p.item_id=i.id AND p.user_id=?
-        ORDER BY page.title,page.id";
+        ORDER BY page.title,page.id,page.file_id";
         return Ok((
             sql.into(),
             vec![

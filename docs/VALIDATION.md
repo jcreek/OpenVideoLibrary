@@ -1116,3 +1116,20 @@ All eight source-matched N100 checks passed over SSH. CPU media and
 physical VAAPI SDR/HDR were verified separately. See
 `validation-n100-scoped-browse.json`. The matched 100k timing run
 started after the functional tests and release build finished.
+
+## Covering library browse order
+
+The additive SQLite projection backfills existing file rows and updates
+with file inserts, reassignment, deletion and title changes. Scoped
+unfiltered browse pages the projection before loading user progress
+and item details, with current grants checked in the same transaction.
+The schema version remains 2. The regression covers a legacy database
+backfill, backup restore, duplicate file rows, reassignment, title
+changes, deletion and current grants. Independent review found no
+remaining correctness issue.
+
+Local verification passed frontend checks and build, Rust formatting
+and Clippy, the parser unit, 31 API and socket shutdown tests, nine CPU
+media/fault tests, ten Python tests, benchmark crate checks, contract
+generation, 15 browser scenarios and the disposable Nginx drill. The
+final scoped restore assertion and Clippy were rerun locally.

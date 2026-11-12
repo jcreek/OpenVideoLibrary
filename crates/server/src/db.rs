@@ -39,6 +39,16 @@ impl Db {
         // Additive tables leave user_version=2 for legacy backup/restore and rollback.
         // Existing tables and values are never rewritten by the expansion.
         conn.execute_batch(include_str!("migrations/expansion.sql"))?;
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let indexed: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name='ovl_browse_order')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !indexed {
+            tx.execute_batch(include_str!("migrations/browse_order.sql"))?;
+        }
+        tx.commit()?;
         crate::search::init(&conn)?;
         let (tx, mut rx) = mpsc::channel::<Option<Job>>(64);
         let worker = std::thread::Builder::new()
