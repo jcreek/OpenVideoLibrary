@@ -676,3 +676,14 @@ for an item. The optimized application path is limited to unfiltered
 title browse of the only registered library. Sparse multi-library
 queries retain their original plan. Application latency must be
 measured separately with the same deep-offset request distribution.
+
+A local in-memory SQLite 3.51.0 prototype on macOS arm64 compared the page-first title/file
+join with a covering order on `(library_id, title, item_id, file_id)`.
+Both returned 50 ordered rows from 100,000 synthetic files. Nine
+repetitions per offset gave median query times of 0.024, 6.748 and
+13.347 ms for the join at offsets 0, 50,000 and 99,950. The covering
+order gave 0.021, 0.481 and 0.924 ms. This isolates skip cost. It omits
+progress, grant checks, write maintenance and API concurrency, and does
+not establish N100 performance. A production projection would need
+transactional updates for file moves, deletes and title edits, plus
+migration/backfill, recovery and scan-cost measurements.
