@@ -39,12 +39,19 @@ python3 scripts/test_nginx.py --binary target/release/ovl-server \
   --output nginx-native-acceptance.json
 ```
 
+Pass `--rollback-binary /absolute/path/to/retained/ovl-server` to start
+with a distinct retained binary, take its live snapshot, run the candidate
+against a fresh restore, then restart the retained binary against another
+fresh restore of that same pre-upgrade snapshot. The report records the
+three binary identities and verifies the candidate's queue change is
+discarded. This exercises the documented snapshot-based rollback procedure
+on the disposable fixture.
+
 The drill renders the repository's Nginx locations into temporary TLS
 configuration, binds both processes to loopback and tests snapshot rollback
-after a trial queue edit. It uses the same Rust binary before and after the
-rollback. Production TLS configuration, a rollback to the retained older
-binary and the read-only production media mount still need an isolated
-deployment drill.
+after a trial queue edit. The default mode uses one Rust binary throughout.
+The two-binary mode passed on the disposable N100 fixture. Production TLS,
+cutover and the read-only production media mount remain unverified.
 
 The Docker Desktop VM had zero free space at the last check. No images,
 volumes or build caches were deleted. For current-source image acceptance,

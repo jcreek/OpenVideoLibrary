@@ -1140,3 +1140,23 @@ VAAPI SDR/HDR checks. See `validation-n100-covering.json`. On a disposable
 copy of the existing 100k v2 database, the candidate backfilled 100,000
 matching file rows, retained schema version 2, passed SQLite quick-check,
 and exited zero.
+
+## Retained-binary Nginx snapshot rollback
+
+Over SSH, native Nginx on the N100 proxied the retained page-first release,
+the covering-index candidate, and then the retained release again. The
+candidate opened a fresh restore of the retained release's live snapshot.
+After the candidate's queue edit, another fresh restore recovered the
+saved queue cursor under the retained binary. Credentials, session
+revocation, range media, proxy limits, and graceful exits passed.
+`validation-nginx-n100-retained.json` records both source and binary
+identities, the Nginx build and the harness hash. Independent review
+confirmed the sequence and the disposable snapshot scope. The exercise
+does not cover a live production cutover or a production mount.
+
+The initial full local run had one Playwright WebKit queue scenario
+timeout. Its trace showed a click during player startup and no list
+write request. The unchanged full rerun passed all 15 browser scenarios,
+the default same-binary cached-Nginx drill, frontend and Rust checks,
+31 API tests, nine explicit CPU media and fault tests, ten Python tests,
+and generated contract and benchmark crate checks. No Actions ran.

@@ -33,12 +33,18 @@ def port():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', default='target/debug/ovl-server')
+    parser.add_argument('--rollback-binary', help='Retained Rust binary to use before upgrade and after restoring the pre-upgrade snapshot')
     parser.add_argument('--image', default='nginx:stable')
     parser.add_argument('--nginx-binary', help='Run this native Nginx executable on loopback instead of Docker')
     parser.add_argument('--platform', help='Optional Docker platform override; omit to use the cached image native platform')
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     binary = str(Path(args.binary).resolve())
+    retained = str(Path(args.rollback_binary).resolve(strict=True)) if args.rollback_binary else binary
+    binary_hash = hashlib.sha256(Path(binary).read_bytes()).hexdigest()
+    retained_hash = hashlib.sha256(Path(retained).read_bytes()).hexdigest()
+    if args.rollback_binary and retained_hash == binary_hash:
+        parser.error('--rollback-binary must differ from --binary')
     native = str(Path(args.nginx_binary).resolve(strict=True)) if args.nginx_binary else None
     if native and os.geteuid() == 0:
         parser.error('native Nginx test must run unprivileged')
@@ -68,9 +74,14 @@ def main():
               'nginx_mode': 'native loopback' if native else 'cached container',
               'nginx_locations_sha256': hashlib.sha256(locations_path.read_bytes()).hexdigest(),
               'harness_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-              'binary_sha256': hashlib.sha256(Path(binary).read_bytes()).hexdigest(),
+              'binary_sha256': binary_hash,
+              'retained_binary_sha256': retained_hash,
               'runtime': json.loads(subprocess.check_output([binary,'--version-json'],text=True,timeout=5)),
               **identity, 'checks': [], 'complete': False}
+    if args.rollback_binary:
+        report['retained_runtime'] = json.loads(subprocess.check_output(
+            [retained, '--version-json'], text=True, timeout=5))
+        report['rust_binary_sequence'] = [retained_hash, binary_hash, retained_hash]
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     container = 'ovl-nginx-' + secrets.token_hex(6)
@@ -172,7 +183,7 @@ http {{
                 raise RuntimeError('server required SIGKILL')
             assert server.returncode == 0
         try:
-            server = subprocess.Popen([binary], env=env, stdout=log, stderr=log)
+            server = subprocess.Popen([retained], env=env, stdout=log, stderr=log)
             if native:
                 native_proxy = subprocess.Popen(
                     [native, '-p', str(root) + '/', '-e', 'stderr', '-c', str(config), '-g', 'daemon off;'],
@@ -233,7 +244,7 @@ http {{
             subprocess.run(['python3', 'scripts/backup.py', 'restore', '--source', str(backup), '--data', str(rollback)],
                            check=True, timeout=30)
             env['OVL_DATA'] = str(rollback)
-            server = subprocess.Popen([binary], env=env, stdout=log, stderr=log)
+            server = subprocess.Popen([retained], env=env, stdout=log, stderr=log)
             ready()
             assert api('me', token=token)[0] == 401
             assert api('login', {'Name': 'proxy-admin', 'Password': password})[0] == 200
@@ -250,7 +261,8 @@ http {{
             assert fixture.read_bytes() == b'0123456789'
             report['checks'] += ['live WAL backup and fresh restore', 'restored sessions revoked',
                                  'restored credentials, queue and media preserved',
-                                 'trial queue change discarded by snapshot rollback (same binary)',
+                                 ('trial queue change discarded by snapshot rollback to retained binary'
+                                  if args.rollback_binary else 'trial queue change discarded by snapshot rollback (same binary)'),
                                  'Nginx login rate limit', 'fixture unchanged', 'three Rust SIGTERM exits zero']
             if native_proxy:
                 native_proxy.send_signal(signal.SIGQUIT)

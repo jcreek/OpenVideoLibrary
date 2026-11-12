@@ -173,3 +173,7 @@ album artist grouping, disc/track ordering and current grant checks.
 
 Clients can optionally report an audio sample-rate ceiling for automatic
 direct-play negotiation and AAC output. The web client leaves it unset.
+
+The native N100 Nginx drill also passed a retained-to-candidate upgrade
+and a rollback to the retained binary from the pre-upgrade snapshot.
+Production cutover and current container image acceptance remain open.
