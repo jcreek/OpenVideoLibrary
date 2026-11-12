@@ -1075,3 +1075,20 @@ The corrected fixture passed all eight source-matched SSH checks on N100.
 The CPU media suite and the physical VAAPI SDR/HDR checks are distinct.
 See `validation-n100-audio-rate.json`. No new image, real-device or
 production performance results were collected, and no Actions ran.
+
+## Transcode quota filesystem failure
+
+Quota monitoring tolerates a segment that disappears during FFmpeg's
+temporary-file rename. A filesystem failure on the session directory
+takes the same cancellation and reap path as a storage or idle limit.
+The fault regression moves the isolated transcode directory while its
+simulated encoder is alive, then checks the encoder PID is gone when
+the stream has been removed. The source fixture remains unchanged.
+
+Local verification passed frontend checks and build, generated contract
+consistency, Rust format and Clippy, the parser unit test, 31 API tests,
+socket shutdown, nine explicit CPU media and fault tests, ten Python
+tests, benchmark crate checks, 15 browser scenarios and the disposable
+Nginx drill. The final fault regression was rerun after making the PID
+and stream-removal checks race-safe. Independent review confirmed the
+cleanup and test fixes.

@@ -786,15 +786,39 @@ async fn encode_attempt(
             result=&mut conversion=>{result?;if !publish(&st.dir,&variants).await{return Err(Error::new(502,"FFmpeg completed without a playlist"));}return Ok(());},
             _=tick.tick()=>{if !published&&publish(&st.dir,&variants).await{published=true;tracing::info!(prepare_ms=started.elapsed().as_millis() as u64,"playback playlist ready");}},
             _=quota.tick()=>{
-                let mut size=0u64;let mut entries=tokio::fs::read_dir(&st.dir).await?;
-                while let Some(e)=entries.next_entry().await?{if e.file_type().await?.is_file(){size=size.saturating_add(e.metadata().await?.len());}}
-                let free=fs2::available_space(&app.config.data)?;
-                if size>app.config.transcode_bytes||free<app.config.min_free_bytes||auth::now()-st.touched.load(Ordering::Relaxed)>app.config.stream_idle.as_secs() as i64 {
-                    st.cancel.cancel();let _=conversion.await;return Err(Error::new(507,"transcoding stopped: storage or idle limit reached"));
+                if let Err(error) = check_conversion_quota(app, st).await {
+                    st.cancel.cancel();
+                    let _ = conversion.await;
+                    return Err(error);
                 }
             }
         }
     }
+}
+async fn check_conversion_quota(app: &App, stream: &Stream) -> Result<()> {
+    let mut size = 0u64;
+    let mut entries = tokio::fs::read_dir(&stream.dir).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        match entry.metadata().await {
+            Ok(metadata) if metadata.is_file() => size = size.saturating_add(metadata.len()),
+            Ok(_) => {}
+            // FFmpeg publishes segments by renaming temporary files.
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    let free = fs2::available_space(&app.config.data)?;
+    let idle = auth::now() - stream.touched.load(Ordering::Relaxed);
+    if size > app.config.transcode_bytes
+        || free < app.config.min_free_bytes
+        || idle > app.config.stream_idle.as_secs() as i64
+    {
+        return Err(Error::new(
+            507,
+            "transcoding stopped: storage or idle limit reached",
+        ));
+    }
+    Ok(())
 }
 async fn owner(app: &Arc<App>, u: User, id: &str) -> Result<Arc<Stream>> {
     let st = app

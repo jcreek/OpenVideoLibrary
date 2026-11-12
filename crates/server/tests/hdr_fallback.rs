@@ -124,6 +124,10 @@ case "$PWD" in
     esac
     exit $? ;;
 esac
+if [ "$OVL_TEST_FAULT" = quota ]; then
+  printf '%s' "$$" > "$OVL_TEST_PID"
+  exec sleep 60
+fi
 case "$*" in
   *tonemap_vaapi*)
     printf 'hardware\n' >> "$OVL_TEST_MARKER"
@@ -158,7 +162,9 @@ esac
     }
     std::fs::write(&valid_rgb, &rgb).unwrap();
     std::fs::write(&black_rgb, vec![0u8; rgb.len()]).unwrap();
-    for scenario in ["cpu", "before", "after", "black", "cancel", "shutdown"] {
+    for scenario in [
+        "cpu", "before", "after", "black", "cancel", "shutdown", "quota",
+    ] {
         let data = root.path().join(format!("data-{scenario}"));
         let marker = root.path().join(format!("{scenario}.marker"));
         let child_pid = root.path().join(format!("{scenario}.pid"));
@@ -177,7 +183,11 @@ esac
                 .env("OVL_TRANSCODE_BYTES", "33554432")
                 .env(
                     "OVL_ACCELERATOR",
-                    if scenario == "cpu" { "cpu" } else { "vaapi" },
+                    if ["cpu", "quota"].contains(&scenario) {
+                        "cpu"
+                    } else {
+                        "vaapi"
+                    },
                 )
                 .env("OVL_HDR_ACCELERATOR", "vaapi")
                 .env("PATH", &path)
@@ -256,6 +266,52 @@ esac
         )
         .await;
         let id = session["id"].as_str().unwrap();
+        if scenario == "quota" {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            let pid = loop {
+                if let Ok(raw) = std::fs::read_to_string(&child_pid)
+                    && let Ok(pid) = raw.parse::<u32>()
+                    && pid > 0
+                {
+                    break pid.to_string();
+                }
+                assert!(Instant::now() < deadline, "encoder did not start");
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            };
+            let dir = data.join("transcodes").join(id);
+            std::fs::rename(&dir, data.join("detached-transcode")).unwrap();
+            loop {
+                let reply = client
+                    .get(format!("{base}/playback/{id}/index.m3u8"))
+                    .bearer_auth(token)
+                    .send()
+                    .await
+                    .unwrap();
+                assert!(matches!(reply.status().as_u16(), 404 | 502));
+                let body: Value = reply.json().await.unwrap();
+                if body["error"] == "stream not found" {
+                    break;
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "quota failure did not remove stream"
+                );
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            assert!(
+                !Command::new("kill")
+                    .args(["-0", &pid])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status()
+                    .unwrap()
+                    .success(),
+                "encoder still exists after stream removal: {pid}"
+            );
+            terminate(&mut server).await;
+            assert_eq!(std::fs::read(&source).unwrap(), original);
+            continue;
+        }
         if ["cancel", "shutdown"].contains(&scenario) {
             let deadline = Instant::now() + Duration::from_secs(10);
             while !child_pid.exists() {
