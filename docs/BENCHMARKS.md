@@ -736,3 +736,26 @@ harness by applying `n100-native-100k-covering.patch` to the archived
 10k browse script with `patch -o`, then pass the isolated 100k fixture
 path on the N100. It additionally records scan readiness time and closed
 database size. The timed run was still active when this entry was written.
+
+### N100 matched 100k Rust browse with covering library order
+
+Both arms validated 102 sampled pages and 1,500 timed requests each
+with zero errors and clean exits. Corresponding trials returned equal
+aggregate response bytes. The page-first release ran first, then the
+covering-index release. Ten persistent clients used the same scoped
+deep-offset distribution in both arms.
+
+| Arm | p95 median (min–max; sample σ), ms | Successful RPS median | Server core CPU seconds per trial, median | Scan ready, s | Closed database, bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Page-first | 240.50 (237.16–305.77; 29.38) | 53.19 | 5.71 | 216.39 | 31,375,360 |
+| Covering index | 26.34 (25.51–26.66; 0.53) | 470.67 | 0.70 | 250.49 | 37,744,640 |
+
+All five covering-index trials met 150 ms for this warm, loopback,
+library-scoped browse workload. The scan times are single observations
+on a shared host in fixed order. The indexed scan took 34.10 seconds
+longer and its closed database was 6,369,280 bytes larger. The covering-index
+trials were shorter than one second, so their throughput does not
+establish sustained capacity. See the
+[raw report](benchmarks/n100-native-100k-covering.json) for exact timings,
+server RSS samples, and identities. Unscoped and filtered workloads,
+broad search, cold cache, and read-only SMB remain separate acceptance.
