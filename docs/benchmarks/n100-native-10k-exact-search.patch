@@ -1,0 +1,65 @@
+--- n100-native-10k-browse.py
++++ n100-native-10k-exact-search.py
+@@ -23,2 +23,2 @@
+-report_path = root / 'paired-ready-retry.json'
+-report = {'scope': 'native authenticated warm loopback, synthetic local fixture; shared N100',
++report_path = root / 'paired-exact-search.json'
++report = {'scope': 'native authenticated exact-title top-hit search, warm loopback, synthetic local fixture; shared N100',
+@@ -26 +26 @@
+-          'page_size': 50, 'items': 10000, 'arms': {}}
++          'page_size': 1, 'items': 10000, 'arms': {}}
+@@ -63 +63 @@
+-def run_arm(arm):
++def run_arm(arm, measure=False):
+@@ -86 +86 @@
+-    log_path = stage/'paired-measure-retry.log'
++    log_path = stage/('paired-exact-search-measure.log' if measure else 'paired-exact-search-preflight.log')
+@@ -133 +133 @@
+-                            library=library, q=query, offset=offset, limit=50))
++                            library=library, q=query, offset=offset, limit=1))
+@@ -136 +136 @@
+-                                  StartIndex=offset, Limit=50, EnableTotalRecordCount='false')
++                                  StartIndex=offset, Limit=1, EnableTotalRecordCount='false')
+@@ -145,8 +145,4 @@
+-                expected = [f'Fixture {i:05d}' for i in range(1, 10001)]
+-                for offset in range(0, 10001, 50):
+-                    data, _ = response(conn, path(offset), headers)
+-                    assert titles(data) == expected[offset:offset+50], (arm, offset)
+-                result['browse_validation'] = 'all 10000 ordered titles and empty tail'
+-                result['search_probe'] = []
+-                for offset in (0, 950, 999):
+-                    data, size = response(conn, path(offset, 'Fixture 00'), headers)
++                queries = [f'Fixture {i:05d}' for i in range(1, 10001, 100)]
++                result['search_validation'] = []
++                for query in queries:
++                    data, size = response(conn, path(0, query), headers)
+@@ -154,3 +150,7 @@
+-                    result['search_probe'].append(dict(offset=offset, rows=len(names), bytes=size,
+-                                                       first=names[:2], last=names[-2:],
+-                                                       matches=names==expected[:999][offset:offset+50]))
++                    result['search_validation'].append(dict(query=query, names=names, bytes=size, matches=names==[query]))
++                misses = [row for row in result['search_validation'] if not row['matches']]
++                if misses:
++                    print(arm, 'preflight mismatch', len(misses), '/', len(queries), misses[:3], flush=True)
++                    return
++            if not measure:
++                return
+@@ -162 +162 @@
+-                            offset = ((trial*30+request)*10+index) % 200*50
++                            query = queries[((trial*30+request)*10+index) % len(queries)]
+@@ -165 +165 @@
+-                                data, size = response(conn, path(offset), headers)
++                                data, size = response(conn, path(0, query), headers)
+@@ -167 +167 @@
+-                                if titles(data) != expected[offset:offset+50]:
++                                if titles(data) != [query]:
+@@ -191 +191 @@
+-                raise RuntimeError(f'{arm} browse requests failed')
++                raise RuntimeError(f'{arm} search requests failed')
+@@ -210,0 +211,6 @@
++if all(len(a['search_validation']) == 100 and all(row['matches'] for row in a['search_validation']) for a in report['arms'].values()):
++    for arm in ('jellyfin', 'rust'):
++        try:
++            run_arm(arm, measure=True)
++        finally:
++            report_path.write_text(json.dumps(report, indent=2)+'\n')

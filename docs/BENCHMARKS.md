@@ -549,3 +549,37 @@ returned a different first page and no rows at offset 950, while Rust
 returned 49 there. Search was excluded from timing. The 100k comparative
 workload, cold-cache, read-only SMB, sustained mixed load, equivalent
 playback, and pinned container acceptance remain open.
+
+### N100 10k native exact-title top-hit diagnostic (2026-11-12)
+
+Both servers returned the same expected first title for all 100 sampled
+exact-title queries, with limit one. Queries span the 10k fixture at
+100-title intervals. The warm loopback run over SSH checked every timed
+response against the requested title. It used ten persistent clients
+and five 300-request trials per server, with Jellyfin first and Rust
+second. Both processes exited zero.
+
+| Arm | Errors / requests | p95 median (min–max; sample σ), ms | Successful RPS median | Server core CPU seconds per trial, median | Before/after RSS samples, MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Jellyfin | 0 / 1,500 | 315.10 (268.15–325.48; 23.83) | 43.81 | 25.26 | 278.9–337.5 |
+| Rust | 0 / 1,500 | 3.62 (3.56–3.71; 0.06) | 2,916.49 | 0.13 | 13.0–13.6 |
+
+Jellyfin returned 172,500 bytes per trial and Rust 39,564. CPU and RSS
+cover the server process only. Rust trials lasted about 0.10 seconds,
+so these throughput figures do not establish sustained capacity. All
+five Rust p95 values met 150 ms for this top-hit workload on this host.
+Full match sets, broader query ordering, 100k, SMB, cold-cache and mixed
+load remain outside this measurement.
+
+The [raw report](benchmarks/n100-native-10k-exact-search.json) records
+query validation, trial data, and environment. The exact harness is
+recreated from the archived browse harness and search patch:
+
+```sh
+patch -s -o /tmp/ovl-exact-search.py docs/benchmarks/n100-native-10k-browse.py \\
+  < docs/benchmarks/n100-native-10k-exact-search.patch
+```
+
+Use the same isolated native fixture and replay over SSH, with fresh
+log and report names for an existing workspace. Accept a comparison
+only after verifying five complete, error-free trials in both arms.
