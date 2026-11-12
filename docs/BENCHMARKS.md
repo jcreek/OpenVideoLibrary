@@ -583,3 +583,28 @@ patch -s -o /tmp/ovl-exact-search.py docs/benchmarks/n100-native-10k-browse.py \
 Use the same isolated native fixture and replay over SSH, with fresh
 log and report names for an existing workspace. Accept a comparison
 only after verifying five complete, error-free trials in both arms.
+
+### N100 100k native fixture preparation
+
+The [preparation harness](benchmarks/n100-native-100k-prepare.py) uses
+the verified native server binaries and creates a new disposable N100
+workspace. It generates 100,000 uniquely titled movies with local NFOs
+across 100 shards. Each shard hard-links a separate copy of the same
+generated clip, avoiding a single inode with 100,000 links. The fixture
+has read-only mode bits and uses local storage.
+
+Run from the Rust checkout with the SSH key and host for the isolated
+test account:
+
+```sh
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i "$N100_SSH_KEY" "$N100_SSH_HOST" \\
+  'timeout --signal=TERM --kill-after=35s 13000s nice -n 10 ionice -c2 -n7 python3 -u -' \\
+  < docs/benchmarks/n100-native-100k-prepare.py
+```
+
+The harness scans Rust first, then Jellyfin, and validates the first
+page, final page and empty tail. Jellyfin must also finish its refresh
+and have 100,000 distinct presentation keys. A 20 GiB free-space
+threshold applies during polling. Shutdown targets only the isolated
+server process group. Scan duration under reduced priority is setup
+evidence. Timed trials require a separate run after readiness.
