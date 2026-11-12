@@ -722,3 +722,17 @@ identities. Recreate the exact harness by applying
 `n100-native-100k-rust-before-after.patch` to the archived 10k browse
 script with `patch -o`, then use the prepared 100k fixture path as its
 argument on the N100.
+
+A one-run N100 startup check copied the completed 100k v2 database with
+SQLite backup and launched the covering-index release. Readiness arrived
+after 175 ms, including process startup and projection backfill. The
+closed database grew from 31,375,360 to 37,695,488 bytes. All projected
+rows matched the source file and title data and SQLite quick-check passed.
+This single startup observation provides no repeated-run estimate.
+
+The matched page-first versus covering-index run uses the same fixture,
+page distribution and concurrency as the prior comparison. Recreate its
+harness by applying `n100-native-100k-covering.patch` to the archived
+10k browse script with `patch -o`, then pass the isolated 100k fixture
+path on the N100. It additionally records scan readiness time and closed
+database size. The timed run was still active when this entry was written.

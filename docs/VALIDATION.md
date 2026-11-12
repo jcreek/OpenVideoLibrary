@@ -1133,3 +1133,10 @@ and Clippy, the parser unit, 31 API and socket shutdown tests, nine CPU
 media/fault tests, ten Python tests, benchmark crate checks, contract
 generation, 15 browser scenarios and the disposable Nginx drill. The
 final scoped restore assertion and Clippy were rerun locally.
+
+All eight source-matched N100 checks passed over SSH, including the
+backup restore assertion, CPU media/fault suite, and separate physical
+VAAPI SDR/HDR checks. See `validation-n100-covering.json`. On a disposable
+copy of the existing 100k v2 database, the candidate backfilled 100,000
+matching file rows, retained schema version 2, passed SQLite quick-check,
+and exited zero.
