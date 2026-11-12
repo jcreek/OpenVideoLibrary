@@ -759,3 +759,13 @@ establish sustained capacity. See the
 [raw report](benchmarks/n100-native-100k-covering.json) for exact timings,
 server RSS samples, and identities. Unscoped and filtered workloads,
 broad search, cold cache, and read-only SMB remain separate acceptance.
+
+The 100k exact-title SSH harness uses the first title in each of the
+100 fixture shards. It validates the expected top hit from both
+servers before timing and again on every timed response. Recreate it
+by applying `n100-native-100k-exact-search.patch` to the archived 10k
+browse script with `patch -o`. It uses the prepared 100k Jellyfin
+fixture and scans disposable Rust indexes. Both arms must finish five
+complete error-free trials with clean exits. Full search result
+equivalence remains separate. This run was in progress at the time
+of recording.
