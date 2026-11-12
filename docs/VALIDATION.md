@@ -1092,3 +1092,10 @@ tests, benchmark crate checks, 15 browser scenarios and the disposable
 Nginx drill. The final fault regression was rerun after making the PID
 and stream-removal checks race-safe. Independent review confirmed the
 cleanup and test fixes.
+
+The final committed Rust source passed all eight N100 SSH checks. The
+CPU media and fault suite included the hardened quota regression.
+Physical VAAPI SDR and HDR passed separately with the isolated driver
+override. See `validation-n100-quota.json`. The separate low-priority
+Jellyfin fixture scan was active during these functional checks. This
+run collected no performance measurements.
