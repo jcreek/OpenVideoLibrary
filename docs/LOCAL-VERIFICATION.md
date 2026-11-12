@@ -31,7 +31,9 @@ their pre-run content, so valid uncommitted contract updates are supported.
 
 FFmpeg/FFprobe must be on PATH. For a nondefault Playwright cache set
 `PLAYWRIGHT_BROWSERS_PATH`; set `PLAYWRIGHT_CHROMIUM_CHANNEL=chrome` only when
-using an installed Chrome instead of Playwright Chromium. Browser engines and
+using an installed Chrome instead of Playwright Chromium. On macOS, set
+`PLAYWRIGHT_CHROMIUM_CHANNEL=chromium` to use the full bundled Chromium, because
+the default headless shell fails there (see VALIDATION.md). Browser engines and
 OSes are distinct acceptance environments. A macOS pass does not erase a Linux
 browser failure.
 
