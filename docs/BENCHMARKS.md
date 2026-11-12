@@ -509,3 +509,43 @@ through a read-only connection to the disposable database, then verify
 public browse and search boundaries again. The missing keys indicate that
 the index may be incomplete. It does not substitute for API result
 validation.
+
+### N100 10k native authenticated browse diagnostic (2026-11-12)
+
+The resumed Jellyfin refresh finished after about 571 seconds of polling,
+with 10,000 populated presentation keys and the refresh task idle. The
+authenticated browse count became 10,000 and its last page matched Rust.
+The first measurement attempt stopped on a startup HTTP 503 before timing.
+The retry waited for readiness and validated all 200 ordered 50-title
+pages plus the empty tail in both arms.
+
+The SSH run measured native Jellyfin 12.4 and optimized Rust sequentially
+in that order. It used the same generated local media and NFOs, ten
+persistent HTTP clients per trial, and five trials of 300 authenticated
+requests per server. Both servers exited zero. See the
+[raw results](benchmarks/n100-native-10k-browse.json) and
+[exact harness](benchmarks/n100-native-10k-browse.py). The harness expects
+the staged native binaries and disposable 10k fixture described above at
+its recorded N100 paths. Run it over SSH after Jellyfin indexing is done
+and both trial servers are stopped. Choose new output and log names if
+replaying in the same workspace.
+
+| Arm | Errors / requests | p95 median (min–max; sample σ), ms | Successful RPS median | Server core CPU seconds per trial, median | Before/after RSS samples, MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Jellyfin | 0 / 1,500 | 715.67 (632.83–721.72; 40.67) | 22.08 | 49.67 | 307.1–351.6 |
+| Rust | 0 / 1,500 | 85.69 (78.19–93.37; 5.62) | 144.61 | 2.13 | 13.2–14.0 |
+
+All five Rust browse p95 values were below 150 ms in this diagnostic.
+The response bodies differ despite identical ordered titles. Median
+response bytes per 300 requests were 7,935,277 for Jellyfin and 1,963,667
+for Rust. CPU accounts for the server process only and RSS is sampled
+at trial boundaries. The harness did not sample FFmpeg separately.
+No playback was requested. The host was shared and arm order fixed.
+These results do not establish production capacity or a speedup at
+equivalent response cost.
+
+Search remained inequivalent after refresh. For `Fixture 00`, Jellyfin
+returned a different first page and no rows at offset 950, while Rust
+returned 49 there. Search was excluded from timing. The 100k comparative
+workload, cold-cache, read-only SMB, sustained mixed load, equivalent
+playback, and pinned container acceptance remain open.
