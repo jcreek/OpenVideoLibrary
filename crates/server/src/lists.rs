@@ -72,11 +72,10 @@ pub async fn one(
     // Re-resolve symlinks, and omit unavailable mounts without changing saved order.
     let mut visible = Vec::new();
     for e in entries {
-        if media::item(&app, u, e["item"]["id"].as_i64().expect("integer item ID"))
-            .await
-            .is_ok()
-        {
-            visible.push(e);
+        match media::item(&app, u, e["item"]["id"].as_i64().expect("integer item ID")).await {
+            Ok(_) => visible.push(e),
+            Err(error) if error.0 == StatusCode::NOT_FOUND => {}
+            Err(error) => return Err(error),
         }
     }
     out["entries"] = Value::Array(visible);

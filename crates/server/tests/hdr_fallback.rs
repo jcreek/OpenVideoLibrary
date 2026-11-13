@@ -139,6 +139,8 @@ case "$*" in
       count=$((count+1))
     done
     test -f index.m3u8 || exit 3
+    # Fail mid-encode: leave an unfinished EVENT playlist behind.
+    grep -v '^#EXT-X-ENDLIST' v0.m3u8 > v0.partial && mv v0.partial v0.m3u8 || exit 4
     printf 'published-failure\n' >> "$OVL_TEST_MARKER"
     exit 1 ;;
   *h264_vaapi*|*h264_qsv*|*h264_nvenc*) exit 0 ;;
@@ -374,8 +376,12 @@ esac
             .send()
             .await
             .unwrap();
-        assert_eq!(master.status(), 200);
-        assert!(master.text().await.unwrap().contains("v0.m3u8"));
+        // The post-publication fault can fail the encode before this fetch;
+        // its reload is then reported as a failure (asserted below).
+        if scenario != "after" || master.status() != 502 {
+            assert_eq!(master.status(), 200, "{scenario}");
+            assert!(master.text().await.unwrap().contains("v0.m3u8"));
+        }
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
             let markers = std::fs::read_to_string(&marker).unwrap_or_default();
@@ -395,15 +401,48 @@ esac
             _ => assert_eq!(markers, "hardware\npublished-failure\n"),
         }
         let dir = data.join("transcodes").join(id);
-        let output = media::inspect(&fixture_app, &dir.join("v0.m3u8"))
+        // The failed encode's playlist is unfinished, so inspect a segment.
+        let inspected = if scenario == "after" {
+            "v0-0.ts"
+        } else {
+            "v0.m3u8"
+        };
+        let output = media::inspect(&fixture_app, &dir.join(inspected))
             .await
             .unwrap();
         assert_eq!(output.video().unwrap().color_transfer, "bt709");
         if scenario == "after" {
+            assert!(
+                !std::fs::read_to_string(dir.join("v0.m3u8"))
+                    .unwrap()
+                    .contains("#EXT-X-ENDLIST")
+            );
             assert_eq!(
                 std::fs::read(dir.join("v0-0.ts")).unwrap(),
                 std::fs::read(prepared.join("v0-0.ts")).unwrap(),
                 "published segments must not be overwritten by CPU retry"
+            );
+            let stream = format!("http://127.0.0.1:{port}/api/v1/playback/{id}");
+            for playlist in ["index.m3u8", "v0.m3u8"] {
+                let reload = client
+                    .get(format!("{stream}/{playlist}"))
+                    .bearer_auth(token)
+                    .send()
+                    .await
+                    .unwrap();
+                assert_eq!(reload.status(), 502, "{playlist} must report the failure");
+            }
+            let segment = client
+                .get(format!("{stream}/v0-0.ts"))
+                .bearer_auth(token)
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(segment.status(), 200);
+            assert_eq!(
+                segment.bytes().await.unwrap().as_ref(),
+                std::fs::read(prepared.join("v0-0.ts")).unwrap().as_slice(),
+                "published segments stay servable after a failure"
             );
         }
         let stop = client

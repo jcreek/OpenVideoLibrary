@@ -23,3 +23,9 @@ CREATE TABLE IF NOT EXISTS ovl_music_tags (
  disc INTEGER NOT NULL, track INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ovl_music_tags_album ON ovl_music_tags(album,artist,disc,track,file_id);
+-- Failed tag probes for the file version they saw, so a scan's probe budget
+-- reaches later tracks; each is retried at retry_at or when the file changes.
+CREATE TABLE IF NOT EXISTS ovl_music_probe_failures (
+ file_id INTEGER PRIMARY KEY REFERENCES media_files(id) ON DELETE CASCADE,
+ mtime INTEGER NOT NULL, size INTEGER NOT NULL, retry_at INTEGER NOT NULL
+);

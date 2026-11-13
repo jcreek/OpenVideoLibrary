@@ -23,37 +23,87 @@ pub(crate) struct Tags {
     track: i64,
 }
 
-pub(crate) async fn inspect(app: &Arc<App>, path: &Path) -> Option<Tags> {
-    let format = match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+/// Outcome of one scan-time tag probe.
+pub(crate) enum Probe {
+    Tags(Tags),
+    /// Every inspection slot was in use; nothing was attempted.
+    Busy,
+    /// The tool was unavailable or the server is stopping; nothing about the
+    /// track was learned, so it is not recorded.
+    Transient,
+    /// The track could not be probed. It is recorded and skipped until the
+    /// retry delay passes or the file changes: [`PROBE_RETRY`] when the track
+    /// itself is unusable (permission, symlink, not a regular file, no
+    /// readable audio), [`PROBE_RETRY_SOON`] for timeouts and I/O errors that
+    /// may clear.
+    Failed(Duration),
+}
+
+pub(crate) async fn inspect(app: &Arc<App>, path: &Path) -> Probe {
+    let Ok(slot) = app.inspection.clone().try_acquire_owned() else {
+        return Probe::Busy;
+    };
+    read_tags(app, path, slot).await
+}
+
+fn permanent(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::PermissionDenied
+        || matches!(error.raw_os_error(), Some(libc::ELOOP | libc::ENOTDIR))
+}
+
+fn retry_after(permanent: bool) -> Probe {
+    Probe::Failed(if permanent {
+        PROBE_RETRY
+    } else {
+        PROBE_RETRY_SOON
+    })
+}
+
+async fn read_tags(app: &Arc<App>, path: &Path, slot: tokio::sync::OwnedSemaphorePermit) -> Probe {
+    let extension = path
+        .extension()
+        .and_then(|v| v.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let format = match extension.as_str() {
         "mp3" => "mp3",
         "flac" => "flac",
         "ogg" | "opus" => "ogg",
         "wav" => "wav",
         "m4a" => "mov",
-        _ => return None,
+        _ => return Probe::Failed(PROBE_RETRY),
     };
-    let slot = app.inspection.clone().try_acquire_owned().ok()?;
     let path = path.to_owned();
     let work = app.tasks.spawn_blocking(move || {
-        let file = media::open_registered_file(&path)?;
-        if !file.metadata()?.is_file() {
-            return Err(std::io::Error::other("not a regular track"));
+        let file = media::open_registered_file(&path).map_err(|e| permanent(&e))?;
+        if !file.metadata().map_err(|e| permanent(&e))?.is_file() {
+            return Err(true);
         }
         Ok((file, slot))
     });
-    let (file, slot) = tokio::time::timeout(Duration::from_secs(5), work)
-        .await
-        .ok()?
-        .ok()?
-        .ok()?;
+    let (file, slot) = match tokio::time::timeout(Duration::from_secs(5), work).await {
+        Ok(Ok(Ok(opened))) => opened,
+        Ok(Ok(Err(permanent))) => return retry_after(permanent),
+        // Open timeout, or a blocking task that could not run.
+        _ => return retry_after(false),
+    };
     let data = match media::probe_music_tags(app, file, slot, format).await {
         Ok(data) => data,
         Err(e) if e.0 == axum::http::StatusCode::UNPROCESSABLE_ENTITY => {
-            return Some(Tags::default());
+            return Probe::Tags(Tags::default());
         }
-        Err(_) => return None,
+        // Missing tool or stopping server: says nothing about the track.
+        Err(e) if [503, 499].contains(&e.0.as_u16()) => return Probe::Transient,
+        Err(_) => return retry_after(false),
     };
-    let info: serde_json::Value = serde_json::from_slice(&data).ok()?;
+    match parse_tags(&data) {
+        Some(tags) => Probe::Tags(tags),
+        None => Probe::Failed(PROBE_RETRY),
+    }
+}
+
+fn parse_tags(data: &[u8]) -> Option<Tags> {
+    let info: serde_json::Value = serde_json::from_slice(data).ok()?;
     let streams = info["streams"].as_array()?;
     if streams.iter().any(|stream| {
         stream["codec_type"] == "video"
@@ -108,6 +158,10 @@ pub(crate) fn save(
     tags: Tags,
 ) -> Result<()> {
     tx.execute(
+        "DELETE FROM ovl_music_probe_failures WHERE file_id=(SELECT id FROM media_files WHERE path=?)",
+        [path],
+    )?;
+    tx.execute(
         "INSERT OR REPLACE INTO ovl_music_tags(file_id,mtime,size,title,artist,album,disc,track)
                 SELECT id,?,?,?,?,?,?,? FROM media_files WHERE path=?",
         params![
@@ -123,6 +177,28 @@ pub(crate) fn save(
     )?;
     Ok(())
 }
+
+/// Records a failed probe so later scans spend their budget on other tracks.
+/// The track is retried at `retry_at` (Unix seconds) or when the file changes.
+pub(crate) fn save_failure(
+    tx: &rusqlite::Transaction,
+    path: &str,
+    mtime: i64,
+    size: i64,
+    retry_at: i64,
+) -> Result<()> {
+    tx.execute(
+        "INSERT OR REPLACE INTO ovl_music_probe_failures(file_id,mtime,size,retry_at)
+                SELECT id,?,?,? FROM media_files WHERE path=?",
+        params![mtime, size, retry_at, path],
+    )?;
+    Ok(())
+}
+
+/// How long a track that cannot be probed is skipped.
+pub(crate) const PROBE_RETRY: Duration = Duration::from_secs(24 * 60 * 60);
+/// How long a track whose probe timed out or hit an I/O error is skipped.
+pub(crate) const PROBE_RETRY_SOON: Duration = Duration::from_secs(60 * 60);
 
 #[derive(Deserialize)]
 pub struct AlbumQuery {
@@ -245,4 +321,29 @@ pub async fn tracks(
             })
             .await?,
     ))
+}
+
+#[cfg(test)]
+mod probe_tests {
+    #[test]
+    fn only_track_faults_are_recorded_as_permanent() {
+        use std::io::{Error, ErrorKind};
+        assert!(super::permanent(&Error::from(ErrorKind::PermissionDenied)));
+        assert!(super::permanent(&Error::from_raw_os_error(libc::ELOOP)));
+        assert!(super::permanent(&Error::from_raw_os_error(libc::ENOTDIR)));
+        for transient in [libc::EIO, libc::ENOENT, libc::EMFILE, libc::ENOTCONN] {
+            assert!(
+                !super::permanent(&Error::from_raw_os_error(transient)),
+                "{transient}"
+            );
+        }
+        assert!(
+            matches!(super::retry_after(true), super::Probe::Failed(d) if d == super::PROBE_RETRY)
+        );
+        assert!(
+            matches!(super::retry_after(false), super::Probe::Failed(d) if d == super::PROBE_RETRY_SOON)
+        );
+        assert!(super::parse_tags(b"not json").is_none());
+        assert!(super::parse_tags(br#"{"streams":[]}"#).is_none());
+    }
 }

@@ -5780,3 +5780,144 @@ fn every_encode_input_is_rebound_to_its_own_inherited_handle() {
     let foreign = vec!["-i".into(), "/elsewhere.mkv".into()];
     assert!(playback::bind_input_args(foreign, source).is_err());
 }
+
+async fn scan_and_wait(app: &Arc<App>) {
+    ovl_server::scan::start(app.clone()).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(30), async {
+        while app.scans.available_permits() == 0 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn nfo_sidecars_are_read_only_from_regular_files_inside_the_root() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    add_media(&app, root.path()).await;
+    let media = root.path().join("media");
+    let outside = root.path().join("outside.nfo");
+    std::fs::write(
+        &outside,
+        "<episodedetails><title>Leaked title</title></episodedetails>",
+    )
+    .unwrap();
+    std::fs::write(media.join("Linked.S01E02.mkv"), b"linked").unwrap();
+    std::os::unix::fs::symlink(&outside, media.join("Linked.S01E02.nfo")).unwrap();
+    // A FIFO must neither block the scan nor be read as metadata.
+    std::fs::write(media.join("Fifo.S01E03.mkv"), b"fifo").unwrap();
+    let fifo = std::ffi::CString::new(media.join("Fifo.S01E03.nfo").to_string_lossy().into_owned())
+        .unwrap();
+    assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o644) }, 0);
+    std::fs::write(media.join("Plain.S01E04.mkv"), b"plain").unwrap();
+    std::fs::write(
+        media.join("Plain.S01E04.nfo"),
+        "<episodedetails><title>Inside title</title></episodedetails>",
+    )
+    .unwrap();
+    scan_and_wait(&app).await;
+    let (_, items) = request(&router, "GET", "/api/v1/items", Some(&token), None).await;
+    let titles: Vec<_> = items
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["title"].as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(titles.len(), 4, "{titles:?}");
+    assert!(titles.iter().any(|t| t == "Inside title"), "{titles:?}");
+    assert!(!titles.iter().any(|t| t == "Leaked title"), "{titles:?}");
+    app.shutdown().await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn failed_music_probes_do_not_starve_later_tracks() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let dir = std::fs::canonicalize(root.path()).unwrap().join("music");
+    std::fs::create_dir(&dir).unwrap();
+    // More unreadable tracks than one scan's probe budget of 256.
+    for n in 0..300 {
+        let track = dir.join(format!("{n:03}.mp3"));
+        std::fs::write(&track, b"unreadable").unwrap();
+        std::fs::set_permissions(&track, std::fs::Permissions::from_mode(0o000)).unwrap();
+    }
+    if std::fs::File::open(dir.join("000.mp3")).is_ok() {
+        eprintln!("skipped: permissions do not block this user (root?)");
+        return;
+    }
+    let (status, library) = request(
+        &router,
+        "POST",
+        "/api/v1/libraries",
+        Some(&token),
+        Some(json!({"Name":"Music","Path":dir,"Kind":"music"})),
+    )
+    .await;
+    assert_eq!(status, 201, "{library}");
+    let failures = |app: Arc<App>| async move {
+        app.db
+            .call(|c| {
+                Ok(
+                    c.query_row("SELECT count(*) FROM ovl_music_probe_failures", [], |r| {
+                        r.get::<_, i64>(0)
+                    })?,
+                )
+            })
+            .await
+            .unwrap()
+    };
+    scan_and_wait(&app).await;
+    assert_eq!(failures(app.clone()).await, 256);
+    // The next scan skips recorded failures and reaches the remaining tracks.
+    scan_and_wait(&app).await;
+    assert_eq!(failures(app.clone()).await, 300);
+    // A changed file is probed again.
+    let first = dir.join("000.mp3");
+    std::fs::set_permissions(&first, std::fs::Permissions::from_mode(0o644)).unwrap();
+    std::fs::write(&first, b"changed and still not audio").unwrap();
+    std::fs::set_permissions(&first, std::fs::Permissions::from_mode(0o000)).unwrap();
+    let stale = |app: Arc<App>| async move {
+        app.db
+            .call(|c| {
+                Ok(c.query_row(
+                    "SELECT count(*) FROM ovl_music_probe_failures p JOIN media_files f ON f.id=p.file_id
+                      WHERE p.mtime<>f.mtime OR p.size<>f.size",
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )?)
+            })
+            .await
+            .unwrap()
+    };
+    scan_and_wait(&app).await;
+    assert_eq!(stale(app.clone()).await, 0);
+    // Unreadable tracks are skipped for the long delay.
+    let soonest = app
+        .db
+        .call(|c| {
+            Ok(c.query_row(
+                "SELECT min(retry_at) FROM ovl_music_probe_failures",
+                [],
+                |r| r.get::<_, i64>(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+    assert!(soonest > now + 23 * 3600, "{soonest} vs {now}");
+    for n in 0..300 {
+        let _ = std::fs::set_permissions(
+            dir.join(format!("{n:03}.mp3")),
+            std::fs::Permissions::from_mode(0o644),
+        );
+    }
+    app.shutdown().await;
+}

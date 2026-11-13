@@ -97,10 +97,11 @@ fn parse(input: &str, timed: bool) -> Result<Lyrics> {
             }));
         }
     }
-    // Apply the last valid global offset even when it follows the cues.
+    // Apply the last valid global offset even when it follows the cues. A
+    // positive LRC offset shows lyrics sooner, so it is subtracted.
     for line in &mut lines {
         if let Some(time) = &mut line.time_ms {
-            *time = time.saturating_add_signed(i64::from(offset_ms));
+            *time = time.saturating_add_signed(-i64::from(offset_ms));
         }
     }
     lines.sort_by_key(|l| l.time_ms.unwrap_or(u64::MAX));
@@ -242,7 +243,7 @@ mod tests {
 
     #[test]
     fn lrc_offset_moves_all_cues_and_clamps_at_zero() {
-        for (tag, first, second) in [("+500", 600, 2500), ("-500", 0, 1500)] {
+        for (tag, first, second) in [("+500", 0, 1500), ("-500", 600, 2500)] {
             let input = format!(
                 "[00:02]Second\n[00:00.10]First\n[offset:{tag}]\n[offset:999999999999]\nPlain"
             );

@@ -27,11 +27,17 @@ struct Nfo {
     title: String,
     plot: String,
 }
+/// Reads a sidecar NFO through an anchored open that refuses every symlink, so
+/// the handle stays inside the canonical library root even if the tree changes
+/// after discovery. Only a regular file within the size limit is read.
 fn read_nfo(path: &Path) -> std::io::Result<String> {
+    let file = crate::media::open_registered_file(path)?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() || metadata.len() > 1 << 20 {
+        return Err(std::io::Error::other("NFO is not a bounded regular file"));
+    }
     let mut out = String::new();
-    std::fs::File::open(path)?
-        .take((1 << 20) + 1)
-        .read_to_string(&mut out)?;
+    file.take((1 << 20) + 1).read_to_string(&mut out)?;
     if out.len() > 1 << 20 {
         return Err(std::io::Error::other("NFO exceeds limit"));
     }
@@ -105,12 +111,7 @@ fn discover(
         }
         let nfo = p.with_extension("nfo");
         let mut overview = String::new();
-        if let Ok(m) = std::fs::symlink_metadata(&nfo)
-            && m.is_file()
-            && m.len() <= 1 << 20
-            && let Ok(real) = std::fs::canonicalize(&nfo)
-            && real.starts_with(root)
-            && let Ok(data) = read_nfo(&real)
+        if let Ok(data) = read_nfo(&nfo)
             && let Ok(n) = quick_xml::de::from_str::<Nfo>(&data)
         {
             if !n.title.is_empty() {
@@ -155,24 +156,34 @@ async fn library(app: &Arc<App>, id: i64, root: PathBuf, music: bool) -> Result<
         let metadata_deadline = Instant::now() + Duration::from_secs(60);
         loop{let found=tokio::select!{_=cancel.cancelled()=>return Err(Error::new(499,"scan cancelled")),next=rx.recv()=>next};
             let Some(f)=found else{break;};
-            let tags = if music && probes < 256 && Instant::now() < metadata_deadline {
+            let probe = if music && probes < 256 && Instant::now() < metadata_deadline {
                 let (path, mtime, size) = (f.path.clone(), f.mtime, f.size);
+                let now = auth::now();
+                // Skip current tags and recent failures of this file version.
                 let indexed = app.db.call(move |c| Ok(c.query_row(
                     "SELECT EXISTS(SELECT 1 FROM media_files f JOIN ovl_music_tags t ON t.file_id=f.id
-                      WHERE f.path=? AND t.mtime=? AND t.size=?)",
-                    rusqlite::params![path, mtime, size], |r| r.get::<_, bool>(0))?)).await?;
+                      WHERE f.path=?1 AND t.mtime=?2 AND t.size=?3)
+                     OR EXISTS(SELECT 1 FROM media_files f JOIN ovl_music_probe_failures p ON p.file_id=f.id
+                      WHERE f.path=?1 AND p.mtime=?2 AND p.size=?3 AND p.retry_at>?4)",
+                    rusqlite::params![path, mtime, size, now], |r| r.get::<_, bool>(0))?)).await?;
                 if indexed { None } else {
-                    probes += 1;
-                    crate::music::inspect(app, Path::new(&f.path)).await
+                    let probe = crate::music::inspect(app, Path::new(&f.path)).await;
+                    if !matches!(probe, crate::music::Probe::Busy) { probes += 1; }
+                    // A cancelled scan's probe failure says nothing about the track.
+                    if cancel.is_cancelled() { return Err(Error::new(499, "scan cancelled")); }
+                    Some(probe)
                 }
             } else { None };
+            let now = auth::now();
             app.db.call(move|c|{
                 let tx=c.transaction()?;
                 let known=tx.query_row("SELECT item_id,mtime,size FROM media_files WHERE path=?",[&f.path],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,i64>(1)?,r.get::<_,i64>(2)?))).optional()?;
                 if let Some((_,mtime,size))=known{if mtime!=f.mtime||size!=f.size{tx.execute("UPDATE media_files SET mtime=?,size=? WHERE path=?",params![f.mtime,f.size,f.path])?;}}
                 else {tx.execute("INSERT INTO items(title,series,season,episode,overview) VALUES(?,?,?,?,?)",params![f.title,f.series,f.season,f.episode,f.overview])?;let item=tx.last_insert_rowid();tx.execute("INSERT INTO media_files(item_id,library_id,path,mtime,size) VALUES(?,?,?,?,?)",params![item,id,f.path,f.mtime,f.size])?;}
-                if let Some(tags) = tags {
-                    crate::music::save(&tx, &f.path, f.mtime, f.size, tags)?;
+                match probe {
+                    Some(crate::music::Probe::Tags(tags)) => crate::music::save(&tx, &f.path, f.mtime, f.size, tags)?,
+                    Some(crate::music::Probe::Failed(delay)) => crate::music::save_failure(&tx, &f.path, f.mtime, f.size, now.saturating_add(delay.as_secs() as i64))?,
+                    Some(crate::music::Probe::Busy | crate::music::Probe::Transient) | None => {}
                 }
                 tx.commit()?;Ok(())
             }).await?;

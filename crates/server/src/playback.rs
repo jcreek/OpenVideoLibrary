@@ -1019,6 +1019,35 @@ async fn check_conversion_quota(app: &App, stream: &Stream) -> Result<()> {
     }
     Ok(())
 }
+/// Whether a session playlist is complete: the master once every variant it
+/// lists has `#EXT-X-ENDLIST`, a variant once it has the tag itself.
+async fn playlist_complete(dir: &std::path::Path, name: &str) -> bool {
+    async fn ended(path: std::path::PathBuf) -> bool {
+        tokio::fs::read_to_string(path)
+            .await
+            .is_ok_and(|text| text.lines().any(|line| line.trim() == "#EXT-X-ENDLIST"))
+    }
+    if name != "index.m3u8" {
+        return ended(dir.join(name)).await;
+    }
+    let Ok(master) = tokio::fs::read_to_string(dir.join(name)).await else {
+        return false;
+    };
+    let variants: Vec<String> = master
+        .lines()
+        .filter(|line| line.starts_with('v') && line.ends_with(".m3u8"))
+        .map(str::to_owned)
+        .collect();
+    if variants.is_empty() {
+        return false;
+    }
+    for variant in variants {
+        if !ended(dir.join(variant)).await {
+            return false;
+        }
+    }
+    true
+}
 async fn owner(app: &Arc<App>, u: User, id: &str) -> Result<Arc<Stream>> {
     let st = app
         .streams
@@ -1053,7 +1082,7 @@ pub async fn segment(
         return Err(Error::new(404, "stream not found"));
     }
     let st = owned(&app, u, &id).await?;
-    let path = st.dir.join(name);
+    let path = st.dir.join(&name);
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
         // Recheck grants while waiting for a segment, not just at admission.
@@ -1067,6 +1096,17 @@ pub async fn segment(
         // Observe completion before checking the path. The encoder can publish
         // between a failed lookup and the completion load.
         let finished = st.finished.load(Ordering::Acquire);
+        // A failed encode can leave an unfinished EVENT playlist. Report the
+        // failure on its reloads so players stop waiting for segments that
+        // will never appear. A playlist the encoder completed (ENDLIST) stays
+        // servable, as do published segments.
+        if finished
+            && name.ends_with(".m3u8")
+            && let Some(error) = st.error.lock().await.clone()
+            && !playlist_complete(&st.dir, &name).await
+        {
+            return Err(Error::new(502, error));
+        }
         if tokio::fs::metadata(&path).await.is_ok() {
             return media::serve(&app, path, req).await;
         }
@@ -1104,4 +1144,40 @@ pub async fn stop(
         return Err(Error::new(404, "stream not found"));
     }
     Ok(Json(json!({"ok":true})))
+}
+
+#[cfg(test)]
+mod playlist_tests {
+    use super::playlist_complete;
+
+    #[tokio::test]
+    async fn only_unfinished_playlists_count_as_incomplete() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let dir = dir.path();
+        assert!(!playlist_complete(dir, "index.m3u8").await);
+        std::fs::write(dir.join("index.m3u8"), "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nv0.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=2\nv1.m3u8\n").unwrap();
+        std::fs::write(
+            dir.join("v0.m3u8"),
+            "#EXTM3U\n#EXTINF:4,\nv0-0.ts\n#EXT-X-ENDLIST\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("v1.m3u8"),
+            "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXTINF:4,\nv1-0.ts\n",
+        )
+        .unwrap();
+        assert!(playlist_complete(dir, "v0.m3u8").await);
+        assert!(!playlist_complete(dir, "v1.m3u8").await);
+        assert!(
+            !playlist_complete(dir, "index.m3u8").await,
+            "one variant unfinished"
+        );
+        std::fs::write(
+            dir.join("v1.m3u8"),
+            "#EXTM3U\n#EXTINF:4,\nv1-0.ts\n#EXT-X-ENDLIST\n",
+        )
+        .unwrap();
+        assert!(playlist_complete(dir, "index.m3u8").await);
+        assert!(!playlist_complete(dir, "v2.m3u8").await, "missing playlist");
+    }
 }

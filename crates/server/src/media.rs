@@ -801,7 +801,8 @@ pub(crate) fn open_registered_file(path: &std::path::Path) -> std::io::Result<st
     let mut directory = std::fs::File::open("/")?;
     while let Some(Component::Normal(name)) = parts.next() {
         let name = CString::new(name.as_bytes())?;
-        let flags = libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK;
+        let flags =
+            libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK | libc::O_NOCTTY;
         let flags = if parts.peek().is_some() {
             flags | libc::O_DIRECTORY
         } else {
