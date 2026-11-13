@@ -128,7 +128,7 @@ needs a read-only fixture mount.
 
 ## Outstanding from the plan
 
-1. **Preview and video acceptance.** The queue-capture regression and the
+1. **Preview and video acceptance.** The user has no HDR content, so real HDR10, HLG and Dolby Vision acceptance is unavailable; HDR evidence stays synthetic. The queue-capture regression and the
    generated long-file seek matrix, surround downmix and legacy container
    corpora are done. Expand coverage for surround passthrough, subtitles and
    fonts, real-media and SMB seek latency, HDR/HLG and Dolby Vision. Verify
@@ -159,8 +159,10 @@ needs a read-only fixture mount.
 3. **Current deployment acceptance.** Current Linux arm64 (native) and
    amd64 (built and run under emulation) images now pass the container
    smoke. See "Current Linux images" in VALIDATION.md; the build cache was
-   pruned with authorisation. Native x86 image runs and GPU-in-container
-   remain open. Complete isolated production-host Nginx/TLS, read-only mounts
+   pruned with authorisation. The amd64 image's binary also passed a
+   native smoke on the N100's x86 CPU. Container runs on the N100 need root or an admin-installed runtime,
+   because the test account has no runtime and AppArmor blocks rootless user
+   namespaces. GPU-in-container remains open. Complete isolated production-host Nginx/TLS, read-only mounts
    and cutover/rollback. The N100 test account cannot create a rootless user
    namespace, and no usable container runtime was found. The existing SMB mount is writable. Leave
    it untouched and provision a separate read-only fixture mount. Never

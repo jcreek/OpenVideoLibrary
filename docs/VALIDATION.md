@@ -1428,3 +1428,43 @@ devices, browser playback and stream capacity are outside this smoke. The
 N100 still has no container runtime for the test account, so the images were
 not run there. The Docker Desktop disk had 160 MB free after the amd64 build.
 Further builds need more disk or another authorised build-cache prune.
+
+## amd64 image binary on native x86 (N100) — 2026-11-13
+
+The N100 is x86_64, but it cannot run the amd64 image as a container:
+
+- the test account has no container runtime or Docker socket;
+- Ubuntu 24.04's `kernel.apparmor_restrict_unprivileged_userns=1` denies
+  rootless user namespaces.
+
+Instead, `/usr/local/bin/ovl` was copied out of `ovl:acceptance-amd64`
+(SHA-256 `24127c78…`) and run natively on the N100 over SSH with
+`scripts/test_native_binary.py`. That script mirrors the container smoke's
+checks without a container. All eight checks passed on native x86_64:
+
+- authenticated setup and login;
+- unauthorised media denial;
+- a read-only fixture scan;
+- range bytes;
+- viewer grants;
+- queue revision conflicts;
+- fixture mode bits read-only and content unchanged. The server runs as the
+  fixture's owner without a read-only mount, so this is weaker than the
+  container's mount-level denial;
+- SIGTERM exit zero.
+
+See `validation-n100-native-image-binary.json`.
+
+This shows that the server binary from the locally built amd64 image runs
+on real x86 hardware, against the host's Ubuntu 24.04 userland and libc. It is
+not a released artifact, and the image's runtime environment was not
+validated: container isolation, its bundled FFmpeg and VA drivers, and
+GPU-in-container are not covered. Those need root or an admin-installed
+runtime on an x86 host. After the run, the script gained SIGHUP and SIGINT
+cleanup, began stopping the server before removing its data, and got a more
+precise label for the fixture check. Its checks are unchanged. The
+workspace was removed after the run.
+
+Real HDR10, HLG and Dolby Vision acceptance is unavailable, because the user
+has no HDR content. HDR evidence remains synthetic: the PQ/HLG software path
+and the N100 VAAPI HDR10 checks.
