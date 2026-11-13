@@ -137,9 +137,18 @@ needs a read-only fixture mount.
 2. **Production benchmarks.** The user approved the N100 as the bench host,
    including during household use; label noisy results as such. OS-cold
    trials still need root page-cache control on a dedicated host. Never evict
-   the shared N100's caches. Next, build a Jellyfin playback client harness
-   for paired direct, remux and transcode first-segment and concurrency
-   trials. Use the pinned Jellyfin 12.4 baseline and
+   the shared N100's caches. A paired native playback-startup diagnostic
+   now exists (`benchmarks/n100-native-playback-startup.py`). It times a
+   validated warm-loopback direct range read and the CPU transcode first
+   segment at 0 s and 60 s; see BENCHMARKS.md. Next:
+   - extend it to remux, concurrency, real media and LAN or browser
+     first-frame;
+   - align Jellyfin's CRF rate control;
+   - verify segment durations and bitrate;
+   - capture and diff both FFmpeg command lines;
+   - split time with log timestamps;
+   - sample CPU at first segment and report CPU per encoded media second;
+   - interleave arms with warm-ups and more runs. Use the pinned Jellyfin 12.4 baseline and
    equivalent read-only media, metadata, output quality and background
    work. Complete broader search comparison, OS-cold trials on a dedicated
    host, sustained saturation, and mixed scanning/streaming. Compare LAN

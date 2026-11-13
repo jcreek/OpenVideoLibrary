@@ -785,3 +785,90 @@ top hits, with sustained capacity, full search equivalence and SMB
 still open. The [raw report](benchmarks/n100-native-100k-exact-search.json)
 contains per-trial latency, throughput, CPU, RSS samples and source
 and binary identities.
+
+### N100 native playback startup, Jellyfin and Rust (2026-11-13)
+
+This diagnostic ran on the N100 over SSH, after the user approved the N100 as
+the benchmark host.
+
+**Setup.** Both servers ran natively with isolated data directories, warm,
+on loopback, one client at a time:
+
+- Jellyfin 12.4 from the pinned extracted release;
+- the optimised Rust release built on the N100 from tree `acf25de`.
+
+Each arm started a fresh server, created its account and movie library, and
+waited for the scan. Jellyfin ran first. A separate household Jellyfin service
+was running on the host the whole time and was left alone.
+
+**Fixture.** A 120 s 1920x1080 24 fps H.264 file with stereo AAC, read-only on
+local storage. Bars encode the frame number in the picture. The content is
+mostly black, so the file is only 952,209 bytes. Encoding work per frame is
+far below real media.
+
+**Requested settings.** Jellyfin was configured for x264 `veryfast` with two
+encoding threads, no throttling and no hardware acceleration. Requests set
+H.264 at 1920x1080, a 5 Mb/s video bitrate, 128 kb/s stereo AAC, 4 s TS
+segments, and disabled stream copy. These are intended to match Rust's single
+rendition: `veryfast`, two threads, 5 Mb/s ABR with maxrate, 4 s segments.
+Neither FFmpeg command line was captured, so equivalence is asserted, not
+shown. Jellyfin adds its own filters and keyframe, timestamp and thread
+options. Both arms used the host's FFmpeg 6.1.1, not Jellyfin's
+`jellyfin-ffmpeg` build.
+
+**Remaining difference.** Jellyfin reported `H264Crf` 23, so its rate control
+differs from Rust's. First segments were 40,984 and 41,360 bytes for Jellyfin,
+and 43,240 and 42,864 bytes for Rust.
+
+**Validation.** Starts at 0 s and 60 s are both keyframes and segment
+boundaries, so the frame check confirms the correct segment but cannot detect
+an inaccurate seek. Every timed transcode segment was checked:
+
+- H.264 video at 1080 lines and AAC audio;
+- a first decoded frame of exactly 0 for starts at 0, and 1440 for starts at
+  60 s;
+- direct reads matched the source bytes.
+
+Each scenario used five fresh sessions. Raw rows are in
+[the report](benchmarks/n100-native-playback-startup.json), and the harness
+is [here](benchmarks/n100-native-playback-startup.py).
+
+| Scenario | Jellyfin median (min–max), ms | Rust median (min–max), ms |
+| --- | ---: | ---: |
+| Direct range read of the whole 952 KB file (page-cache warm; request overhead) | 26.5 (23.2–140.7) | 1.8 (1.6–2.6) |
+| Transcode, first segment from 0 s | 1,551 (1,442–1,824) | 1,126 (1,120–1,175) |
+| Transcode, first segment from 60 s | 1,550 (1,547–1,551) | 1,190 (1,117–1,237) |
+
+**CPU and memory.**
+
+- Median server CPU per transcode session was about 5.3 s for Jellyfin and
+  3.75 s for Rust. This covers the whole session until stop plus 2 s,
+  including any segments encoded ahead and reaped FFmpeg children, so it is
+  not the cost of the first segment alone.
+  FFmpeg keeps encoding until stop, so a faster encoder is penalised and the
+  figures are not comparable work. Measuring CPU at first segment and per
+  encoded media second remains to do.
+- Server VmRSS, sampled after each session stopped and excluding FFmpeg, was
+  about 345 MB for Jellyfin and 12 MB for Rust.
+
+**Load.** The 1-minute load average was 1.9 before the run, 1.7 after the
+Jellyfin arm and 1.6 after the Rust arm. Both servers exited zero.
+
+**Interpretation.** Jellyfin's 60 s start ranged only from 1,547 to 1,551 ms,
+and its medians from 0 s and 60 s are almost identical. A fixed segment-wait
+or poll delay may dominate them. Treat the gap as end-to-end implementation
+latency, not encoder efficiency, until log timestamps split the time. Rust's
+25 ms index poll biases Rust slightly upward.
+
+Arm order was fixed with no discarded warm-up. Jellyfin's first runs include
+JIT warm-up of 140.7 ms direct and 1,824 ms for transcode from 0 s.
+
+After the run, the harness gained SIGHUP and SIGINT cleanup and workspace
+removal, and stopped recording the hostname. Its measurement code is
+unchanged.
+
+**Scope.** This is not LAN or browser first decoded frame, OS-cold,
+concurrency, real media or an equivalent-quality comparison. Segment
+durations were not independently verified. Five runs with a fixed arm order
+do not establish a production speedup. OS-cold trials still need root
+page-cache control on a dedicated host.

@@ -1,0 +1,332 @@
+{
+  "scope": "Paired native playback-startup diagnostic: Jellyfin 12.4 and OVL on the N100.",
+  "load_before": [
+    1.92431640625,
+    1.36083984375,
+    0.78173828125
+  ],
+  "fixture_sha256": "a19e0567d16c47ba35058d5daedc7c7e4239453ad0a7e111257f5aad23caa1bc",
+  "repetitions": 5,
+  "arms": {
+    "jellyfin": {
+      "binary_sha256": "ce32ad6108f262fd0d49922b321d2a085157b14eafbe1ebb77f244592b86bf86",
+      "scenarios": {
+        "direct": {
+          "runs": [
+            {
+              "rep": 1,
+              "ms": 140.7,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.15,
+              "rss_kib": 327084
+            },
+            {
+              "rep": 2,
+              "ms": 31.8,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.04,
+              "rss_kib": 327840
+            },
+            {
+              "rep": 3,
+              "ms": 26.5,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.02,
+              "rss_kib": 328252
+            },
+            {
+              "rep": 4,
+              "ms": 26.0,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.04,
+              "rss_kib": 328304
+            },
+            {
+              "rep": 5,
+              "ms": 23.2,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.02,
+              "rss_kib": 328372
+            }
+          ],
+          "median_ms": 26.5,
+          "min_ms": 23.2,
+          "max_ms": 140.7
+        },
+        "transcode-0": {
+          "runs": [
+            {
+              "rep": 1,
+              "ms": 1824.1,
+              "first_frame": 0,
+              "segment_bytes": 40984,
+              "server_cpu_s": 7.74,
+              "rss_kib": 339160
+            },
+            {
+              "rep": 2,
+              "ms": 1657.8,
+              "first_frame": 0,
+              "segment_bytes": 40984,
+              "server_cpu_s": 5.87,
+              "rss_kib": 341264
+            },
+            {
+              "rep": 3,
+              "ms": 1544.1,
+              "first_frame": 0,
+              "segment_bytes": 40984,
+              "server_cpu_s": 5.38,
+              "rss_kib": 341648
+            },
+            {
+              "rep": 4,
+              "ms": 1442.4,
+              "first_frame": 0,
+              "segment_bytes": 40984,
+              "server_cpu_s": 5.04,
+              "rss_kib": 342028
+            },
+            {
+              "rep": 5,
+              "ms": 1551.3,
+              "first_frame": 0,
+              "segment_bytes": 40984,
+              "server_cpu_s": 5.4,
+              "rss_kib": 344988
+            }
+          ],
+          "median_ms": 1551.3,
+          "min_ms": 1442.4,
+          "max_ms": 1824.1
+        },
+        "transcode-60": {
+          "runs": [
+            {
+              "rep": 1,
+              "ms": 1547.4,
+              "first_frame": 1440,
+              "segment_bytes": 41360,
+              "server_cpu_s": 5.28,
+              "rss_kib": 345152
+            },
+            {
+              "rep": 2,
+              "ms": 1551.2,
+              "first_frame": 1440,
+              "segment_bytes": 41360,
+              "server_cpu_s": 5.17,
+              "rss_kib": 341180
+            },
+            {
+              "rep": 3,
+              "ms": 1550.3,
+              "first_frame": 1440,
+              "segment_bytes": 41360,
+              "server_cpu_s": 5.34,
+              "rss_kib": 346676
+            },
+            {
+              "rep": 4,
+              "ms": 1548.4,
+              "first_frame": 1440,
+              "segment_bytes": 41360,
+              "server_cpu_s": 5.33,
+              "rss_kib": 347396
+            },
+            {
+              "rep": 5,
+              "ms": 1549.5,
+              "first_frame": 1440,
+              "segment_bytes": 41360,
+              "server_cpu_s": 5.22,
+              "rss_kib": 347544
+            }
+          ],
+          "median_ms": 1549.5,
+          "min_ms": 1547.4,
+          "max_ms": 1551.2
+        }
+      },
+      "jellyfin_encoding": {
+        "EncoderPreset": "veryfast",
+        "EncodingThreadCount": 2,
+        "EnableThrottling": false,
+        "HardwareAccelerationType": "none",
+        "H264Crf": 23
+      },
+      "exit_code": 0
+    },
+    "rust": {
+      "binary_sha256": "4e603a0f10f27c48fee753d9992cf7474f5dbbbdfae7febd0964e1d8c03440c5",
+      "scenarios": {
+        "direct": {
+          "runs": [
+            {
+              "rep": 1,
+              "ms": 2.6,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.0,
+              "rss_kib": 10984
+            },
+            {
+              "rep": 2,
+              "ms": 2.4,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.01,
+              "rss_kib": 10988
+            },
+            {
+              "rep": 3,
+              "ms": 1.6,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.0,
+              "rss_kib": 10988
+            },
+            {
+              "rep": 4,
+              "ms": 1.8,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.0,
+              "rss_kib": 10988
+            },
+            {
+              "rep": 5,
+              "ms": 1.7,
+              "range_requests": 1,
+              "range_bytes": 952209,
+              "server_cpu_s": 0.0,
+              "rss_kib": 10992
+            }
+          ],
+          "median_ms": 1.8,
+          "min_ms": 1.6,
+          "max_ms": 2.6
+        },
+        "transcode-0": {
+          "runs": [
+            {
+              "rep": 1,
+              "ms": 1175.4,
+              "first_frame": 0,
+              "segment_bytes": 43240,
+              "server_cpu_s": 3.84,
+              "rss_kib": 11592
+            },
+            {
+              "rep": 2,
+              "ms": 1121.7,
+              "first_frame": 0,
+              "segment_bytes": 43240,
+              "server_cpu_s": 3.75,
+              "rss_kib": 11728
+            },
+            {
+              "rep": 3,
+              "ms": 1126.1,
+              "first_frame": 0,
+              "segment_bytes": 43240,
+              "server_cpu_s": 3.63,
+              "rss_kib": 11840
+            },
+            {
+              "rep": 4,
+              "ms": 1120.4,
+              "first_frame": 0,
+              "segment_bytes": 43240,
+              "server_cpu_s": 3.7,
+              "rss_kib": 11928
+            },
+            {
+              "rep": 5,
+              "ms": 1139.5,
+              "first_frame": 0,
+              "segment_bytes": 43240,
+              "server_cpu_s": 3.73,
+              "rss_kib": 11980
+            }
+          ],
+          "median_ms": 1126.1,
+          "min_ms": 1120.4,
+          "max_ms": 1175.4
+        },
+        "transcode-60": {
+          "runs": [
+            {
+              "rep": 1,
+              "ms": 1190.3,
+              "first_frame": 1440,
+              "segment_bytes": 42864,
+              "server_cpu_s": 3.8,
+              "rss_kib": 12100
+            },
+            {
+              "rep": 2,
+              "ms": 1117.3,
+              "first_frame": 1440,
+              "segment_bytes": 42864,
+              "server_cpu_s": 3.66,
+              "rss_kib": 12144
+            },
+            {
+              "rep": 3,
+              "ms": 1237.2,
+              "first_frame": 1440,
+              "segment_bytes": 42864,
+              "server_cpu_s": 3.91,
+              "rss_kib": 12204
+            },
+            {
+              "rep": 4,
+              "ms": 1137.0,
+              "first_frame": 1440,
+              "segment_bytes": 42864,
+              "server_cpu_s": 3.69,
+              "rss_kib": 12204
+            },
+            {
+              "rep": 5,
+              "ms": 1195.8,
+              "first_frame": 1440,
+              "segment_bytes": 42864,
+              "server_cpu_s": 3.87,
+              "rss_kib": 12232
+            }
+          ],
+          "median_ms": 1190.3,
+          "min_ms": 1117.3,
+          "max_ms": 1237.2
+        }
+      },
+      "exit_code": 0
+    }
+  },
+  "load_after_jellyfin": [
+    1.7421875,
+    1.416015625,
+    0.8388671875
+  ],
+  "load_after_rust": [
+    1.599609375,
+    1.4169921875,
+    0.85986328125
+  ],
+  "recorded_utc": "2026-11-13",
+  "source_tree": "acf25de812ea52aa54715b1a82ee78609b7ef1e9",
+  "caveats": [
+    "warm loopback on a shared N100 with a household Jellyfin service running; arms ran sequentially, Jellyfin first",
+    "generated mostly-black 1080p fixture (952,209-byte file): encoder work per frame is far below real media",
+    "server CPU covers the whole session until stop plus 2 s, including segments encoded ahead, with reaped FFmpeg children",
+    "segment duration not independently verified; Jellyfin was requested SegmentLength=4",
+    "not LAN, not decoded first frame in a browser, not OS-cold, no concurrency"
+  ]
+}
