@@ -1,0 +1,17 @@
+PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
+PRAGMA busy_timeout=5000;
+CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY,name TEXT UNIQUE NOT NULL,password BLOB NOT NULL,admin INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS libraries(id INTEGER PRIMARY KEY,name TEXT NOT NULL,path TEXT UNIQUE NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('movie','tv')),offline INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS access(user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,library_id INTEGER REFERENCES libraries(id) ON DELETE CASCADE,PRIMARY KEY(user_id,library_id));
+CREATE TABLE IF NOT EXISTS items(id INTEGER PRIMARY KEY,library_id INTEGER NOT NULL REFERENCES libraries(id),path TEXT UNIQUE NOT NULL,title TEXT NOT NULL,series TEXT NOT NULL DEFAULT '',season INTEGER NOT NULL DEFAULT 0,episode INTEGER NOT NULL DEFAULT 0,mtime INTEGER NOT NULL,size INTEGER NOT NULL,overview TEXT NOT NULL DEFAULT '');
+CREATE INDEX IF NOT EXISTS items_library_title ON items(library_id,title,id);
+CREATE INDEX IF NOT EXISTS items_title ON items(title,id);
+CREATE INDEX IF NOT EXISTS items_series ON items(series,season,episode,library_id);
+CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5(title,series,content='items',content_rowid='id',tokenize='unicode61');
+CREATE TRIGGER IF NOT EXISTS items_ai AFTER INSERT ON items BEGIN INSERT INTO search(rowid,title,series) VALUES(new.id,new.title,new.series); END;
+CREATE TRIGGER IF NOT EXISTS items_ad AFTER DELETE ON items BEGIN INSERT INTO search(search,rowid,title,series) VALUES('delete',old.id,old.title,old.series); END;
+CREATE TRIGGER IF NOT EXISTS items_au AFTER UPDATE ON items BEGIN INSERT INTO search(search,rowid,title,series) VALUES('delete',old.id,old.title,old.series); INSERT INTO search(rowid,title,series) VALUES(new.id,new.title,new.series); END;
+CREATE TABLE IF NOT EXISTS progress(user_id INTEGER REFERENCES users(id),item_id INTEGER REFERENCES items(id) ON DELETE CASCADE,position REAL NOT NULL DEFAULT 0,watched INTEGER NOT NULL DEFAULT 0,updated INTEGER NOT NULL,PRIMARY KEY(user_id,item_id));
+PRAGMA user_version=1;
