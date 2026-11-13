@@ -1,0 +1,267 @@
+{
+  "recorded_utc": "2026-11-12T20:08:08.537429+00:00",
+  "host": "macOS-26.5-arm64-arm-64bit",
+  "note": "Desktop engine automation; not real mobile/TV certification or GPU acceptance.",
+  "results": [
+    {
+      "project": "chromium",
+      "browser_versions": [
+        "158.0.8127.18"
+      ],
+      "test": "household workflow and viewer authorization",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 5470
+        }
+      ]
+    },
+    {
+      "project": "firefox",
+      "browser_versions": [
+        "159.0"
+      ],
+      "test": "household workflow and viewer authorization",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 5402
+        }
+      ]
+    },
+    {
+      "project": "webkit",
+      "browser_versions": [
+        "27.2"
+      ],
+      "test": "household workflow and viewer authorization",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 5018
+        }
+      ]
+    },
+    {
+      "project": "chromium",
+      "browser_versions": [
+        "158.0.8127.18"
+      ],
+      "test": "persistent queue ordering and automatic next episode",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 2395
+        }
+      ]
+    },
+    {
+      "project": "firefox",
+      "browser_versions": [
+        "159.0"
+      ],
+      "test": "persistent queue ordering and automatic next episode",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 3109
+        }
+      ]
+    },
+    {
+      "project": "webkit",
+      "browser_versions": [
+        "27.2"
+      ],
+      "test": "persistent queue ordering and automatic next episode",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 3003
+        }
+      ]
+    },
+    {
+      "project": "chromium",
+      "browser_versions": [
+        "158.0.8127.18"
+      ],
+      "test": "queue preserves offline entries and saved positions",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 1028
+        }
+      ]
+    },
+    {
+      "project": "firefox",
+      "browser_versions": [
+        "159.0"
+      ],
+      "test": "queue preserves offline entries and saved positions",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 1086
+        }
+      ]
+    },
+    {
+      "project": "webkit",
+      "browser_versions": [
+        "27.2"
+      ],
+      "test": "queue preserves offline entries and saved positions",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 1107
+        }
+      ]
+    },
+    {
+      "project": "chromium",
+      "browser_versions": [
+        "158.0.8127.18"
+      ],
+      "test": "HLS timeline follows the server-reported stream start",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 1540
+        }
+      ]
+    },
+    {
+      "project": "firefox",
+      "browser_versions": [
+        "159.0"
+      ],
+      "test": "HLS timeline follows the server-reported stream start",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 1620
+        }
+      ]
+    },
+    {
+      "project": "webkit",
+      "browser_versions": [
+        "27.2"
+      ],
+      "test": "HLS timeline follows the server-reported stream start",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 1950
+        }
+      ]
+    },
+    {
+      "project": "chromium",
+      "browser_versions": [
+        "158.0.8127.18"
+      ],
+      "test": "player lifecycle ignores delayed opening and closing",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 2631
+        }
+      ]
+    },
+    {
+      "project": "firefox",
+      "browser_versions": [
+        "159.0"
+      ],
+      "test": "player lifecycle ignores delayed opening and closing",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 2871
+        }
+      ]
+    },
+    {
+      "project": "webkit",
+      "browser_versions": [
+        "27.2"
+      ],
+      "test": "player lifecycle ignores delayed opening and closing",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 3202
+        }
+      ]
+    },
+    {
+      "project": "chromium",
+      "browser_versions": [
+        "158.0.8127.18"
+      ],
+      "test": "music library tags and decoded audio queue playback",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 3804
+        }
+      ]
+    },
+    {
+      "project": "firefox",
+      "browser_versions": [
+        "159.0"
+      ],
+      "test": "music library tags and decoded audio queue playback",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 2922
+        }
+      ]
+    },
+    {
+      "project": "webkit",
+      "browser_versions": [
+        "27.2"
+      ],
+      "test": "music library tags and decoded audio queue playback",
+      "status": "expected",
+      "runs": [
+        {
+          "status": "passed",
+          "duration_ms": 3729
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "startTime": "2026-11-12T20:07:00.045Z",
+    "duration": 55708.1,
+    "expected": 18,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "recorded_utc": "2026-11-12T09:22:41.544800+00:00",
+  "scope": "Disposable real Nginx TLS and Rust backup/restore/data rollback; no production cutover or GPU claim",
+  "host": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+  "nginx_platform": "linux/x86_64",
+  "nginx_mode": "native loopback",
+  "nginx_locations_sha256": "68ff4b3e3d83a9a8ea5e1b8cee1250258d7ca88ec99915db7d0c1279eaa7b6f2",
+  "harness_sha256": "38e9361af718f039f685037b35653df16a90e8a0b21f24cc9daa5979319d09e7",
+  "binary_sha256": "3339a40c49c6adc476ec7d2b05e82403815dc7f63db7abdd429b26fa8a629d5f",
+  "retained_binary_sha256": "8b6dedfe41334c5263ea671aebf03f59aab8d0d3efba43e4c2245862426e66cd",
+  "runtime": {
+    "architecture": "x86_64",
+    "os": "linux",
+    "server_version": "0.1.0",
+    "sqlite_version": "3.54.1"
+  },
+  "nginx_binary_sha256": "5bfff15e0a9e0bce5c71be8179d77880f9b17c3f575194ff93c912a415756eed",
+  "nginx_version": "nginx version: nginx/1.24.0 (Ubuntu)",
+  "checks": [
+    "trusted TLS and Secure/HttpOnly/SameSite cookie",
+    "proxy CSRF enforcement",
+    "range bytes/content-range/no-store",
+    "64KiB request limit",
+    "persistent queue",
+    "live WAL backup and fresh restore",
+    "restored sessions revoked",
+    "restored credentials, queue and media preserved",
+    "trial queue change discarded by snapshot rollback to retained binary",
+    "Nginx login rate limit",
+    "fixture unchanged",
+    "three Rust SIGTERM exits zero",
+    "native Nginx graceful exit zero"
+  ],
+  "complete": true,
+  "retained_runtime": {
+    "architecture": "x86_64",
+    "os": "linux",
+    "server_version": "0.1.0",
+    "sqlite_version": "3.54.1"
+  },
+  "rust_binary_sequence": [
+    "8b6dedfe41334c5263ea671aebf03f59aab8d0d3efba43e4c2245862426e66cd",
+    "3339a40c49c6adc476ec7d2b05e82403815dc7f63db7abdd429b26fa8a629d5f",
+    "8b6dedfe41334c5263ea671aebf03f59aab8d0d3efba43e4c2245862426e66cd"
+  ],
+  "rust_source_sha256": {
+    "retained": "e31a4eb4333979fe90da156d8c6fd79f3ffb4f3066a3399aa9c30a805bdd901c",
+    "candidate": "385e66699b945703ffa23a6aa53e6ad192f547b23f2b1f49b8193d6a010211f6"
+  }
+}

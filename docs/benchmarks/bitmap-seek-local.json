@@ -1,0 +1,114 @@
+{
+  "script_sha256": "d5d7826bfb82742006e8309d6a41248c1e4e0ae2fde0955577f65a76ec229fee",
+  "scope": "Warm-file FFmpeg-only 64s black PGS fixture, seek60s/encode2s. Synthetic diagnosis, not LAN/SMB/production acceptance or a language comparison. Child peak RSS includes fixture generation and quality runs; it is not per-strategy RAM.",
+  "host": "macOS-26.5-arm64-arm-64bit",
+  "hardware": {
+    "logical_cpus": 10,
+    "cpu_model": "Apple M4",
+    "model": "Mac16,10",
+    "ram_bytes": 17179869184
+  },
+  "ffmpeg_sha256": "a90e3db6a3fd35f6074b013f948b1aa45b31c6375489d39e572bea3f18336584",
+  "ffmpeg_version": [
+    "ffmpeg version 6.0 Copyright (c) 2000-2023 the FFmpeg developers",
+    "built with Apple clang version 13.1.6 (clang-1316.0.21.2.5)",
+    "configuration: --prefix=/Volumes/tempdisk/sw --extra-cflags=-fno-stack-check --arch=arm64 --cc=/usr/bin/clang --enable-gpl --enable-libvmaf --enable-libbluray --enable-libopenjpeg --enable-libopus --enable-libmp3lame --enable-libx264 --enable-libx265 --enable-libvpx --enable-libwebp --enable-libass --enable-libfreetype --enable-fontconfig --enable-libtheora --enable-libvorbis --enable-libsnappy --enable-libaom --enable-libvidstab --enable-libzimg --enable-libsvtav1 --enable-libkvazaar --enable-version3 --pkg-config-flags=--static --enable-ffplay --enable-postproc --enable-nonfree --enable-neon --enable-runtime-cpudetect --disable-indev=qtkit --disable-indev=x11grab_xcb"
+  ],
+  "source_sha256": "a01e53b6b6ed4f933e49c81051a06bae756d9fbee871856b85003777a29cee02",
+  "source_bytes": 772024,
+  "child_peak_rss_mib_including_setup": 171.625,
+  "quality": [
+    {
+      "strategy": "decode_video_preroll",
+      "relative_seconds": 0.25,
+      "visible": true,
+      "pixel": 255
+    },
+    {
+      "strategy": "decode_video_preroll",
+      "relative_seconds": 3.5,
+      "visible": false,
+      "pixel": 0
+    },
+    {
+      "strategy": "subtitle_only_preroll",
+      "relative_seconds": 0.25,
+      "visible": true,
+      "pixel": 255
+    },
+    {
+      "strategy": "subtitle_only_preroll",
+      "relative_seconds": 3.5,
+      "visible": false,
+      "pixel": 0
+    }
+  ],
+  "trials": [
+    {
+      "strategy": "subtitle_only_preroll",
+      "wall_seconds": 0.06592670899999997,
+      "ffmpeg_cpu_seconds": 0.11721799999999952,
+      "errors": 0
+    },
+    {
+      "strategy": "subtitle_only_preroll",
+      "wall_seconds": 0.06650866600000005,
+      "ffmpeg_cpu_seconds": 0.11743600000000015,
+      "errors": 0
+    },
+    {
+      "strategy": "decode_video_preroll",
+      "wall_seconds": 0.44726912500000005,
+      "ffmpeg_cpu_seconds": 0.968482999999999,
+      "errors": 0
+    },
+    {
+      "strategy": "decode_video_preroll",
+      "wall_seconds": 0.44727541599999987,
+      "ffmpeg_cpu_seconds": 0.9675259999999999,
+      "errors": 0
+    },
+    {
+      "strategy": "decode_video_preroll",
+      "wall_seconds": 0.4446165419999999,
+      "ffmpeg_cpu_seconds": 0.963724,
+      "errors": 0
+    },
+    {
+      "strategy": "subtitle_only_preroll",
+      "wall_seconds": 0.06699116699999985,
+      "ffmpeg_cpu_seconds": 0.11816399999999938,
+      "errors": 0
+    }
+  ],
+  "summary": {
+    "decode_video_preroll": {
+      "wall_seconds": {
+        "median": 0.44726912500000005,
+        "min": 0.4446165419999999,
+        "max": 0.44727541599999987,
+        "stdev": 0.001533288790826584
+      },
+      "ffmpeg_cpu_seconds": {
+        "median": 0.9675259999999999,
+        "min": 0.963724,
+        "max": 0.968482999999999,
+        "stdev": 0.0025172449887389224
+      }
+    },
+    "subtitle_only_preroll": {
+      "wall_seconds": {
+        "median": 0.06650866600000005,
+        "min": 0.06592670899999997,
+        "max": 0.06699116699999985,
+        "stdev": 0.0005330028140347294
+      },
+      "ffmpeg_cpu_seconds": {
+        "median": 0.11743600000000015,
+        "min": 0.11721799999999952,
+        "max": 0.11816399999999938,
+        "stdev": 0.0004953826803591503
+      }
+    }
+  }
+}

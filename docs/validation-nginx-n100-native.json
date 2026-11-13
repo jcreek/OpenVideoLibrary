@@ -1,0 +1,43 @@
+{
+  "recorded_utc": "2026-11-11T09:33:19.898233+00:00",
+  "scope": "Disposable real Nginx TLS and Rust backup/restore/data rollback; no production cutover or GPU claim",
+  "host": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+  "nginx_platform": "linux/x86_64",
+  "nginx_mode": "native loopback",
+  "nginx_locations_sha256": "68ff4b3e3d83a9a8ea5e1b8cee1250258d7ca88ec99915db7d0c1279eaa7b6f2",
+  "harness_sha256": "05a3a3433ab491276ee72bdb2c04b886202ab6b72f8906635b250d20da1d5297",
+  "binary_sha256": "0a65a02c6727138f4d12b827507a64bbc8901978b72154f4231d1aae5588ea35",
+  "runtime": {
+    "architecture": "x86_64",
+    "os": "linux",
+    "server_version": "0.1.0",
+    "sqlite_version": "3.54.1"
+  },
+  "nginx_binary_sha256": "5bfff15e0a9e0bce5c71be8179d77880f9b17c3f575194ff93c912a415756eed",
+  "nginx_version": "nginx version: nginx/1.24.0 (Ubuntu)",
+  "checks": [
+    "trusted TLS and Secure/HttpOnly/SameSite cookie",
+    "proxy CSRF enforcement",
+    "range bytes/content-range/no-store",
+    "64KiB request limit",
+    "persistent queue",
+    "live WAL backup and fresh restore",
+    "restored sessions revoked",
+    "restored credentials, queue and media preserved",
+    "trial queue change discarded by snapshot rollback (same binary)",
+    "Nginx login rate limit",
+    "fixture unchanged",
+    "three Rust SIGTERM exits zero",
+    "native Nginx graceful exit zero"
+  ],
+  "complete": true,
+  "source_sha256": "4c1c711e14a9d496a359465ad554196da88ccca632b0c3423e48ea90c469c098",
+  "nginx_package": {
+    "name": "nginx",
+    "version": "1.24.0-2ubuntu7.19",
+    "architecture": "amd64",
+    "sha256": "b9c3476a504c963d8c3cab6540127fa4100ccf6ddf8ee978780bb32f128968d5",
+    "matches_apt_index": true,
+    "installation": "downloaded and extracted in disposable test workspace; no system install"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "recorded_utc": "2026-11-09T16:10:45.602335+00:00",
+  "scope": "Linux image API/range/read-only/shutdown smoke; no GPU, browser or stream capacity claim",
+  "image": "openvideolibrary:acceptance",
+  "image_id": "sha256:089797ef924c847ace572002250181f0acfdffd4d4e8d6636c7fc2c65a8b6453",
+  "runtime": {
+    "architecture": "aarch64",
+    "os": "linux",
+    "server_version": "0.1.0",
+    "sqlite_version": "3.54.1"
+  },
+  "checks": [
+    "authenticated setup/login",
+    "unauthorized media denied",
+    "read-only mount scan",
+    "range bytes verified",
+    "viewer grants enforced",
+    "queue revision conflicts",
+    "media write denied and fixture unchanged",
+    "SIGTERM exit zero without OOM"
+  ],
+  "complete": true,
+  "provenance": {
+    "source_commit": "97bc011464205fff9e0e500c4d0b6f6ab66dde6e",
+    "run_url": "https://github.com/jcreek/OpenVideoLibrary/actions/runs/42651686557",
+    "artifact": "image-acceptance-1",
+    "runner": "ubuntu-24.04-arm"
+  }
+}
