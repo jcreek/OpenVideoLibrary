@@ -58,6 +58,15 @@ source `97bc011` (see `validation-linux-amd64.json` and
 `validation-linux-arm64.json`). Production-host deployment acceptance remains
 pending; these smoke checks do not certify full deployment or GPU behavior.
 
+Library media reach FFmpeg, ffprobe and the file server only through anchored,
+symlink-free handles. Library inputs are also confined to local files and
+single-file demuxers. **Open security residual:** libass's `subtitles` filter,
+used for text-subtitle burn-in, opens its handle without FFmpeg's input
+whitelists. Exploiting it needs write access to the library and a content swap
+between the confined probe and the start of the filter. A possible fix, not yet
+measured, is to extract the subtitle once into the session directory with a
+confined FFmpeg and burn in from that trusted file.
+
 ## Remaining acceptance and parity
 
 - Real N100/SMB cold-cache, mixed/sustained load, LAN first-frame/seek/stall and

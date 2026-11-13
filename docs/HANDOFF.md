@@ -229,6 +229,43 @@ fixed or confirmed by a regression test yet:
   - Fix this in the test by lengthening the idle period or touching the
     session between probes.
 
+**CodeRabbit review of PR 1 (13 November 2026).** All 15 comments were
+verified against the code, and all were valid. They are fixed in one commit on
+`split/1-server`, and the rest of the stack was rebased onto it.
+- **Media confinement:**
+  - Library media are read only through anchored handles, passed as
+    `/dev/fd/N`.
+  - Library media are confined to local files and the single-file demuxers in
+    `media::MEDIA_DEMUXERS`.
+  - Encode inputs fail closed.
+- **Authentication:**
+  - Setup is rejected once configured, before hashing.
+  - Login sessions are created only if the verified hash is still stored.
+- **Libraries and lists:**
+  - Nested library roots are rejected.
+  - List names are limited by characters.
+- **Media handling:**
+  - ID3 USLT lyrics are read.
+  - Music search matches case across Unicode.
+  - DELETE interrupts cold hardware detection, with a CPU fallback.
+- **Requests:** request bodies have a 15 s total deadline.
+- **Tests and contract:**
+  - The HDR rejection test reports blocked prerequisites.
+  - The OpenAPI contract documents `X-OVL-Request` and byte-length passwords.
+
+Evidence:
+- Six new regression tests fail on the old code. With the binding and
+  body-deadline tests, the local totals are 38 API tests and 14 of 14
+  ignored media tests.
+- Two N100 runs passed all 8 checks.
+- An independent review and its follow-up found nothing blocking.
+
+Still open:
+- The subtitles-filter residual (see STATUS.md).
+- There is no deterministic test for the login/reset race or for
+  cancelling cold detection.
+- Existing overlapping library roots in older databases are not flagged.
+
 ## Outstanding from the plan
 
 1. **Preview and video acceptance.** The user has no HDR content, so real HDR10, HLG and Dolby Vision acceptance is unavailable; HDR evidence stays synthetic. The queue-capture regression and the
