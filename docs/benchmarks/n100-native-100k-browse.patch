@@ -1,0 +1,57 @@
+--- n100-native-10k-browse.py
++++ n100-native-100k-browse.py
+@@ -13,0 +14 @@
++import sys
+@@ -20 +21,3 @@
+-root = home / 'ovl-pair-10k-g1whyyha'
++root = pathlib.Path(sys.argv[1]).resolve(strict=True)
++if root.parent != home or not root.name.startswith('ovl-pair-100k-'):
++    raise ValueError('expected isolated 100k fixture directory under home')
+@@ -23 +26 @@
+-report_path = root / 'paired-ready-retry.json'
++report_path = root / 'paired-100k-browse.json'
+@@ -26 +29 @@
+-          'page_size': 50, 'items': 10000, 'arms': {}}
++          'page_size': 50, 'items': 100000, 'arms': {}}
+@@ -70 +73 @@
+-        assert read_db(db_path, "select count(distinct PresentationUniqueKey),count(*) from BaseItems where Type like '%.Movie' and Name like 'Fixture %'") == (10000, 10000)
++        assert read_db(db_path, "select count(distinct PresentationUniqueKey),count(*) from BaseItems where Type like '%.Movie' and Name like 'Fixture %'") == (100000, 100000)
+@@ -86 +89 @@
+-    log_path = stage/'paired-measure-retry.log'
++    log_path = stage/'paired-100k-browse.log'
+@@ -122 +125,2 @@
+-                    for _ in range(90):
++                    deadline = time.monotonic() + 1800
++                    while time.monotonic() < deadline:
+@@ -126 +130 @@
+-                        time.sleep(1)
++                        time.sleep(2)
+@@ -145,2 +149,2 @@
+-                expected = [f'Fixture {i:05d}' for i in range(1, 10001)]
+-                for offset in range(0, 10001, 50):
++                expected = [f'Fixture {i:06d}' for i in range(1, 100001)]
++                for offset in (*range(0, 100000, 1000), 99950, 100000):
+@@ -149 +153 @@
+-                result['browse_validation'] = 'all 10000 ordered titles and empty tail'
++                result['browse_validation'] = '102 sampled ordered pages including the final page and empty tail'
+@@ -151 +155 @@
+-                for offset in (0, 950, 999):
++                for offset in (0, 9950, 9999):
+@@ -156 +160 @@
+-                                                       matches=names==expected[:999][offset:offset+50]))
++                                                       matches=names==expected[:9999][offset:offset+50]))
+@@ -162 +166,2 @@
+-                            offset = ((trial*30+request)*10+index) % 200*50
++                            page = (trial*300 + request*10 + index) * 137 % 2000
++                            offset = page*50
+@@ -204,0 +210,6 @@
++prepared = json.loads((root/'ready.json').read_text())
++assert prepared['items'] == 100000 and set(prepared['arms']) == {'rust', 'jellyfin'}
++for arm in prepared['arms'].values():
++    assert arm['exit_code'] == 0 and [page['count'] for page in arm['browse']] == [50, 50, 0]
++assert prepared['binary_sha256'] == {'rust': file_hash(rust), 'jellyfin': file_hash(jelly/'jellyfin')}
++assert prepared['fixture_sha256'] == file_hash(root/'fixture.mp4')
+@@ -210,0 +222,3 @@
++assert all(arm['exit_code'] == 0 and len(arm['trials']) == 5
++           and all(t['requests'] == 300 and not t['errors'] for t in arm['trials'])
++           for arm in report['arms'].values()), 'incomplete or unclean browse run'
