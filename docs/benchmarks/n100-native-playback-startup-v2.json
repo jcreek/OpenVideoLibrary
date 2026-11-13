@@ -1,0 +1,1114 @@
+{
+  "scope": "Paired native playback-startup diagnostic v2: Jellyfin 12.4 and OVL on the N100.",
+  "load_before": [
+    1.763671875,
+    1.01123046875,
+    0.7998046875
+  ],
+  "fixture_sha256": "a19e0567d16c47ba35058d5daedc7c7e4239453ad0a7e111257f5aad23caa1bc",
+  "fixture_bytes": 952209,
+  "rounds": 8,
+  "ffmpeg_version": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+  "arms": {
+    "jellyfin": {
+      "binary_sha256": "ce32ad6108f262fd0d49922b321d2a085157b14eafbe1ebb77f244592b86bf86",
+      "scenarios": {
+        "direct": [
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 20.2,
+            "session_cpu_s": 0.03,
+            "rss_kib": 347028,
+            "round": 1
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 16.2,
+            "session_cpu_s": 0.02,
+            "rss_kib": 348064,
+            "round": 2
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 15.6,
+            "session_cpu_s": 0.02,
+            "rss_kib": 351352,
+            "round": 3
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 16.1,
+            "session_cpu_s": 0.02,
+            "rss_kib": 357280,
+            "round": 4
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 12.9,
+            "session_cpu_s": 0.01,
+            "rss_kib": 357872,
+            "round": 5
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 13.6,
+            "session_cpu_s": 0.02,
+            "rss_kib": 358476,
+            "round": 6
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 14.7,
+            "session_cpu_s": 0.02,
+            "rss_kib": 356908,
+            "round": 7
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 14.9,
+            "session_cpu_s": 0.03,
+            "rss_kib": 357324,
+            "round": 8
+          }
+        ],
+        "transcode-0": [
+          {
+            "ms": 1564.5,
+            "cpu_at_first_segment_s": 4.32,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.7
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 40984,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.92,
+            "rss_kib": 347596,
+            "round": 1
+          },
+          {
+            "ms": 1558.6,
+            "cpu_at_first_segment_s": 4.13,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.7
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 40984,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.8,
+            "rss_kib": 348544,
+            "round": 2
+          },
+          {
+            "ms": 1561.6,
+            "cpu_at_first_segment_s": 4.15,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.7
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 40984,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.73,
+            "rss_kib": 351580,
+            "round": 3
+          },
+          {
+            "ms": 1560.3,
+            "cpu_at_first_segment_s": 4.16,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.7
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 40984,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.78,
+            "rss_kib": 357708,
+            "round": 4
+          },
+          {
+            "ms": 1669.4,
+            "cpu_at_first_segment_s": 4.85,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.7
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 40984,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 6.48,
+            "rss_kib": 358416,
+            "round": 5
+          },
+          {
+            "ms": 1561.0,
+            "cpu_at_first_segment_s": 4.15,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.7
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 40984,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.81,
+            "rss_kib": 356836,
+            "round": 6
+          },
+          {
+            "ms": 1564.6,
+            "cpu_at_first_segment_s": 4.24,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.7
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 40984,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.82,
+            "rss_kib": 357176,
+            "round": 7
+          },
+          {
+            "ms": 1557.4,
+            "cpu_at_first_segment_s": 4.14,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.7
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 40984,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.67,
+            "rss_kib": 357480,
+            "round": 8
+          }
+        ],
+        "transcode-60": [
+          {
+            "ms": 1565.8,
+            "cpu_at_first_segment_s": 4.17,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.4
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 41360,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.79,
+            "rss_kib": 347904,
+            "round": 1
+          },
+          {
+            "ms": 1567.3,
+            "cpu_at_first_segment_s": 4.18,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.4
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 41360,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.74,
+            "rss_kib": 351316,
+            "round": 2
+          },
+          {
+            "ms": 1561.5,
+            "cpu_at_first_segment_s": 4.19,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.4
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 41360,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.96,
+            "rss_kib": 356888,
+            "round": 3
+          },
+          {
+            "ms": 1564.4,
+            "cpu_at_first_segment_s": 4.17,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.4
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 41360,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.73,
+            "rss_kib": 357848,
+            "round": 4
+          },
+          {
+            "ms": 1569.1,
+            "cpu_at_first_segment_s": 4.15,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.4
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 41360,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.72,
+            "rss_kib": 358440,
+            "round": 5
+          },
+          {
+            "ms": 1556.8,
+            "cpu_at_first_segment_s": 4.07,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.4
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 41360,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.7,
+            "rss_kib": 356896,
+            "round": 6
+          },
+          {
+            "ms": 1557.4,
+            "cpu_at_first_segment_s": 4.13,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.4
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 41360,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.75,
+            "rss_kib": 357296,
+            "round": 7
+          },
+          {
+            "ms": 1555.8,
+            "cpu_at_first_segment_s": 4.09,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 34.4
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 41360,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 5.7,
+            "rss_kib": 357500,
+            "round": 8
+          }
+        ]
+      },
+      "ffmpeg_command": {
+        "transcode-0": [
+          "/usr/bin/ffmpeg",
+          "-analyzeduration",
+          "200M",
+          "-probesize",
+          "1G",
+          "-i",
+          "file:$ROOT/media/Startup Fixture (2026).mp4",
+          "-map_metadata",
+          "-1",
+          "-map_chapters",
+          "-1",
+          "-threads",
+          "2",
+          "-map",
+          "0:0",
+          "-map",
+          "0:1",
+          "-map",
+          "-0:s",
+          "-codec:v:0",
+          "libx264",
+          "-preset",
+          "veryfast",
+          "-crf",
+          "23",
+          "-maxrate",
+          "322520",
+          "-bufsize",
+          "645040",
+          "-x264opts:0",
+          "subme=0:me_range=16:rc_lookahead=10:me=hex:open_gop=0",
+          "-force_key_frames:0",
+          "expr:gte(t,n_forced*4)",
+          "-sc_threshold:v:0",
+          "0",
+          "-vf",
+          "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale=trunc(min(max(iw\\,ih*a)\\,min(1920\\,1080*a))/2)*2:trunc(min(max(iw/a\\,ih)\\,min(1920/a\\,1080))/2)*2,format=yuv420p",
+          "-codec:a:0",
+          "aac",
+          "-ac",
+          "2",
+          "-ab",
+          "128000",
+          "-copyts",
+          "-avoid_negative_ts",
+          "disabled",
+          "-max_muxing_queue_size",
+          "2048",
+          "-f",
+          "hls",
+          "-max_delay",
+          "5000000",
+          "-hls_time",
+          "4",
+          "-hls_segment_type",
+          "mpegts",
+          "-start_number",
+          "0",
+          "-hls_segment_filename",
+          "$ROOT/jellyfin/cache/transcodes/a386560126be2e65a3c39e6e87433b29%d.ts",
+          "-hls_playlist_type",
+          "vod",
+          "-hls_list_size",
+          "0",
+          "-y",
+          "$ROOT/jellyfin/cache/transcodes/a386560126be2e65a3c39e6e87433b29.m3u8"
+        ],
+        "transcode-60": [
+          "/usr/bin/ffmpeg",
+          "-analyzeduration",
+          "200M",
+          "-probesize",
+          "1G",
+          "-ss",
+          "00:01:00.000",
+          "-i",
+          "file:$ROOT/media/Startup Fixture (2026).mp4",
+          "-map_metadata",
+          "-1",
+          "-map_chapters",
+          "-1",
+          "-threads",
+          "2",
+          "-map",
+          "0:0",
+          "-map",
+          "0:1",
+          "-map",
+          "-0:s",
+          "-codec:v:0",
+          "libx264",
+          "-preset",
+          "veryfast",
+          "-crf",
+          "23",
+          "-maxrate",
+          "322520",
+          "-bufsize",
+          "645040",
+          "-x264opts:0",
+          "subme=0:me_range=16:rc_lookahead=10:me=hex:open_gop=0",
+          "-force_key_frames:0",
+          "expr:gte(t,n_forced*4)",
+          "-sc_threshold:v:0",
+          "0",
+          "-vf",
+          "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale=trunc(min(max(iw\\,ih*a)\\,min(1920\\,1080*a))/2)*2:trunc(min(max(iw/a\\,ih)\\,min(1920/a\\,1080))/2)*2,format=yuv420p",
+          "-codec:a:0",
+          "aac",
+          "-ac",
+          "2",
+          "-ab",
+          "128000",
+          "-copyts",
+          "-avoid_negative_ts",
+          "disabled",
+          "-max_muxing_queue_size",
+          "2048",
+          "-f",
+          "hls",
+          "-max_delay",
+          "5000000",
+          "-hls_time",
+          "4",
+          "-hls_segment_type",
+          "mpegts",
+          "-start_number",
+          "15",
+          "-hls_segment_filename",
+          "$ROOT/jellyfin/cache/transcodes/8891767591623c81fcf0694827e31da2%d.ts",
+          "-hls_playlist_type",
+          "vod",
+          "-hls_list_size",
+          "0",
+          "-y",
+          "$ROOT/jellyfin/cache/transcodes/8891767591623c81fcf0694827e31da2.m3u8"
+        ]
+      },
+      "jellyfin_encoding": {
+        "EncoderPreset": "veryfast",
+        "EncodingThreadCount": 2,
+        "EnableThrottling": false,
+        "HardwareAccelerationType": "none",
+        "H264Crf": 23
+      },
+      "summary": {
+        "direct": {
+          "median_ms": 15.6,
+          "min_ms": 12.9,
+          "max_ms": 20.2
+        },
+        "transcode-0": {
+          "median_ms": 1561.6,
+          "min_ms": 1557.4,
+          "max_ms": 1669.4,
+          "median_cpu_at_first_segment_s": 4.16
+        },
+        "transcode-60": {
+          "median_ms": 1564.4,
+          "min_ms": 1555.8,
+          "max_ms": 1569.1,
+          "median_cpu_at_first_segment_s": 4.17
+        }
+      },
+      "exit_code": 0
+    },
+    "rust": {
+      "binary_sha256": "4e603a0f10f27c48fee753d9992cf7474f5dbbbdfae7febd0964e1d8c03440c5",
+      "scenarios": {
+        "direct": [
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 1.8,
+            "session_cpu_s": 0.0,
+            "rss_kib": 11408,
+            "round": 1
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 2.4,
+            "session_cpu_s": 0.0,
+            "rss_kib": 11576,
+            "round": 2
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 2.4,
+            "session_cpu_s": 0.0,
+            "rss_kib": 11728,
+            "round": 3
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 2.2,
+            "session_cpu_s": 0.0,
+            "rss_kib": 11860,
+            "round": 4
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 2.2,
+            "session_cpu_s": 0.01,
+            "rss_kib": 12012,
+            "round": 5
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 2.3,
+            "session_cpu_s": 0.01,
+            "rss_kib": 12192,
+            "round": 6
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 1.6,
+            "session_cpu_s": 0.0,
+            "rss_kib": 12192,
+            "round": 7
+          },
+          {
+            "range_requests": 1,
+            "range_bytes": 952209,
+            "ms": 2.4,
+            "session_cpu_s": 0.0,
+            "rss_kib": 12264,
+            "round": 8
+          }
+        ],
+        "transcode-0": [
+          {
+            "ms": 1128.9,
+            "cpu_at_first_segment_s": 2.9,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.9
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 43240,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.22,
+            "rss_kib": 11460,
+            "round": 1
+          },
+          {
+            "ms": 1132.0,
+            "cpu_at_first_segment_s": 2.89,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.9
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 43240,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.2,
+            "rss_kib": 11588,
+            "round": 2
+          },
+          {
+            "ms": 1133.8,
+            "cpu_at_first_segment_s": 2.88,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.9
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 43240,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.19,
+            "rss_kib": 11860,
+            "round": 3
+          },
+          {
+            "ms": 1201.6,
+            "cpu_at_first_segment_s": 3.01,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.9
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 43240,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.41,
+            "rss_kib": 11932,
+            "round": 4
+          },
+          {
+            "ms": 1142.1,
+            "cpu_at_first_segment_s": 2.92,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.9
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 43240,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.21,
+            "rss_kib": 12092,
+            "round": 5
+          },
+          {
+            "ms": 1137.6,
+            "cpu_at_first_segment_s": 2.94,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.9
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 43240,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.26,
+            "rss_kib": 12192,
+            "round": 6
+          },
+          {
+            "ms": 1137.2,
+            "cpu_at_first_segment_s": 2.92,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.9
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 43240,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.28,
+            "rss_kib": 12192,
+            "round": 7
+          },
+          {
+            "ms": 1142.2,
+            "cpu_at_first_segment_s": 2.97,
+            "first_frame": 0,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.9
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.0
+              }
+            },
+            "segment_bytes": 43240,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.36,
+            "rss_kib": 12264,
+            "round": 8
+          }
+        ],
+        "transcode-60": [
+          {
+            "ms": 1196.7,
+            "cpu_at_first_segment_s": 2.99,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.2
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 42864,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.37,
+            "rss_kib": 11508,
+            "round": 1
+          },
+          {
+            "ms": 1188.7,
+            "cpu_at_first_segment_s": 3.01,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.2
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 42864,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.42,
+            "rss_kib": 11612,
+            "round": 2
+          },
+          {
+            "ms": 1297.7,
+            "cpu_at_first_segment_s": 3.29,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.2
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 42864,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.83,
+            "rss_kib": 11860,
+            "round": 3
+          },
+          {
+            "ms": 1181.6,
+            "cpu_at_first_segment_s": 3.04,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.2
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 42864,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.48,
+            "rss_kib": 11932,
+            "round": 4
+          },
+          {
+            "ms": 1199.6,
+            "cpu_at_first_segment_s": 3.1,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.2
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 42864,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.46,
+            "rss_kib": 12100,
+            "round": 5
+          },
+          {
+            "ms": 1193.8,
+            "cpu_at_first_segment_s": 3.03,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.2
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 42864,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.36,
+            "rss_kib": 12192,
+            "round": 6
+          },
+          {
+            "ms": 1185.6,
+            "cpu_at_first_segment_s": 3.0,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.2
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 42864,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.44,
+            "rss_kib": 12236,
+            "round": 7
+          },
+          {
+            "ms": 1210.0,
+            "cpu_at_first_segment_s": 3.05,
+            "first_frame": 1440,
+            "streams": {
+              "video": {
+                "seconds": 4.0,
+                "kbps": 36.2
+              },
+              "audio": {
+                "seconds": 3.947,
+                "kbps": 21.6
+              }
+            },
+            "segment_bytes": 42864,
+            "ffmpeg_reaped": true,
+            "session_cpu_s": 4.44,
+            "rss_kib": 12264,
+            "round": 8
+          }
+        ]
+      },
+      "ffmpeg_command": {
+        "transcode-0": [
+          "ffmpeg",
+          "-nostdin",
+          "-hide_banner",
+          "-loglevel",
+          "error",
+          "-y",
+          "-i",
+          "$ROOT/media/Startup Fixture (2026).mp4",
+          "-map",
+          "0:0",
+          "-map",
+          "0:a:0?",
+          "-vf",
+          "scale=1920:1080",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "veryfast",
+          "-pix_fmt",
+          "yuv420p",
+          "-threads",
+          "2",
+          "-filter_threads",
+          "2",
+          "-b:v",
+          "5000k",
+          "-maxrate",
+          "5000k",
+          "-bufsize",
+          "10000k",
+          "-force_key_frames",
+          "expr:gte(t,n_forced*4)",
+          "-c:a",
+          "aac",
+          "-ac",
+          "2",
+          "-b:a",
+          "128k",
+          "-f",
+          "hls",
+          "-hls_time",
+          "4",
+          "-hls_list_size",
+          "0",
+          "-hls_playlist_type",
+          "event",
+          "-hls_flags",
+          "temp_file",
+          "-hls_segment_filename",
+          "v0-%d.ts",
+          "v0.m3u8"
+        ],
+        "transcode-60": [
+          "ffmpeg",
+          "-nostdin",
+          "-hide_banner",
+          "-loglevel",
+          "error",
+          "-y",
+          "-ss",
+          "60.000",
+          "-i",
+          "$ROOT/media/Startup Fixture (2026).mp4",
+          "-map",
+          "0:0",
+          "-map",
+          "0:a:0?",
+          "-vf",
+          "scale=1920:1080",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "veryfast",
+          "-pix_fmt",
+          "yuv420p",
+          "-threads",
+          "2",
+          "-filter_threads",
+          "2",
+          "-b:v",
+          "5000k",
+          "-maxrate",
+          "5000k",
+          "-bufsize",
+          "10000k",
+          "-force_key_frames",
+          "expr:gte(t,n_forced*4)",
+          "-c:a",
+          "aac",
+          "-ac",
+          "2",
+          "-b:a",
+          "128k",
+          "-f",
+          "hls",
+          "-hls_time",
+          "4",
+          "-hls_list_size",
+          "0",
+          "-hls_playlist_type",
+          "event",
+          "-hls_flags",
+          "temp_file",
+          "-hls_segment_filename",
+          "v0-%d.ts",
+          "v0.m3u8"
+        ]
+      },
+      "summary": {
+        "direct": {
+          "median_ms": 2.3,
+          "min_ms": 1.6,
+          "max_ms": 2.4
+        },
+        "transcode-0": {
+          "median_ms": 1137.6,
+          "min_ms": 1128.9,
+          "max_ms": 1201.6,
+          "median_cpu_at_first_segment_s": 2.92
+        },
+        "transcode-60": {
+          "median_ms": 1196.7,
+          "min_ms": 1181.6,
+          "max_ms": 1297.7,
+          "median_cpu_at_first_segment_s": 3.04
+        }
+      },
+      "exit_code": 0
+    }
+  },
+  "load_after": [
+    2.67724609375,
+    1.4482421875,
+    0.97412109375
+  ],
+  "source_tree": "acf25de812ea52aa54715b1a82ee78609b7ef1e9",
+  "recorded_utc": "2026-11-13",
+  "caveats": [
+    "warm loopback on a shared N100 with a household Jellyfin service; interleaved arms after one warm-up",
+    "generated mostly-black fixture: real segment bitrates were about 35 kb/s video and 21 kb/s audio, so the 5 Mb/s target was not exercised",
+    "encodes were not equivalent: Jellyfin used CRF 23 capped at the source-derived 322,520 b/s maxrate with faster x264 options (subme=0, me=hex, rc_lookahead=10) and deep probing; Rust used 5000k ABR veryfast",
+    "not LAN, not browser decoded first frame, not OS-cold, no concurrency"
+  ]
+}

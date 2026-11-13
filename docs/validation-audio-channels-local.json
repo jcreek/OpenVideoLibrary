@@ -1,0 +1,25 @@
+{
+  "recorded_utc": "2026-11-10T21:06:04.667257+00:00",
+  "source_sha256": "0548e39f906ea4320af1fa65972b5c41cbb3c6c59a14eb0abc7930fb8ab43f4a",
+  "scope": "macOS local verification; software media distinct from N100 physical tests; no production performance or device certification",
+  "checks": [
+    {
+      "command": "make verify-local",
+      "exit_code": 0,
+      "ordinary_api_passed": 27,
+      "socket_shutdown_passed": 1,
+      "explicit_cpu_ignored_passed": 7,
+      "python_passed_in_initial_run": 5,
+      "browser_passed": 12,
+      "nginx_complete": true
+    },
+    {
+      "command": "python3 -m unittest discover -s scripts -p 'test_*.py'",
+      "exit_code": 0,
+      "python_passed_after_contract_fix": 7
+    }
+  ],
+  "contract_sha256": "f0004b190973af02f390761d163ee1b53344a3187166f8341f50375b927e5b3d",
+  "generator_sha256": "af76e5f761240bd80539ef5e4df848df287921846aa0b3b6d68eed661754aa33",
+  "complete": true
+}

@@ -1,0 +1,1783 @@
+{
+  "scope": "native authenticated exact-title top-hit search, warm loopback, synthetic local fixture; shared N100",
+  "repetitions": 5,
+  "concurrency": 10,
+  "requests_per_trial": 300,
+  "page_size": 1,
+  "items": 10000,
+  "arms": {
+    "jellyfin": {
+      "binary_sha256": "ce32ad6108f262fd0d49922b321d2a085157b14eafbe1ebb77f244592b86bf86",
+      "trials": [
+        {
+          "trial": 1,
+          "seconds": 6.88016456796322,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 43.60360817485663,
+          "response_bytes": 172500,
+          "core_cpu_seconds": 25.259999999999998,
+          "rss_before_kib": 285612,
+          "rss_after_kib": 326188,
+          "p50_ms": 224.0206190617755,
+          "p95_ms": 315.0995129253715,
+          "p99_ms": 348.7945240922272
+        },
+        {
+          "trial": 2,
+          "seconds": 6.847881015972234,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 43.80917239950134,
+          "response_bytes": 172500,
+          "core_cpu_seconds": 25.440000000000005,
+          "rss_before_kib": 326188,
+          "rss_after_kib": 329348,
+          "p50_ms": 220.160546945408,
+          "p95_ms": 325.4804470343515,
+          "p99_ms": 372.4601920694113
+        },
+        {
+          "trial": 3,
+          "seconds": 6.891155814984813,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 43.53406134681358,
+          "response_bytes": 172500,
+          "core_cpu_seconds": 25.72,
+          "rss_before_kib": 329348,
+          "rss_after_kib": 345600,
+          "p50_ms": 223.02499203942716,
+          "p95_ms": 321.36283500585705,
+          "p99_ms": 341.4038890041411
+        },
+        {
+          "trial": 4,
+          "seconds": 6.16870854399167,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 48.632545671524774,
+          "response_bytes": 172500,
+          "core_cpu_seconds": 22.799999999999997,
+          "rss_before_kib": 345600,
+          "rss_after_kib": 330660,
+          "p50_ms": 197.1110109006986,
+          "p95_ms": 293.86249696835876,
+          "p99_ms": 335.14419407583773
+        },
+        {
+          "trial": 5,
+          "seconds": 5.943736202083528,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 50.47330328940868,
+          "response_bytes": 172500,
+          "core_cpu_seconds": 21.809999999999988,
+          "rss_before_kib": 330660,
+          "rss_after_kib": 332072,
+          "p50_ms": 190.55415596812963,
+          "p95_ms": 268.1492150295526,
+          "p99_ms": 313.2417789893225
+        }
+      ],
+      "search_validation": [
+        {
+          "query": "Fixture 00001",
+          "names": [
+            "Fixture 00001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00101",
+          "names": [
+            "Fixture 00101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00201",
+          "names": [
+            "Fixture 00201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00301",
+          "names": [
+            "Fixture 00301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00401",
+          "names": [
+            "Fixture 00401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00501",
+          "names": [
+            "Fixture 00501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00601",
+          "names": [
+            "Fixture 00601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00701",
+          "names": [
+            "Fixture 00701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00801",
+          "names": [
+            "Fixture 00801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00901",
+          "names": [
+            "Fixture 00901"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01001",
+          "names": [
+            "Fixture 01001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01101",
+          "names": [
+            "Fixture 01101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01201",
+          "names": [
+            "Fixture 01201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01301",
+          "names": [
+            "Fixture 01301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01401",
+          "names": [
+            "Fixture 01401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01501",
+          "names": [
+            "Fixture 01501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01601",
+          "names": [
+            "Fixture 01601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01701",
+          "names": [
+            "Fixture 01701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01801",
+          "names": [
+            "Fixture 01801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01901",
+          "names": [
+            "Fixture 01901"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02001",
+          "names": [
+            "Fixture 02001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02101",
+          "names": [
+            "Fixture 02101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02201",
+          "names": [
+            "Fixture 02201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02301",
+          "names": [
+            "Fixture 02301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02401",
+          "names": [
+            "Fixture 02401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02501",
+          "names": [
+            "Fixture 02501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02601",
+          "names": [
+            "Fixture 02601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02701",
+          "names": [
+            "Fixture 02701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02801",
+          "names": [
+            "Fixture 02801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02901",
+          "names": [
+            "Fixture 02901"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03001",
+          "names": [
+            "Fixture 03001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03101",
+          "names": [
+            "Fixture 03101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03201",
+          "names": [
+            "Fixture 03201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03301",
+          "names": [
+            "Fixture 03301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03401",
+          "names": [
+            "Fixture 03401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03501",
+          "names": [
+            "Fixture 03501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03601",
+          "names": [
+            "Fixture 03601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03701",
+          "names": [
+            "Fixture 03701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03801",
+          "names": [
+            "Fixture 03801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03901",
+          "names": [
+            "Fixture 03901"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04001",
+          "names": [
+            "Fixture 04001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04101",
+          "names": [
+            "Fixture 04101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04201",
+          "names": [
+            "Fixture 04201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04301",
+          "names": [
+            "Fixture 04301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04401",
+          "names": [
+            "Fixture 04401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04501",
+          "names": [
+            "Fixture 04501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04601",
+          "names": [
+            "Fixture 04601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04701",
+          "names": [
+            "Fixture 04701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04801",
+          "names": [
+            "Fixture 04801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04901",
+          "names": [
+            "Fixture 04901"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05001",
+          "names": [
+            "Fixture 05001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05101",
+          "names": [
+            "Fixture 05101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05201",
+          "names": [
+            "Fixture 05201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05301",
+          "names": [
+            "Fixture 05301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05401",
+          "names": [
+            "Fixture 05401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05501",
+          "names": [
+            "Fixture 05501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05601",
+          "names": [
+            "Fixture 05601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05701",
+          "names": [
+            "Fixture 05701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05801",
+          "names": [
+            "Fixture 05801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05901",
+          "names": [
+            "Fixture 05901"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06001",
+          "names": [
+            "Fixture 06001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06101",
+          "names": [
+            "Fixture 06101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06201",
+          "names": [
+            "Fixture 06201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06301",
+          "names": [
+            "Fixture 06301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06401",
+          "names": [
+            "Fixture 06401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06501",
+          "names": [
+            "Fixture 06501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06601",
+          "names": [
+            "Fixture 06601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06701",
+          "names": [
+            "Fixture 06701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06801",
+          "names": [
+            "Fixture 06801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06901",
+          "names": [
+            "Fixture 06901"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07001",
+          "names": [
+            "Fixture 07001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07101",
+          "names": [
+            "Fixture 07101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07201",
+          "names": [
+            "Fixture 07201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07301",
+          "names": [
+            "Fixture 07301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07401",
+          "names": [
+            "Fixture 07401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07501",
+          "names": [
+            "Fixture 07501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07601",
+          "names": [
+            "Fixture 07601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07701",
+          "names": [
+            "Fixture 07701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07801",
+          "names": [
+            "Fixture 07801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07901",
+          "names": [
+            "Fixture 07901"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08001",
+          "names": [
+            "Fixture 08001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08101",
+          "names": [
+            "Fixture 08101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08201",
+          "names": [
+            "Fixture 08201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08301",
+          "names": [
+            "Fixture 08301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08401",
+          "names": [
+            "Fixture 08401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08501",
+          "names": [
+            "Fixture 08501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08601",
+          "names": [
+            "Fixture 08601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08701",
+          "names": [
+            "Fixture 08701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08801",
+          "names": [
+            "Fixture 08801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08901",
+          "names": [
+            "Fixture 08901"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09001",
+          "names": [
+            "Fixture 09001"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09101",
+          "names": [
+            "Fixture 09101"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09201",
+          "names": [
+            "Fixture 09201"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09301",
+          "names": [
+            "Fixture 09301"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09401",
+          "names": [
+            "Fixture 09401"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09501",
+          "names": [
+            "Fixture 09501"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09601",
+          "names": [
+            "Fixture 09601"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09701",
+          "names": [
+            "Fixture 09701"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09801",
+          "names": [
+            "Fixture 09801"
+          ],
+          "bytes": 575,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09901",
+          "names": [
+            "Fixture 09901"
+          ],
+          "bytes": 575,
+          "matches": true
+        }
+      ],
+      "p95_median_ms": 315.0995129253715,
+      "p95_sample_sd_ms": 23.827489151532625,
+      "exit_code": 0
+    },
+    "rust": {
+      "binary_sha256": "8eb82e07f70e89825a04d495794aee89f01f8660b935149f591c9f8b00f29a9b",
+      "trials": [
+        {
+          "trial": 1,
+          "seconds": 0.10286326706409454,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 2916.4930160449667,
+          "response_bytes": 39564,
+          "core_cpu_seconds": 0.1200000000000001,
+          "rss_before_kib": 13332,
+          "rss_after_kib": 13632,
+          "p50_ms": 3.291980014182627,
+          "p95_ms": 3.6191539838910103,
+          "p99_ms": 5.093935993500054
+        },
+        {
+          "trial": 2,
+          "seconds": 0.10211458196863532,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 2937.8761996219655,
+          "response_bytes": 39564,
+          "core_cpu_seconds": 0.13999999999999968,
+          "rss_before_kib": 13632,
+          "rss_after_kib": 13756,
+          "p50_ms": 3.3335740445181727,
+          "p95_ms": 3.5649240016937256,
+          "p99_ms": 3.7631680024787784
+        },
+        {
+          "trial": 3,
+          "seconds": 0.10121229197829962,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 2964.066855281979,
+          "response_bytes": 39564,
+          "core_cpu_seconds": 0.1200000000000001,
+          "rss_before_kib": 13756,
+          "rss_after_kib": 13832,
+          "p50_ms": 3.281495999544859,
+          "p95_ms": 3.616748028434813,
+          "p99_ms": 3.7168810376897454
+        },
+        {
+          "trial": 4,
+          "seconds": 0.10427082900423557,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 2877.122996574754,
+          "response_bytes": 39564,
+          "core_cpu_seconds": 0.1299999999999999,
+          "rss_before_kib": 13832,
+          "rss_after_kib": 13908,
+          "p50_ms": 3.350690007209778,
+          "p95_ms": 3.71249089948833,
+          "p99_ms": 5.6317460257560015
+        },
+        {
+          "trial": 5,
+          "seconds": 0.10364021302666515,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 2894.6293261942087,
+          "response_bytes": 39564,
+          "core_cpu_seconds": 0.1299999999999999,
+          "rss_before_kib": 13908,
+          "rss_after_kib": 13932,
+          "p50_ms": 3.354349988512695,
+          "p95_ms": 3.661760943941772,
+          "p99_ms": 4.285250091925263
+        }
+      ],
+      "search_validation": [
+        {
+          "query": "Fixture 00001",
+          "names": [
+            "Fixture 00001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00101",
+          "names": [
+            "Fixture 00101"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00201",
+          "names": [
+            "Fixture 00201"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00301",
+          "names": [
+            "Fixture 00301"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00401",
+          "names": [
+            "Fixture 00401"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00501",
+          "names": [
+            "Fixture 00501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00601",
+          "names": [
+            "Fixture 00601"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00701",
+          "names": [
+            "Fixture 00701"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00801",
+          "names": [
+            "Fixture 00801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 00901",
+          "names": [
+            "Fixture 00901"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01001",
+          "names": [
+            "Fixture 01001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01101",
+          "names": [
+            "Fixture 01101"
+          ],
+          "bytes": 131,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01201",
+          "names": [
+            "Fixture 01201"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01301",
+          "names": [
+            "Fixture 01301"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01401",
+          "names": [
+            "Fixture 01401"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01501",
+          "names": [
+            "Fixture 01501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01601",
+          "names": [
+            "Fixture 01601"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01701",
+          "names": [
+            "Fixture 01701"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01801",
+          "names": [
+            "Fixture 01801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 01901",
+          "names": [
+            "Fixture 01901"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02001",
+          "names": [
+            "Fixture 02001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02101",
+          "names": [
+            "Fixture 02101"
+          ],
+          "bytes": 131,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02201",
+          "names": [
+            "Fixture 02201"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02301",
+          "names": [
+            "Fixture 02301"
+          ],
+          "bytes": 131,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02401",
+          "names": [
+            "Fixture 02401"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02501",
+          "names": [
+            "Fixture 02501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02601",
+          "names": [
+            "Fixture 02601"
+          ],
+          "bytes": 130,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02701",
+          "names": [
+            "Fixture 02701"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02801",
+          "names": [
+            "Fixture 02801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 02901",
+          "names": [
+            "Fixture 02901"
+          ],
+          "bytes": 131,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03001",
+          "names": [
+            "Fixture 03001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03101",
+          "names": [
+            "Fixture 03101"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03201",
+          "names": [
+            "Fixture 03201"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03301",
+          "names": [
+            "Fixture 03301"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03401",
+          "names": [
+            "Fixture 03401"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03501",
+          "names": [
+            "Fixture 03501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03601",
+          "names": [
+            "Fixture 03601"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03701",
+          "names": [
+            "Fixture 03701"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03801",
+          "names": [
+            "Fixture 03801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 03901",
+          "names": [
+            "Fixture 03901"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04001",
+          "names": [
+            "Fixture 04001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04101",
+          "names": [
+            "Fixture 04101"
+          ],
+          "bytes": 131,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04201",
+          "names": [
+            "Fixture 04201"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04301",
+          "names": [
+            "Fixture 04301"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04401",
+          "names": [
+            "Fixture 04401"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04501",
+          "names": [
+            "Fixture 04501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04601",
+          "names": [
+            "Fixture 04601"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04701",
+          "names": [
+            "Fixture 04701"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04801",
+          "names": [
+            "Fixture 04801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 04901",
+          "names": [
+            "Fixture 04901"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05001",
+          "names": [
+            "Fixture 05001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05101",
+          "names": [
+            "Fixture 05101"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05201",
+          "names": [
+            "Fixture 05201"
+          ],
+          "bytes": 131,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05301",
+          "names": [
+            "Fixture 05301"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05401",
+          "names": [
+            "Fixture 05401"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05501",
+          "names": [
+            "Fixture 05501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05601",
+          "names": [
+            "Fixture 05601"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05701",
+          "names": [
+            "Fixture 05701"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05801",
+          "names": [
+            "Fixture 05801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 05901",
+          "names": [
+            "Fixture 05901"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06001",
+          "names": [
+            "Fixture 06001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06101",
+          "names": [
+            "Fixture 06101"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06201",
+          "names": [
+            "Fixture 06201"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06301",
+          "names": [
+            "Fixture 06301"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06401",
+          "names": [
+            "Fixture 06401"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06501",
+          "names": [
+            "Fixture 06501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06601",
+          "names": [
+            "Fixture 06601"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06701",
+          "names": [
+            "Fixture 06701"
+          ],
+          "bytes": 131,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06801",
+          "names": [
+            "Fixture 06801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 06901",
+          "names": [
+            "Fixture 06901"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07001",
+          "names": [
+            "Fixture 07001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07101",
+          "names": [
+            "Fixture 07101"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07201",
+          "names": [
+            "Fixture 07201"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07301",
+          "names": [
+            "Fixture 07301"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07401",
+          "names": [
+            "Fixture 07401"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07501",
+          "names": [
+            "Fixture 07501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07601",
+          "names": [
+            "Fixture 07601"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07701",
+          "names": [
+            "Fixture 07701"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07801",
+          "names": [
+            "Fixture 07801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 07901",
+          "names": [
+            "Fixture 07901"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08001",
+          "names": [
+            "Fixture 08001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08101",
+          "names": [
+            "Fixture 08101"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08201",
+          "names": [
+            "Fixture 08201"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08301",
+          "names": [
+            "Fixture 08301"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08401",
+          "names": [
+            "Fixture 08401"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08501",
+          "names": [
+            "Fixture 08501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08601",
+          "names": [
+            "Fixture 08601"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08701",
+          "names": [
+            "Fixture 08701"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08801",
+          "names": [
+            "Fixture 08801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 08901",
+          "names": [
+            "Fixture 08901"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09001",
+          "names": [
+            "Fixture 09001"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09101",
+          "names": [
+            "Fixture 09101"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09201",
+          "names": [
+            "Fixture 09201"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09301",
+          "names": [
+            "Fixture 09301"
+          ],
+          "bytes": 131,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09401",
+          "names": [
+            "Fixture 09401"
+          ],
+          "bytes": 131,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09501",
+          "names": [
+            "Fixture 09501"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09601",
+          "names": [
+            "Fixture 09601"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09701",
+          "names": [
+            "Fixture 09701"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09801",
+          "names": [
+            "Fixture 09801"
+          ],
+          "bytes": 132,
+          "matches": true
+        },
+        {
+          "query": "Fixture 09901",
+          "names": [
+            "Fixture 09901"
+          ],
+          "bytes": 131,
+          "matches": true
+        }
+      ],
+      "p95_median_ms": 3.6191539838910103,
+      "p95_sample_sd_ms": 0.055262696828358694,
+      "exit_code": 0
+    }
+  },
+  "fixture_sha256": "ac1b5b7956fb21afa23812603d5fb6ae15a35ffd0c40b8991842bfb05b3db1d7",
+  "environment": {
+    "date_utc": "2026-11-12",
+    "cpu": "Intel N100 (4 logical CPUs)",
+    "ram_bytes": 16539791360,
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "Linux 6.8.0-147-generic x86_64",
+    "python": "3.12.3",
+    "ffmpeg": "6.1.1-3ubuntu5",
+    "jellyfin": "12.4.0",
+    "rust_source_sha256": "12219fb2f513591bf40b8df583cf00745928654dcfe98d111b8dba3da9740ae0"
+  },
+  "harness_sha256": "dfc0c048486e2e807e37b0134ee72a1df7063994b9cb6cd00976ac7c1da10323"
+}

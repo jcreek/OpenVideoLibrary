@@ -1,0 +1,31 @@
+{
+  "recorded_utc": "2026-11-09T10:32:04.890437+00:00",
+  "scope": "VAAPI HDR graph feasibility only; tagged synthetic pattern; no visual-quality acceptance",
+  "hardware_hdr_enabled_in_server": false,
+  "checks": [
+    {
+      "name": "hdr10-fixture",
+      "exit_code": 0,
+      "seconds": 0.30714858701685444,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "physical-vaapi-hdr",
+      "exit_code": 0,
+      "seconds": 0.2646516020176932,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "decode-sdr-output",
+      "exit_code": 0,
+      "seconds": 0.11607451300369576,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "supported": true,
+  "fixture_sha256": "eaace11f6114b1ed15e75cc373b5ebe8f7111fc38194dd071f9b14ac6d156b39",
+  "output_sha256": "ace4cebe735a17108f1a7b909a43c36a5c6faf94406c15022e26ec860c04e38c"
+}

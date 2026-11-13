@@ -1,0 +1,10 @@
+{
+  "recorded_utc": "2026-11-10T20:18:08.351924+00:00",
+  "scope": "Separate negative physical HDR driver rejection, not bitmap or positive GPU acceptance",
+  "source_sha256": "4b213d68876a141df721f262bc18e64f25240e44439f519b2459d4b4145dc52c",
+  "command": "cd /home/ovlbench/ovl-rust-bitmap-acceptance/source && export PATH=\"$HOME/.cargo/bin:$PATH\" && env -u LIBVA_DRIVER_NAME -u LIBVA_DRIVERS_PATH OVL_EXPECT_HDR_REJECTION=true cargo test --locked --features gpu-tests --test hdr_driver_rejection -- --ignored --nocapture",
+  "exit_code": 0,
+  "stdout": "\nrunning 1 test\ntest physical_rejects_black_hdr_driver ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s\n\n",
+  "stderr": "   Compiling ovl-server v0.1.0 (/home/ovlbench/ovl-rust-bitmap-acceptance/source/crates/server)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s\n     Running tests/hdr_driver_rejection.rs (target/debug/deps/hdr_driver_rejection-7b5763b0d2cc837b)\n",
+  "complete": true
+}
