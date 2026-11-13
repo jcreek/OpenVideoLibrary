@@ -872,3 +872,67 @@ concurrency, real media or an equivalent-quality comparison. Segment
 durations were not independently verified. Five runs with a fixed arm order
 do not establish a production speedup. OS-cold trials still need root
 page-cache control on a dedicated host.
+
+### N100 native playback startup v2: interleaved and instrumented (2026-11-13)
+
+[The v2 harness](benchmarks/n100-native-playback-startup-v2.py) applies the
+review's findings to the same fixture and request parameters:
+
+- both servers run together;
+- one warm-up per scenario and arm is discarded;
+- eight rounds alternate which arm goes first;
+- FFmpeg's live command line is captured from `/proc`;
+- CPU is sampled when the first segment arrives and after stop, waiting until
+  no FFmpeg remains;
+- each segment's per-stream packet span and bitrate are measured.
+
+Every row validated:
+
+- 4.0 s of video and 3.95 s of audio per first segment;
+- first frames of 0 and 1440;
+- every FFmpeg reaped.
+
+Both servers exited zero. The 1-minute load average was 1.8 before the run
+and 2.7 after it. See [the report](benchmarks/n100-native-playback-startup-v2.json);
+home paths in it are redacted to `$ROOT`.
+
+| Scenario | Jellyfin median (min–max), ms | Rust median (min–max), ms | CPU at first segment, Jellyfin / Rust, s |
+| --- | ---: | ---: | ---: |
+| Direct read of the 952 KB file (page-cache warm) | 15.6 (12.9–20.2) | 2.3 (1.6–2.4) | — |
+| Transcode, first segment from 0 s | 1,562 (1,557–1,669) | 1,138 (1,129–1,202) | 4.16 / 2.92 |
+| Transcode, first segment from 60 s | 1,564 (1,556–1,569) | 1,197 (1,182–1,298) | 4.17 / 3.04 |
+
+**The encodes were not equivalent.** The captured commands show:
+
+- Jellyfin ran x264 `veryfast` at CRF 23, capped by a source-derived
+  `-maxrate 322520`, with faster options: `subme=0`, `me=hex` and
+  `rc_lookahead=10`;
+- Jellyfin probed with `-analyzeduration 200M -probesize 1G`, and used
+  `-copyts` and a colour `setparams` filter;
+- Rust ran `veryfast` at 5000k ABR with an equal maxrate.
+
+Real segment bitrates were only about 35 kb/s of video and 21 kb/s of audio on
+both arms, because the fixture is mostly black. So the 5 Mb/s target was never
+exercised. Jellyfin was about 0.4 s slower to the first segment despite
+cheaper x264 options. Both arms burned CPU at a similar rate of about
+2.6–2.7 cores, so Jellyfin's higher CPU at that point reflects its longer wall
+time, not heavier work. The delay is unattributed.
+
+Splitting it needs three things:
+
+- FFmpeg spawn time relative to the request;
+- FFmpeg's own CPU when the segment is received;
+- the segment file's close time compared with the response time.
+
+Both servers ran together, so the trial Jellyfin's background work also
+overlapped Rust's rows and counts in Jellyfin's CPU. After the run, the
+harness began registering each server for cleanup before any wait, skipping
+`N/A` packet timestamps, writing `$ROOT` instead of home paths into captured
+commands, and keeping logs when a run fails. Its measurement code is
+unchanged.
+
+Median session CPU from 0 s, including segments encoded ahead, was 5.81 s for
+Jellyfin and 4.26 s for Rust.
+
+**Scope.** This is not LAN or browser first frame, real media, equal rate
+control, OS-cold or concurrency.
