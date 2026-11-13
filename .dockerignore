@@ -1,0 +1,16 @@
+.git
+web/node_modules
+web/dist
+data
+target
+bench/rust/target
+bin
+web/test-results
+web/playwright-report
+test-results
+scripts/__pycache__
+**/*.db
+**/*.db-shm
+**/*.db-wal
+.env
+.env.*
