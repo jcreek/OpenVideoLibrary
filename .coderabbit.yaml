@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Recorded evidence, lockfiles and generated files are data, not code to review.
+reviews:
+  path_filters:
+    - "!docs/validation-*.json"
+    - "!docs/benchmarks/**/*.json"
+    - "!**/Cargo.lock"
+    - "!**/package-lock.json"
+    - "!web/src/api.generated.ts"
+    - "!**/*.ttf"
