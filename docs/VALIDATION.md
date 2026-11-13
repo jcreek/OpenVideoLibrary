@@ -857,6 +857,10 @@ hosted Actions ran.
 The parser applies the last valid global signed offset to each timed line.
 Positive values delay lines, following the convention used by
 [Rockbox](https://github.com/Rockbox/rockbox/blob/master/apps/plugins/lrcplayer.c).
+*Superseded 13 November 2026:* after review, the sign now follows the LRC
+format convention used by lyric editors, where a positive offset shows
+lines sooner. The unit and browser tests were updated; the evidence files
+below record the earlier direction.
 The unit regression covers a tag after cues, both signs, zero clamping,
 invalid offsets and unchanged plain text. Review identified a browser
 test that could pass through normal playback after an incorrect seek.

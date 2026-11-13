@@ -197,9 +197,9 @@ support remain open.
 The music player can open a UTF-8 sibling `.lrc` or `.txt` file, preferring
 LRC. Timed LRC lines support multiple leading timestamps and seek the
 track when selected; plain text stays untimed. The player renders lyrics
-as text. The last valid signed LRC offset shifts every timestamp in milliseconds;
-a positive value delays lyrics and a negative value advances them, clamped
-at zero. Malformed offsets or offsets beyond 24 hours are ignored. Enhanced word timing is not supported.
+as text. The last valid signed LRC offset shifts every timestamp in milliseconds.
+Following the LRC format convention, a positive value shows lyrics sooner
+and a negative value delays them, clamped at zero. Malformed offsets or offsets beyond 24 hours are ignored. Enhanced word timing is not supported.
 
 The endpoint checks current grants and opens the stored music source
 and sibling without following symlinks in any path component on Unix.
