@@ -1,0 +1,38 @@
+{
+  "verified_date": "2026-11-09",
+  "release": "v12.4",
+  "release_url": "https://github.com/jellyfin/jellyfin/releases/tag/v12.4",
+  "published_at": "2026-10-26T21:30:17Z",
+  "image": "jellyfin/jellyfin:12.4@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771",
+  "platforms": [
+    {
+      "architecture": "amd64",
+      "os": "linux"
+    },
+    {
+      "architecture": "arm64",
+      "os": "linux"
+    }
+  ],
+  "container_image_pulled": false,
+  "benchmarked": false,
+  "native_n100_preflight": {
+    "date_utc": "2026-11-11",
+    "host_os": "Ubuntu 24.04.5 LTS x86_64",
+    "amd64_manifest_sha256": "7da5184caa38c553f219f6772476540081f392a68049e2b68c923f6daf877f8e",
+    "image_config_sha256": "995797bf87597b4247190e0034827f7887b34e75a4f603374591eab4f44172cb",
+    "server_layer_sha256": "da8ad6b417985357bc88c0d3d9c127bf2ad48beff5f69dbbfdc804392fe8ce99",
+    "web_layer_sha256": "e4f64296b96e1164c9495e41caa3c3abdfcb5a4dedc06bb57f6fd3c7c809e774",
+    "server_binary_sha256": "ce32ad6108f262fd0d49922b321d2a085157b14eafbe1ebb77f244592b86bf86",
+    "server_version": "12.4.0",
+    "ffmpeg_version": "6.1.1-3ubuntu5 (host /usr/bin/ffmpeg)",
+    "health": "Healthy",
+    "web_http_status": 200,
+    "loopback_only": true,
+    "initial_shutdown": "SIGTERM timed out after 10 seconds when sent before core startup completed; process killed and reaped",
+    "ready_shutdown_exit_code": 0,
+    "ready_shutdown_listener_closed": true,
+    "media_registered": false,
+    "performance_trials": 0
+  }
+}
