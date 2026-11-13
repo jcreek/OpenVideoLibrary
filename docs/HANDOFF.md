@@ -126,6 +126,23 @@ needs a read-only fixture mount.
   See `validation-nginx-n100-retained.json`. Older amd64/arm64 image
   smoke evidence applies to its recorded source only.
 
+## Stopping point (13 November 2026)
+
+The user chose to stop here. Every remaining item below needs something
+from the user that is not available now:
+
+- a read-only fixture mount on the N100 (production Nginx/TLS cutover and
+  NAS seek latency);
+- root, or an admin-installed container runtime, on the N100 (container and
+  GPU-in-container runs);
+- a separate LAN client (LAN and browser first-frame comparisons);
+- a dedicated host with page-cache control (OS-cold benchmarks);
+- product decisions (later parity).
+
+There is no real HDR content. Self-contained work that needs none of these
+is still possible: more generated-corpus coverage and the next
+benchmark-harness steps. Ask the user before resuming.
+
 ## Outstanding from the plan
 
 1. **Preview and video acceptance.** The user has no HDR content, so real HDR10, HLG and Dolby Vision acceptance is unavailable; HDR evidence stays synthetic. The queue-capture regression and the
