@@ -1,0 +1,17 @@
+{
+  "recorded_utc": "2026-11-11T15:35:08.058677+00:00",
+  "scope": "SSH N100 disposable v2 path repair and restored Rust runtime; no production data",
+  "source_sha256": "c888c4073b4283f711bd157f3d73bc12a4f4db97e3001eb03eb2a5f66aae5948",
+  "binary_sha256": "1a697afd344d54adfc7a1958a034e04fb35c2c545651e222f2a33dfadb8db774",
+  "repair_script_sha256": "c9432c639543af93e9076c422618b7673346885715733d6550695e0916f33f3c",
+  "checks": [
+    "verified backup unchanged",
+    "legacy alias rewritten on restored copy",
+    "old session revoked and password login works",
+    "rescan retained item ID and progress",
+    "queue retained",
+    "HTTP 206 content",
+    "clean shutdown and media unchanged"
+  ],
+  "complete": true
+}

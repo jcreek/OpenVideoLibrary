@@ -1,0 +1,200 @@
+{
+  "recorded_utc": "2026-11-11T08:53:09.132Z",
+  "scope": "Direct HTTP, generated local-storage H.264/AAC MP4; decoded browser startup and seek; no SMB, TLS, or sustained concurrency",
+  "client": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "kernel": "25.5.0",
+    "cpu": "Apple M4",
+    "ram_bytes": 17179869184,
+    "browser": "158.0.8127.18"
+  },
+  "client_sha256": "072a335b84a885eb94d39c18d64e32ebb0560a8323b1c29102fa309aef7f6492",
+  "complete": true,
+  "results": [
+    {
+      "repetition": 0,
+      "status": 206,
+      "content_range": "bytes 0-61979/61980",
+      "peer_verified": true,
+      "setup_ms": 2.90000057220459,
+      "startup": {
+        "milliseconds": 134,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 16.900000000000006,
+        "media_seconds": 3,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": true
+    },
+    {
+      "repetition": 1,
+      "status": 206,
+      "content_range": "bytes 0-61979/61980",
+      "peer_verified": true,
+      "setup_ms": 3.5,
+      "startup": {
+        "milliseconds": 11.300000190734863,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 7.89999980926514,
+        "media_seconds": 3,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": true
+    },
+    {
+      "repetition": 2,
+      "status": 206,
+      "content_range": "bytes 0-61979/61980",
+      "peer_verified": true,
+      "setup_ms": 3.6999998092651367,
+      "startup": {
+        "milliseconds": 14.399999809265136,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 10.60000019073486,
+        "media_seconds": 3,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": true
+    },
+    {
+      "repetition": 3,
+      "status": 206,
+      "content_range": "bytes 0-61979/61980",
+      "peer_verified": true,
+      "setup_ms": 3.5,
+      "startup": {
+        "milliseconds": 16.300000190734863,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 9.199999427795412,
+        "media_seconds": 3,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": true
+    },
+    {
+      "repetition": 4,
+      "status": 206,
+      "content_range": "bytes 0-61979/61980",
+      "peer_verified": true,
+      "setup_ms": 2.700000762939453,
+      "startup": {
+        "milliseconds": 19.400000190734865,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 10.299999427795413,
+        "media_seconds": 3,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": true
+    }
+  ],
+  "server": {
+    "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "cpu": "Intel(R) N100",
+    "logical_cpus": 4,
+    "memory": "MemTotal:       16152140 kB",
+    "runtime": {
+      "architecture": "x86_64",
+      "os": "linux",
+      "server_version": "0.1.0",
+      "sqlite_version": "3.54.1"
+    },
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+    "source_sha256": "4c1c711e14a9d496a359465ad554196da88ccca632b0c3423e48ea90c469c098",
+    "binary_sha256": "0a65a02c6727138f4d12b827507a64bbc8901978b72154f4231d1aae5588ea35",
+    "worker_sha256": "f78a9b02adb5c86e91bc0c76be1b5d9ca870f1e60abc826cb3c3156dba1380c4",
+    "fixture_sha256": "5a9979171cd0f9f8ec26af3921e8bee7cfefaa006a141daa0c9e4c39801966ff",
+    "fixture_bytes": 61980
+  },
+  "transport": "direct LAN HTTP; SSH control only",
+  "cleanup": {
+    "shutdown_exit": 0,
+    "core_cpu_seconds": 0,
+    "core_rss_end_bytes": 9572352
+  }
+}

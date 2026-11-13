@@ -1,0 +1,535 @@
+{
+  "recorded_utc": "2026-11-11T09:17:38.561Z",
+  "scope": "Two simultaneous Chromium playback windows over LAN; generated local-storage fixture; no SMB, TLS or hardware transcode",
+  "client": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "kernel": "25.5.0",
+    "cpu": "Apple M4",
+    "ram_bytes": 17179869184,
+    "browser": "158.0.8127.18"
+  },
+  "client_sha256": "9a4d38dada32bd825e8a608337ad371ee1003d2479b47e97f7e23b8908b454d2",
+  "complete": true,
+  "results": [
+    {
+      "repetition": 0,
+      "players": [
+        {
+          "setup_ms": 64.5,
+          "first_frame_ms": 1658.5,
+          "first_frame": {
+            "now": 1727,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21726.3,
+            "media_seconds": 19.958333,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388737177.1,
+          "window_end_epoch_ms": 1794388757195.7002,
+          "window_ms": 20018.599999427795,
+          "media_advance_seconds": 19.875,
+          "frames": 478,
+          "waiting_events": 0,
+          "waiting_ms": 0,
+          "max_frame_gap_ms": 150,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        },
+        {
+          "setup_ms": 63.19999980926514,
+          "first_frame_ms": 1649.2,
+          "first_frame": {
+            "now": 1716.2,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21715.4,
+            "media_seconds": 19.958333,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388737169,
+          "window_end_epoch_ms": 1794388757198.4001,
+          "window_ms": 20029.40000038147,
+          "media_advance_seconds": 19.875,
+          "frames": 478,
+          "waiting_events": 0,
+          "waiting_ms": 0,
+          "max_frame_gap_ms": 166.5999999999999,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        }
+      ],
+      "overlap_ms": 20018.60009765625,
+      "background": {
+        "start_epoch_ms": 1794388737197.6343,
+        "end_epoch_ms": 1794388747396.4045,
+        "completed_scan_ms": [
+          735
+        ],
+        "browse": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10191.916166999988,
+          "p50_ms": 35.109958000000915,
+          "p95_ms": 56.542333000004874,
+          "p99_ms": 59.53254200000083
+        },
+        "search": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10175.85424999999,
+          "p50_ms": 33.9510420000006,
+          "p95_ms": 50.03316699998686,
+          "p99_ms": 59.48225000000093
+        }
+      }
+    },
+    {
+      "repetition": 1,
+      "players": [
+        {
+          "setup_ms": 64.29999923706055,
+          "first_frame_ms": 1531.3999992370605,
+          "first_frame": {
+            "now": 1580.1,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21562.5,
+            "media_seconds": 19.958333,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388796969.9001,
+          "window_end_epoch_ms": 1794388816980.3,
+          "window_ms": 20010.4,
+          "media_advance_seconds": 19.875,
+          "frames": 478,
+          "waiting_events": 0,
+          "waiting_ms": 0,
+          "max_frame_gap_ms": 150,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        },
+        {
+          "setup_ms": 63.30000019073486,
+          "first_frame_ms": 1526.8000005722047,
+          "first_frame": {
+            "now": 1574.9,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21574.1,
+            "media_seconds": 20,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388796966.2998,
+          "window_end_epoch_ms": 1794388816980.2998,
+          "window_ms": 20013.99999961853,
+          "media_advance_seconds": 19.916667,
+          "frames": 478,
+          "waiting_events": 1,
+          "waiting_ms": 1.6999998092651367,
+          "max_frame_gap_ms": 150,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        }
+      ],
+      "overlap_ms": 20010.399658203125,
+      "background": {
+        "start_epoch_ms": 1794388796980.63,
+        "end_epoch_ms": 1794388807168.9875,
+        "completed_scan_ms": [
+          924
+        ],
+        "browse": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10152.639582999982,
+          "p50_ms": 22.553041999985,
+          "p95_ms": 47.073833000002196,
+          "p99_ms": 51.865541999985
+        },
+        "search": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10178.627582999994,
+          "p50_ms": 38.12062500001048,
+          "p95_ms": 66.84466699999757,
+          "p99_ms": 78.92874999999185
+        }
+      }
+    },
+    {
+      "repetition": 2,
+      "players": [
+        {
+          "setup_ms": 66.89999961853027,
+          "first_frame_ms": 1565.799999809265,
+          "first_frame": {
+            "now": 1612.1,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21594.6,
+            "media_seconds": 19.958333,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388856995.3,
+          "window_end_epoch_ms": 1794388877005.0999,
+          "window_ms": 20009.79999961853,
+          "media_advance_seconds": 19.875,
+          "frames": 478,
+          "waiting_events": 0,
+          "waiting_ms": 0,
+          "max_frame_gap_ms": 133.30000000000018,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        },
+        {
+          "setup_ms": 69.69999980926514,
+          "first_frame_ms": 1487.8999994277954,
+          "first_frame": {
+            "now": 1529.8,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21495.7,
+            "media_seconds": 19.958333,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388856914.6,
+          "window_end_epoch_ms": 1794388876925.6,
+          "window_ms": 20011.000000190736,
+          "media_advance_seconds": 19.875,
+          "frames": 478,
+          "waiting_events": 0,
+          "waiting_ms": 0,
+          "max_frame_gap_ms": 133.29999999999995,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        }
+      ],
+      "overlap_ms": 19930.300048828125,
+      "background": {
+        "start_epoch_ms": 1794388857003.9736,
+        "end_epoch_ms": 1794388867167.563,
+        "completed_scan_ms": [
+          1079
+        ],
+        "browse": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10127.285667000018,
+          "p50_ms": 19.836375000013504,
+          "p95_ms": 54.05962499999441,
+          "p99_ms": 64.36304200001177
+        },
+        "search": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10160.464624999993,
+          "p50_ms": 34.67216700001154,
+          "p95_ms": 50.484124999988126,
+          "p99_ms": 55.830040999979246
+        }
+      }
+    },
+    {
+      "repetition": 3,
+      "players": [
+        {
+          "setup_ms": 65.19999980926514,
+          "first_frame_ms": 1569.7,
+          "first_frame": {
+            "now": 1618.2,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21600.7,
+            "media_seconds": 19.958333,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388916996.4,
+          "window_end_epoch_ms": 1794388937007.2,
+          "window_ms": 20010.8,
+          "media_advance_seconds": 19.875,
+          "frames": 478,
+          "waiting_events": 0,
+          "waiting_ms": 0,
+          "max_frame_gap_ms": 133.39999999999986,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        },
+        {
+          "setup_ms": 62.19999980926514,
+          "first_frame_ms": 1474.0000005722045,
+          "first_frame": {
+            "now": 1524.1,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21506.6,
+            "media_seconds": 19.958333,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388916903.7002,
+          "window_end_epoch_ms": 1794388936915.9001,
+          "window_ms": 20012.199999237062,
+          "media_advance_seconds": 19.875,
+          "frames": 478,
+          "waiting_events": 0,
+          "waiting_ms": 0,
+          "max_frame_gap_ms": 133.4000000000001,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        }
+      ],
+      "overlap_ms": 19919.500244140625,
+      "background": {
+        "start_epoch_ms": 1794388917005.208,
+        "end_epoch_ms": 1794388927189.1482,
+        "completed_scan_ms": [
+          1098
+        ],
+        "browse": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10179.900791000022,
+          "p50_ms": 24.962208999990253,
+          "p95_ms": 52.75904100004118,
+          "p99_ms": 55.13133300002664
+        },
+        "search": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10167.802666000003,
+          "p50_ms": 34.26512499997625,
+          "p95_ms": 49.83391699998174,
+          "p99_ms": 60.06412500003353
+        }
+      }
+    },
+    {
+      "repetition": 4,
+      "players": [
+        {
+          "setup_ms": 66.19999980926514,
+          "first_frame_ms": 1484.8999998092652,
+          "first_frame": {
+            "now": 1531.7,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21530.9,
+            "media_seconds": 20,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388976910.7,
+          "window_end_epoch_ms": 1794388996922.1,
+          "window_ms": 20011.40000038147,
+          "media_advance_seconds": 19.916667,
+          "frames": 479,
+          "waiting_events": 1,
+          "waiting_ms": 0.20000076293945312,
+          "max_frame_gap_ms": 150,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        },
+        {
+          "setup_ms": 69.10000038146973,
+          "first_frame_ms": 1460.2,
+          "first_frame": {
+            "now": 1502.7,
+            "media_seconds": 0.083333,
+            "width": 1280,
+            "height": 720,
+            "pixel": [
+              255,
+              24,
+              0,
+              255
+            ]
+          },
+          "last_frame": {
+            "now": 21501.9,
+            "media_seconds": 19.958333,
+            "width": 1280,
+            "height": 720
+          },
+          "first_frame_epoch_ms": 1794388976883.2,
+          "window_end_epoch_ms": 1794388996892.6,
+          "window_ms": 20009.40000038147,
+          "media_advance_seconds": 19.875,
+          "frames": 478,
+          "waiting_events": 1,
+          "waiting_ms": 23.199999809265137,
+          "max_frame_gap_ms": 133.39999999999986,
+          "frame_gap_excess_ms": 0,
+          "peer_verified": true
+        }
+      ],
+      "overlap_ms": 19981.900146484375,
+      "background": {
+        "start_epoch_ms": 1794388976920.6301,
+        "end_epoch_ms": 1794388987104.5068,
+        "completed_scan_ms": [
+          820
+        ],
+        "browse": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10159.776375000016,
+          "p50_ms": 18.64345900004264,
+          "p95_ms": 50.06687500001863,
+          "p99_ms": 57.8802920000162
+        },
+        "search": {
+          "requests": 100,
+          "errors": {},
+          "successful": 100,
+          "elapsed_ms": 10179.954625000013,
+          "p50_ms": 38.31945800001267,
+          "p95_ms": 55.59633400000166,
+          "p99_ms": 58.730417000013404
+        }
+      }
+    }
+  ],
+  "server": {
+    "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "cpu": "Intel(R) N100",
+    "logical_cpus": 4,
+    "memory": "MemTotal:       16152140 kB",
+    "runtime": {
+      "architecture": "x86_64",
+      "os": "linux",
+      "server_version": "0.1.0",
+      "sqlite_version": "3.54.1"
+    },
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+    "source_sha256": "4c1c711e14a9d496a359465ad554196da88ccca632b0c3423e48ea90c469c098",
+    "binary_sha256": "0a65a02c6727138f4d12b827507a64bbc8901978b72154f4231d1aae5588ea35",
+    "worker_sha256": "84622fb040cddae773b9773034ec04915a34c455324cd4644455a093a41d4462",
+    "fixture_sha256": "3e19ae5988ed44ff50fd08a78edfaa76c8ee642dd2322a11481dabecabeb383b",
+    "fixture_bytes": 13940091,
+    "fixture_seconds": 36,
+    "fixture_dimensions": [
+      1280,
+      720
+    ],
+    "background_mode": "scan",
+    "scan_library": 2,
+    "scan_library_entries": 10000,
+    "hls_bundle_sha256": "cfc70cc9e9fc63d071919e087670abc760c8fd1bc889b88588026e4d22193bbe",
+    "seek_target_seconds": 3,
+    "seek_keyframe": null,
+    "unbuffered_required": false
+  },
+  "transport": "direct LAN HTTP; SSH control only",
+  "mode": "transcode",
+  "background": "scan",
+  "sustained_client_sha256": "926779917ea122df7d28f41e6695b84905be4920cec40a59bd67403c7cad4f6a",
+  "cleanup": {
+    "shutdown_exit": 0,
+    "core_cpu_seconds": 15.15,
+    "core_rss_end_bytes": 18530304,
+    "core_peak_rss_bytes": 18530304,
+    "ffmpeg_peak_workers": 2,
+    "ffmpeg_peak_rss_bytes": 378314752,
+    "ffmpeg_sampled_cpu_lower_bound_seconds": 228.34,
+    "samples": 3057
+  }
+}

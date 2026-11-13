@@ -1,0 +1,193 @@
+{
+  "kind": "N100 application playback; loopback FFmpeg first decoded frame, not browser/LAN acceptance",
+  "media": {
+    "programs": [],
+    "streams": [
+      {
+        "codec_name": "hevc",
+        "width": 1920,
+        "height": 1080,
+        "color_transfer": "bt709"
+      }
+    ],
+    "format": {
+      "duration": "5682.709000"
+    }
+  },
+  "results": [
+    {
+      "mode": "direct",
+      "adaptive": false,
+      "repetition": 0,
+      "api_setup_ms": 1.5479300054721534,
+      "first_decoded_frame_ms": 405.70628497516736,
+      "success": true,
+      "core_rss_bytes": 20578304,
+      "core_cpu_seconds": 0.010000000000000009,
+      "ffmpeg_workers": [],
+      "error": ""
+    },
+    {
+      "mode": "direct",
+      "adaptive": false,
+      "repetition": 1,
+      "api_setup_ms": 3.983310016337782,
+      "first_decoded_frame_ms": 230.5518050561659,
+      "success": true,
+      "core_rss_bytes": 20574208,
+      "core_cpu_seconds": 0.010000000000000009,
+      "ffmpeg_workers": [],
+      "error": ""
+    },
+    {
+      "mode": "direct",
+      "adaptive": false,
+      "repetition": 2,
+      "api_setup_ms": 1.0576759814284742,
+      "first_decoded_frame_ms": 230.614249012433,
+      "success": true,
+      "core_rss_bytes": 20574208,
+      "core_cpu_seconds": 0.009999999999999981,
+      "ffmpeg_workers": [],
+      "error": ""
+    },
+    {
+      "mode": "transcode",
+      "adaptive": false,
+      "repetition": 0,
+      "api_setup_ms": 59.65916300192475,
+      "first_decoded_frame_ms": 4899.282907019369,
+      "success": true,
+      "core_rss_bytes": 20705280,
+      "core_cpu_seconds": 0.020000000000000018,
+      "ffmpeg_workers": [
+        {
+          "encoders": [
+            "h264_vaapi"
+          ],
+          "rss_bytes": 123092992
+        }
+      ],
+      "error": ""
+    },
+    {
+      "mode": "transcode",
+      "adaptive": false,
+      "repetition": 1,
+      "api_setup_ms": 68.07496602414176,
+      "first_decoded_frame_ms": 4858.072495029774,
+      "success": true,
+      "core_rss_bytes": 20705280,
+      "core_cpu_seconds": 0.020000000000000018,
+      "ffmpeg_workers": [
+        {
+          "encoders": [
+            "h264_vaapi"
+          ],
+          "rss_bytes": 123088896
+        }
+      ],
+      "error": ""
+    },
+    {
+      "mode": "transcode",
+      "adaptive": false,
+      "repetition": 2,
+      "api_setup_ms": 66.13439199281856,
+      "first_decoded_frame_ms": 4908.224173996132,
+      "success": true,
+      "core_rss_bytes": 20705280,
+      "core_cpu_seconds": 0.019999999999999962,
+      "ffmpeg_workers": [
+        {
+          "encoders": [
+            "h264_vaapi"
+          ],
+          "rss_bytes": 122986496
+        }
+      ],
+      "error": ""
+    },
+    {
+      "mode": "transcode",
+      "adaptive": true,
+      "repetition": 0,
+      "api_setup_ms": 63.2654830114916,
+      "first_decoded_frame_ms": 5230.850407038815,
+      "success": true,
+      "core_rss_bytes": 20705280,
+      "core_cpu_seconds": 0.020000000000000018,
+      "ffmpeg_workers": [
+        {
+          "encoders": [
+            "h264_vaapi",
+            "h264_vaapi",
+            "h264_vaapi"
+          ],
+          "rss_bytes": 149835776
+        }
+      ],
+      "error": ""
+    },
+    {
+      "mode": "transcode",
+      "adaptive": true,
+      "repetition": 1,
+      "api_setup_ms": 73.12149001518264,
+      "first_decoded_frame_ms": 5244.467112002894,
+      "success": true,
+      "core_rss_bytes": 20836352,
+      "core_cpu_seconds": 0.02999999999999997,
+      "ffmpeg_workers": [
+        {
+          "encoders": [
+            "h264_vaapi",
+            "h264_vaapi",
+            "h264_vaapi"
+          ],
+          "rss_bytes": 149684224
+        }
+      ],
+      "error": ""
+    },
+    {
+      "mode": "transcode",
+      "adaptive": true,
+      "repetition": 2,
+      "api_setup_ms": 115.92140601715073,
+      "first_decoded_frame_ms": 5287.749620969407,
+      "success": true,
+      "core_rss_bytes": 20705280,
+      "core_cpu_seconds": 0.020000000000000018,
+      "ffmpeg_workers": [
+        {
+          "encoders": [
+            "h264_vaapi",
+            "h264_vaapi",
+            "h264_vaapi"
+          ],
+          "rss_bytes": 149831680
+        }
+      ],
+      "error": ""
+    }
+  ],
+  "capabilities": {
+    "accelerators": [
+      {
+        "name": "qsv",
+        "available": false
+      },
+      {
+        "name": "vaapi",
+        "available": true
+      },
+      {
+        "name": "nvenc",
+        "available": false
+      }
+    ],
+    "note": "Runtime smoke tests are not sustained playback validation; SDR only.",
+    "validated_hardware": []
+  }
+}
