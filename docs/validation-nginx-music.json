@@ -1,0 +1,32 @@
+{
+  "recorded_utc": "2026-11-11T15:10:57.794776+00:00",
+  "scope": "Disposable real Nginx TLS and Rust backup/restore/data rollback; no production cutover or GPU claim",
+  "host": "macOS-26.5-arm64-arm-64bit",
+  "nginx_platform": "linux/arm64",
+  "nginx_mode": "cached container",
+  "nginx_locations_sha256": "68ff4b3e3d83a9a8ea5e1b8cee1250258d7ca88ec99915db7d0c1279eaa7b6f2",
+  "harness_sha256": "05a3a3433ab491276ee72bdb2c04b886202ab6b72f8906635b250d20da1d5297",
+  "binary_sha256": "64034c4318b7ff80ca079624ddf14a7ef35bfd9f62dd99d075ff4943becdbf6f",
+  "runtime": {
+    "architecture": "aarch64",
+    "os": "macos",
+    "server_version": "0.1.0",
+    "sqlite_version": "3.54.1"
+  },
+  "nginx_image_id": "sha256:b972f831f200b19ef0767938224f9711e74cd783718738cd7405d5cabf75c442",
+  "checks": [
+    "trusted TLS and Secure/HttpOnly/SameSite cookie",
+    "proxy CSRF enforcement",
+    "range bytes/content-range/no-store",
+    "64KiB request limit",
+    "persistent queue",
+    "live WAL backup and fresh restore",
+    "restored sessions revoked",
+    "restored credentials, queue and media preserved",
+    "trial queue change discarded by snapshot rollback (same binary)",
+    "Nginx login rate limit",
+    "fixture unchanged",
+    "three Rust SIGTERM exits zero"
+  ],
+  "complete": true
+}

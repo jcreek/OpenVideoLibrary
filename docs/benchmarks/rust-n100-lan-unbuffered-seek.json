@@ -1,0 +1,247 @@
+{
+  "recorded_utc": "2026-11-11T08:57:42.629Z",
+  "scope": "Direct HTTP, generated local-storage H.264/AAC MP4; decoded browser startup and seek; no SMB, TLS, or sustained concurrency",
+  "client": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "kernel": "25.5.0",
+    "cpu": "Apple M4",
+    "ram_bytes": 17179869184,
+    "browser": "158.0.8127.18"
+  },
+  "client_sha256": "a18cc3c7c4b73b49c6835eee9adb65ef79964d89d43d0ff5bc89bd217e7d463e",
+  "complete": true,
+  "results": [
+    {
+      "repetition": 0,
+      "status": 206,
+      "content_range": "bytes 0-75532228/75532229",
+      "peer_verified": true,
+      "setup_ms": 3.1999998092651367,
+      "startup": {
+        "milliseconds": 150.30000019073486,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 7.600000190734875,
+        "media_seconds": 55,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": false,
+      "seek_start_epoch_ms": 1794387465953.2,
+      "seek_range": {
+        "content_range": "bytes 69206016-75532228/75532229",
+        "request_range": "bytes=69206016-",
+        "request_start_after_seek_ms": 0.490966796875,
+        "response_start_after_seek_ms": 3.0830078125,
+        "peer_verified": true
+      }
+    },
+    {
+      "repetition": 1,
+      "status": 206,
+      "content_range": "bytes 0-75532228/75532229",
+      "peer_verified": true,
+      "setup_ms": 3.5,
+      "startup": {
+        "milliseconds": 12.100000190734864,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 8.59999942779541,
+        "media_seconds": 55,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": false,
+      "seek_start_epoch_ms": 1794387466076.5,
+      "seek_range": {
+        "content_range": "bytes 69206016-75532228/75532229",
+        "request_range": "bytes=69206016-",
+        "request_start_after_seek_ms": 0.866943359375,
+        "response_start_after_seek_ms": 3.446044921875,
+        "peer_verified": true
+      }
+    },
+    {
+      "repetition": 2,
+      "status": 206,
+      "content_range": "bytes 0-75532228/75532229",
+      "peer_verified": true,
+      "setup_ms": 3.1999998092651367,
+      "startup": {
+        "milliseconds": 14.79999942779541,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 10.999999809265134,
+        "media_seconds": 55,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": false,
+      "seek_start_epoch_ms": 1794387466196.1,
+      "seek_range": {
+        "content_range": "bytes 69206016-75532228/75532229",
+        "request_range": "bytes=69206016-",
+        "request_start_after_seek_ms": 0.751953125,
+        "response_start_after_seek_ms": 3.0859375,
+        "peer_verified": true
+      }
+    },
+    {
+      "repetition": 3,
+      "status": 206,
+      "content_range": "bytes 0-75532228/75532229",
+      "peer_verified": true,
+      "setup_ms": 2.700000762939453,
+      "startup": {
+        "milliseconds": 17.100000190734864,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 10.099999809265135,
+        "media_seconds": 55,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": false,
+      "seek_start_epoch_ms": 1794387466318.3,
+      "seek_range": {
+        "content_range": "bytes 69206016-75532228/75532229",
+        "request_range": "bytes=69206016-",
+        "request_start_after_seek_ms": 0.875,
+        "response_start_after_seek_ms": 2.9208984375,
+        "peer_verified": true
+      }
+    },
+    {
+      "repetition": 4,
+      "status": 206,
+      "content_range": "bytes 0-75532228/75532229",
+      "peer_verified": true,
+      "setup_ms": 3,
+      "startup": {
+        "milliseconds": 14.400000762939452,
+        "media_seconds": 0,
+        "pixel": [
+          254,
+          0,
+          0,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek": {
+        "milliseconds": 11.000000381469725,
+        "media_seconds": 55,
+        "pixel": [
+          0,
+          0,
+          255,
+          255
+        ],
+        "width": 640,
+        "height": 360
+      },
+      "seek_target_buffered": false,
+      "seek_start_epoch_ms": 1794387466438.9,
+      "seek_range": {
+        "content_range": "bytes 69206016-75532228/75532229",
+        "request_range": "bytes=69206016-",
+        "request_start_after_seek_ms": 0.779052734375,
+        "response_start_after_seek_ms": 3.046142578125,
+        "peer_verified": true
+      }
+    }
+  ],
+  "server": {
+    "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "cpu": "Intel(R) N100",
+    "logical_cpus": 4,
+    "memory": "MemTotal:       16152140 kB",
+    "runtime": {
+      "architecture": "x86_64",
+      "os": "linux",
+      "server_version": "0.1.0",
+      "sqlite_version": "3.54.1"
+    },
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+    "source_sha256": "4c1c711e14a9d496a359465ad554196da88ccca632b0c3423e48ea90c469c098",
+    "binary_sha256": "0a65a02c6727138f4d12b827507a64bbc8901978b72154f4231d1aae5588ea35",
+    "worker_sha256": "1e083d4cfd07160889c0846477243384d015d876be47fc8bf981c21b3269cf1d",
+    "fixture_sha256": "937b07c0cc6eedd6d56cf4df23095b9fc647e48285170588d64d9e212692e40b",
+    "fixture_bytes": 75532229,
+    "fixture_seconds": 60,
+    "seek_target_seconds": 55,
+    "seek_keyframe": {
+      "position": 69238623,
+      "seconds": 55
+    },
+    "unbuffered_required": true
+  },
+  "transport": "direct LAN HTTP; SSH control only",
+  "cleanup": {
+    "shutdown_exit": 0,
+    "core_cpu_seconds": 0,
+    "core_rss_end_bytes": 9895936
+  }
+}

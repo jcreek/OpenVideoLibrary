@@ -1,0 +1,264 @@
+{
+  "scope": "Rust before/after native authenticated warm loopback, synthetic local fixture; shared N100",
+  "repetitions": 5,
+  "concurrency": 10,
+  "requests_per_trial": 300,
+  "page_size": 50,
+  "items": 100000,
+  "arms": {
+    "before": {
+      "binary_sha256": "8b6dedfe41334c5263ea671aebf03f59aab8d0d3efba43e4c2245862426e66cd",
+      "trials": [
+        {
+          "trial": 1,
+          "seconds": 5.708402719930746,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 52.55410571376779,
+          "response_bytes": 1993542,
+          "core_cpu_seconds": 5.769999999999996,
+          "rss_before_kib": 13560,
+          "rss_after_kib": 13864,
+          "p50_ms": 185.6508390046656,
+          "p95_ms": 248.5510999104008,
+          "p99_ms": 292.58388897869736
+        },
+        {
+          "trial": 2,
+          "seconds": 6.4257131540216506,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 46.687424852172164,
+          "response_bytes": 1993522,
+          "core_cpu_seconds": 6.5,
+          "rss_before_kib": 13864,
+          "rss_after_kib": 14108,
+          "p50_ms": 208.71249109040946,
+          "p95_ms": 305.7676210300997,
+          "p99_ms": 338.1641769083217
+        },
+        {
+          "trial": 3,
+          "seconds": 5.640220730099827,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 53.18940771218545,
+          "response_bytes": 1994280,
+          "core_cpu_seconds": 5.710000000000008,
+          "rss_before_kib": 14108,
+          "rss_after_kib": 14200,
+          "p50_ms": 184.1678770724684,
+          "p95_ms": 237.34724801033735,
+          "p99_ms": 276.8455259501934
+        },
+        {
+          "trial": 4,
+          "seconds": 5.6366813170025125,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 53.22280667084701,
+          "response_bytes": 1993827,
+          "core_cpu_seconds": 5.709999999999994,
+          "rss_before_kib": 14200,
+          "rss_after_kib": 14244,
+          "p50_ms": 186.08782207593322,
+          "p95_ms": 240.50209496635944,
+          "p99_ms": 269.0717679215595
+        },
+        {
+          "trial": 5,
+          "seconds": 5.609645186923444,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 53.47931821059294,
+          "response_bytes": 1993289,
+          "core_cpu_seconds": 5.660000000000011,
+          "rss_before_kib": 14244,
+          "rss_after_kib": 14352,
+          "p50_ms": 182.02000798191875,
+          "p95_ms": 237.16429399792105,
+          "p99_ms": 258.45458591356874
+        }
+      ],
+      "scan_ready_seconds": 216.39045974693727,
+      "browse_validation": "102 sampled ordered pages including the final page and empty tail",
+      "search_probe": [
+        {
+          "offset": 0,
+          "rows": 50,
+          "bytes": 6651,
+          "first": [
+            "Fixture 000001",
+            "Fixture 000002"
+          ],
+          "last": [
+            "Fixture 000049",
+            "Fixture 000050"
+          ],
+          "matches": true
+        },
+        {
+          "offset": 9950,
+          "rows": 49,
+          "bytes": 6518,
+          "first": [
+            "Fixture 009951",
+            "Fixture 009952"
+          ],
+          "last": [
+            "Fixture 009998",
+            "Fixture 009999"
+          ],
+          "matches": true
+        },
+        {
+          "offset": 9999,
+          "rows": 0,
+          "bytes": 2,
+          "first": [],
+          "last": [],
+          "matches": true
+        }
+      ],
+      "p95_median_ms": 240.50209496635944,
+      "p95_sample_sd_ms": 29.37871906596075,
+      "exit_code": 0,
+      "closed_database_bytes": 31375360
+    },
+    "after": {
+      "binary_sha256": "3339a40c49c6adc476ec7d2b05e82403815dc7f63db7abdd429b26fa8a629d5f",
+      "trials": [
+        {
+          "trial": 1,
+          "seconds": 0.6270471219904721,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 478.43294304213146,
+          "response_bytes": 1993542,
+          "core_cpu_seconds": 0.6899999999999977,
+          "rss_before_kib": 13572,
+          "rss_after_kib": 13864,
+          "p50_ms": 20.624442026019096,
+          "p95_ms": 25.513542001135647,
+          "p99_ms": 29.060610104352236
+        },
+        {
+          "trial": 2,
+          "seconds": 0.630212810006924,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 476.02967638297287,
+          "response_bytes": 1993522,
+          "core_cpu_seconds": 0.6899999999999977,
+          "rss_before_kib": 13864,
+          "rss_after_kib": 14052,
+          "p50_ms": 20.53155202884227,
+          "p95_ms": 26.664415025152266,
+          "p99_ms": 31.598267960362136
+        },
+        {
+          "trial": 3,
+          "seconds": 0.643326902994886,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 466.3259046114923,
+          "response_bytes": 1994280,
+          "core_cpu_seconds": 0.7099999999999937,
+          "rss_before_kib": 14052,
+          "rss_after_kib": 14164,
+          "p50_ms": 21.128626074641943,
+          "p95_ms": 25.643030065111816,
+          "p99_ms": 26.69101394712925
+        },
+        {
+          "trial": 4,
+          "seconds": 0.637394204037264,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 470.6663444690832,
+          "response_bytes": 1993827,
+          "core_cpu_seconds": 0.7000000000000028,
+          "rss_before_kib": 14164,
+          "rss_after_kib": 14256,
+          "p50_ms": 20.946096046827734,
+          "p95_ms": 26.337508927099407,
+          "p99_ms": 28.165191994048655
+        },
+        {
+          "trial": 5,
+          "seconds": 0.642487058066763,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 466.9354755607015,
+          "response_bytes": 1993289,
+          "core_cpu_seconds": 0.7000000000000028,
+          "rss_before_kib": 14256,
+          "rss_after_kib": 14364,
+          "p50_ms": 20.97901701927185,
+          "p95_ms": 26.564828003756702,
+          "p99_ms": 32.390154083259404
+        }
+      ],
+      "scan_ready_seconds": 250.49154972005635,
+      "browse_validation": "102 sampled ordered pages including the final page and empty tail",
+      "search_probe": [
+        {
+          "offset": 0,
+          "rows": 50,
+          "bytes": 6651,
+          "first": [
+            "Fixture 000001",
+            "Fixture 000002"
+          ],
+          "last": [
+            "Fixture 000049",
+            "Fixture 000050"
+          ],
+          "matches": true
+        },
+        {
+          "offset": 9950,
+          "rows": 49,
+          "bytes": 6518,
+          "first": [
+            "Fixture 009951",
+            "Fixture 009952"
+          ],
+          "last": [
+            "Fixture 009998",
+            "Fixture 009999"
+          ],
+          "matches": true
+        },
+        {
+          "offset": 9999,
+          "rows": 0,
+          "bytes": 2,
+          "first": [],
+          "last": [],
+          "matches": true
+        }
+      ],
+      "p95_median_ms": 26.337508927099407,
+      "p95_sample_sd_ms": 0.5324048427151964,
+      "exit_code": 0,
+      "closed_database_bytes": 37744640
+    }
+  },
+  "fixture_sha256": "ac1b5b7956fb21afa23812603d5fb6ae15a35ffd0c40b8991842bfb05b3db1d7",
+  "environment": {
+    "date_utc": "2026-11-12",
+    "cpu": "Intel N100 (4 logical CPUs)",
+    "ram_bytes": 16539791360,
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "Linux 6.8.0-147-generic x86_64",
+    "python": "3.12.3",
+    "ffmpeg": "6.1.1-3ubuntu5",
+    "jellyfin": "12.4.0"
+  },
+  "source_sha256": {
+    "before": "e31a4eb4333979fe90da156d8c6fd79f3ffb4f3066a3399aa9c30a805bdd901c",
+    "after": "385e66699b945703ffa23a6aa53e6ad192f547b23f2b1f49b8193d6a010211f6"
+  },
+  "harness_sha256": "18bc4c6f6df8e6f7c079e15980ed724010de37eb836c7aa02c6cc02eb8540a41"
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "name": "qsv",
+    "available": false,
+    "error": "[AVHWDeviceContext @ 0x5ea0192cfe40] Error creating a MFX session: -9.\nDevice creation failed: -1313558101.\nFailed to set value 'qsv=hw' for option 'init_hw_device': Unknown error occurred\nError parsing global options: Unknown error occurred\n"
+  },
+  {
+    "name": "vaapi",
+    "available": true,
+    "error": ""
+  }
+]

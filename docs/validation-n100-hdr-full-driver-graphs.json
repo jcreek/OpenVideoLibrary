@@ -1,0 +1,424 @@
+{
+  "scope": "Calibrated PQ grayscale graph diagnostic, no production/visual-quality acceptance",
+  "graphs": [
+    {
+      "name": "hw-tone-scale",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-hwaccel",
+        "vaapi",
+        "-hwaccel_output_format",
+        "vaapi",
+        "-ss",
+        "1.25",
+        "-i",
+        "/tmp/ovl-hdr-quality-olzs6pqm/source.mp4",
+        "-vf",
+        "tonemap_vaapi=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709,scale_vaapi=w=320:h=180:format=nv12",
+        "-an",
+        "-c:v",
+        "h264_vaapi",
+        "-b:v",
+        "1M",
+        "-color_primaries",
+        "bt709",
+        "-color_trc",
+        "bt709",
+        "-colorspace",
+        "bt709",
+        "/tmp/ovl-hdr-quality-olzs6pqm/output.mp4"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "decode_exit_code": 0,
+      "patch_rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          41,
+          41,
+          41
+        ],
+        [
+          130,
+          130,
+          130
+        ],
+        [
+          242,
+          244,
+          244
+        ]
+      ],
+      "output_sha256": "add5c34f52c12cea454aeaad07f8570d249f378b40deb705b55e318aad91e263"
+    },
+    {
+      "name": "hw-scale-tone",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-hwaccel",
+        "vaapi",
+        "-hwaccel_output_format",
+        "vaapi",
+        "-ss",
+        "1.25",
+        "-i",
+        "/tmp/ovl-hdr-quality-olzs6pqm/source.mp4",
+        "-vf",
+        "scale_vaapi=w=320:h=180:format=p010,tonemap_vaapi=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709",
+        "-an",
+        "-c:v",
+        "h264_vaapi",
+        "-b:v",
+        "1M",
+        "-color_primaries",
+        "bt709",
+        "-color_trc",
+        "bt709",
+        "-colorspace",
+        "bt709",
+        "/tmp/ovl-hdr-quality-olzs6pqm/output.mp4"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "decode_exit_code": 0,
+      "patch_rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          41,
+          41,
+          41
+        ],
+        [
+          130,
+          130,
+          130
+        ],
+        [
+          242,
+          244,
+          244
+        ]
+      ],
+      "output_sha256": "add5c34f52c12cea454aeaad07f8570d249f378b40deb705b55e318aad91e263"
+    },
+    {
+      "name": "sw-tone-scale",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-ss",
+        "1.25",
+        "-i",
+        "/tmp/ovl-hdr-quality-olzs6pqm/source.mp4",
+        "-vf",
+        "format=p010le,hwupload,tonemap_vaapi=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709,scale_vaapi=w=320:h=180:format=nv12",
+        "-an",
+        "-c:v",
+        "h264_vaapi",
+        "-b:v",
+        "1M",
+        "-color_primaries",
+        "bt709",
+        "-color_trc",
+        "bt709",
+        "-colorspace",
+        "bt709",
+        "/tmp/ovl-hdr-quality-olzs6pqm/output.mp4"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "decode_exit_code": 0,
+      "patch_rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          41,
+          41,
+          41
+        ],
+        [
+          130,
+          130,
+          130
+        ],
+        [
+          242,
+          244,
+          244
+        ]
+      ],
+      "output_sha256": "add5c34f52c12cea454aeaad07f8570d249f378b40deb705b55e318aad91e263"
+    },
+    {
+      "name": "hw-tone",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-hwaccel",
+        "vaapi",
+        "-hwaccel_output_format",
+        "vaapi",
+        "-ss",
+        "1.25",
+        "-i",
+        "/tmp/ovl-hdr-quality-olzs6pqm/source.mp4",
+        "-vf",
+        "tonemap_vaapi=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709",
+        "-an",
+        "-c:v",
+        "h264_vaapi",
+        "-b:v",
+        "1M",
+        "-color_primaries",
+        "bt709",
+        "-color_trc",
+        "bt709",
+        "-colorspace",
+        "bt709",
+        "/tmp/ovl-hdr-quality-olzs6pqm/output.mp4"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "decode_exit_code": 0,
+      "patch_rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          41,
+          41,
+          41
+        ],
+        [
+          130,
+          130,
+          130
+        ],
+        [
+          242,
+          244,
+          244
+        ]
+      ],
+      "output_sha256": "add5c34f52c12cea454aeaad07f8570d249f378b40deb705b55e318aad91e263"
+    },
+    {
+      "name": "sw-tone",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-ss",
+        "1.25",
+        "-i",
+        "/tmp/ovl-hdr-quality-olzs6pqm/source.mp4",
+        "-vf",
+        "format=p010le,hwupload,tonemap_vaapi=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709",
+        "-an",
+        "-c:v",
+        "h264_vaapi",
+        "-b:v",
+        "1M",
+        "-color_primaries",
+        "bt709",
+        "-color_trc",
+        "bt709",
+        "-colorspace",
+        "bt709",
+        "/tmp/ovl-hdr-quality-olzs6pqm/output.mp4"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "decode_exit_code": 0,
+      "patch_rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          41,
+          41,
+          41
+        ],
+        [
+          130,
+          130,
+          130
+        ],
+        [
+          242,
+          244,
+          244
+        ]
+      ],
+      "output_sha256": "add5c34f52c12cea454aeaad07f8570d249f378b40deb705b55e318aad91e263"
+    },
+    {
+      "name": "hw-tone-p010-scale",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-hwaccel",
+        "vaapi",
+        "-hwaccel_output_format",
+        "vaapi",
+        "-ss",
+        "1.25",
+        "-i",
+        "/tmp/ovl-hdr-quality-olzs6pqm/source.mp4",
+        "-vf",
+        "tonemap_vaapi=format=p010:primaries=bt709:transfer=bt709:matrix=bt709,scale_vaapi=w=320:h=180:format=nv12",
+        "-an",
+        "-c:v",
+        "h264_vaapi",
+        "-b:v",
+        "1M",
+        "-color_primaries",
+        "bt709",
+        "-color_trc",
+        "bt709",
+        "-colorspace",
+        "bt709",
+        "/tmp/ovl-hdr-quality-olzs6pqm/output.mp4"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "decode_exit_code": 0,
+      "patch_rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          41,
+          41,
+          41
+        ],
+        [
+          130,
+          130,
+          130
+        ],
+        [
+          242,
+          244,
+          244
+        ]
+      ],
+      "output_sha256": "577e38b0b0decb51f84ff717bd396f83effabbc019ad30829e2bb79f1dd14e18"
+    },
+    {
+      "name": "hw-setparams-tone",
+      "command": [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-hwaccel",
+        "vaapi",
+        "-hwaccel_output_format",
+        "vaapi",
+        "-ss",
+        "1.25",
+        "-i",
+        "/tmp/ovl-hdr-quality-olzs6pqm/source.mp4",
+        "-vf",
+        "setparams=range=limited:color_primaries=bt2020:color_trc=smpte2084:colorspace=bt2020nc,tonemap_vaapi=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709",
+        "-an",
+        "-c:v",
+        "h264_vaapi",
+        "-b:v",
+        "1M",
+        "-color_primaries",
+        "bt709",
+        "-color_trc",
+        "bt709",
+        "-colorspace",
+        "bt709",
+        "/tmp/ovl-hdr-quality-olzs6pqm/output.mp4"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "decode_exit_code": 0,
+      "patch_rgb": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          41,
+          41,
+          41
+        ],
+        [
+          130,
+          130,
+          130
+        ],
+        [
+          242,
+          244,
+          244
+        ]
+      ],
+      "output_sha256": "add5c34f52c12cea454aeaad07f8570d249f378b40deb705b55e318aad91e263"
+    }
+  ],
+  "fixture_sha256": "ef42766e74ea0368da2cd4a0457c33fea8ad59835b258f73796537dd9f6ba20a",
+  "driver": {
+    "build": "isolated intel-media-va-driver-non-free 24.1.0+ds1-1",
+    "sha256": "7e14725d1af6a016fda32492cd7daaa33f1e744a36c0b8907ef3bb3a98e6798c",
+    "system_driver_changed": false
+  },
+  "probe_script_sha256": "b12a7b571a2bb5256962309fa9b848e7f8fbec2bfeb56f50da755a3a23203f57"
+}

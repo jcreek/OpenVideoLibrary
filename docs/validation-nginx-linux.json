@@ -1,0 +1,31 @@
+{
+  "recorded_utc": "2026-11-09T16:12:10.728622+00:00",
+  "scope": "Real disposable Nginx TLS proxy and live Rust backup/restore; not a production deployment or playback-quality benchmark",
+  "host": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+  "nginx_platform": "linux/amd64",
+  "binary_sha256": "2ff0c92793c4fb2f8a86a210aeb2a2647dcbafc6dc7ef19139703c570b5f84aa",
+  "runtime": {
+    "architecture": "x86_64",
+    "os": "linux",
+    "server_version": "0.1.0",
+    "sqlite_version": "3.54.1"
+  },
+  "nginx_image_id": "sha256:53d8f012a1a7659f355c0930b4c8c8768a17a9f44a1d38d4fd7276a5096fcccd",
+  "checks": [
+    "trusted TLS and Secure/HttpOnly/SameSite cookie",
+    "proxy CSRF enforcement",
+    "range bytes/content-range/no-store",
+    "64KiB request limit",
+    "persistent queue",
+    "live WAL backup and fresh restore",
+    "restored sessions revoked",
+    "restored credentials, queue and media preserved",
+    "both SIGTERM exits zero"
+  ],
+  "complete": true,
+  "provenance": {
+    "source_commit": "97bc011464205fff9e0e500c4d0b6f6ab66dde6e",
+    "run_url": "https://github.com/jcreek/OpenVideoLibrary/actions/runs/42651686557",
+    "artifact": "nginx-acceptance"
+  }
+}
