@@ -1,0 +1,19 @@
+services:
+  openvideolibrary:
+    build: .
+    ports:
+      - "127.0.0.1:8096:8096"
+    environment:
+      OVL_DATA: /data
+      OVL_SECURE_COOKIES: "true"
+      OVL_MAX_STREAMS: "2"
+    volumes:
+      - ./data:/data
+      # Set OVL_MEDIA_DIR in a local .env (gitignored; see .env.example).
+      - ${OVL_MEDIA_DIR:?set OVL_MEDIA_DIR in .env}:/media:ro
+    # Enable after matching the container's supplemental group to your render device:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - "RENDER_GROUP_ID"
+    restart: unless-stopped
