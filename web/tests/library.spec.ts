@@ -322,7 +322,8 @@ test('music library tags and decoded audio queue playback',async({page,browserNa
  await page.getByRole('button',{name:'Show lyrics',exact:true}).click();
  await player.evaluate((a:HTMLAudioElement)=>a.pause());
  await page.getByRole('button',{name:'Jump here',exact:true}).click();
- await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeCloseTo(2, 2);
+ // [00:01.50] with [offset:+500]: a positive offset shows the line 0.5 s sooner.
+ await expect.poll(()=>player.evaluate((a:HTMLAudioElement)=>a.currentTime)).toBeCloseTo(1, 2);
  await player.evaluate(async(a:HTMLAudioElement)=>{a.currentTime=a.duration-.15;await a.play();});
  await expect(page.locator('.player h2')).toHaveText('Second track');
  await expect.poll(()=>page.locator('.player img').evaluate((image:HTMLImageElement)=>image.naturalWidth)).toBe(32);
