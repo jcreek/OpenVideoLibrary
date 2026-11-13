@@ -1399,8 +1399,8 @@ No Actions ran.
 ## Current Linux images — 2026-11-12
 
 Linux arm64 and amd64 images were built locally with Docker Buildx from
-source tree `acf25de812ea52aa54715b1a82ee78609b7ef1e9`, the PR head after the
-history rewrite. The rewrite changed no file contents. With the user's
+tree `acf25de812ea52aa54715b1a82ee78609b7ef1e9` of PR head commit `f51d0ad`,
+made after the history rewrite. The rewrite changed no file contents. With the user's
 authorisation, only Docker's build cache was pruned to make space, before
 each build. No images or volumes were removed.
 

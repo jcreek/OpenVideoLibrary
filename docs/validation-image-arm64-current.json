@@ -19,5 +19,8 @@
     "media write denied and fixture unchanged",
     "SIGTERM exit zero without OOM"
   ],
-  "complete": true
+  "complete": true,
+  "source_tree": "acf25de812ea52aa54715b1a82ee78609b7ef1e9",
+  "source_commit": "f51d0adb70bd5ed285e1b179c5e5a3b46f6e5f4d",
+  "build": "native buildx build and run on an arm64 macOS host"
 }

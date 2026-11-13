@@ -39,9 +39,18 @@ Four increments from this session are complete and on PR #1. The current
 Linux images also pass the container smoke. With the user's approval,
 history from the first handoff commit onward was rewritten to remove the
 N100's private address and key filename, then force-pushed. PR #1's
-commit IDs changed, but no file content did. A local-only backup ref,
-`local-backup-before-history-scrub`, keeps the old history on the
-development machine. Do not push it.
+commit IDs changed, but no file content did. Two local-only refs keep the
+old history on the development machine:
+`local-backup-before-history-scrub` and filter-branch's
+`refs/original/refs/heads/rust-migration`. The first is a branch, so never
+use `git push --all` or `--mirror`, and delete both once the user agrees.
+
+Old commits may stay reachable on GitHub by commit ID, including from PR #1's
+force-push event, until GitHub purges them. If the address must be
+unrecoverable, the user needs to ask GitHub Support. Committed N100 evidence
+still names the host (`plex`), the test account and its workspace paths.
+These were outside the authorised scrub; the user decides whether to scrub
+them.
 
 1. **Queue capture.** `addToList` captures the clicked title and list before
    awaiting, and clears stale notices. See "Queue add captures the clicked
