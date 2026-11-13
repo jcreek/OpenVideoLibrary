@@ -266,6 +266,28 @@ Still open:
   cancelling cold detection.
 - Existing overlapping library roots in older databases are not flagged.
 
+**Second CodeRabbit review of PR 1 (13 November 2026).** All five comments were
+verified against the code and fixed in one commit on `split/1-server`:
+- List views omit entries only when revalidation returns 404; other errors
+  reach the client.
+- LRC offsets follow the LRC format convention: a positive offset shows
+  lyrics sooner. This reverses the earlier Rockbox-style direction; the
+  browser test in `split/2-web` was updated.
+- After an encode fails, an unfinished playlist reload returns the stored
+  failure (502). Complete playlists and published segments stay servable.
+- NFO sidecars are read through the anchored, symlink-refusing open, and
+  the handle is validated as a bounded regular file.
+- Failed music tag probes are recorded in the additive
+  `ovl_music_probe_failures` table and skipped for 24 hours (track faults)
+  or 1 hour (timeouts and I/O errors), or until the file changes, so the
+  per-scan probe budget reaches later tracks.
+
+Evidence: 40 API tests, 14 of 14 ignored media tests, the HDR fallback
+test, `make verify-local` (18 of 18 browser cases and the Nginx drill),
+and two N100 runs with all 8 checks passing. An independent review and
+two follow-ups found nothing blocking. The NFO race itself cannot be
+reproduced deterministically; its test covers symlink and FIFO refusal.
+
 ## Outstanding from the plan
 
 1. **Preview and video acceptance.** The user has no HDR content, so real HDR10, HLG and Dolby Vision acceptance is unavailable; HDR evidence stays synthetic. The queue-capture regression and the
