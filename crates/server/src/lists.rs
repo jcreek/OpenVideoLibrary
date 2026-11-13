@@ -31,7 +31,7 @@ struct Write {
 async fn validate(app: &Arc<App>, u: User, b: &Write) -> Result<Vec<i64>> {
     if !["collection", "playlist", "queue"].contains(&b.kind.as_str())
         || b.name.trim().is_empty()
-        || b.name.len() > 200
+        || b.name.chars().count() > 200
         || b.item_ids.len() > 1000
         || b.cursor > b.item_ids.len()
     {

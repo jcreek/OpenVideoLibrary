@@ -800,6 +800,7 @@ dependencies = [
  "httpdate",
  "humantime",
  "libc",
+ "mime_guess",
  "quick-xml",
  "regex",
  "reqwest",

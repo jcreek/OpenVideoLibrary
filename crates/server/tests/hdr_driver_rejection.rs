@@ -20,11 +20,27 @@ async fn physical_rejects_black_hdr_driver() {
         stream_idle: Duration::from_secs(60),
     })
     .unwrap();
+    // A missing prerequisite is BLOCKED, not a passing rejection.
+    let encoders = std::process::Command::new("ffmpeg")
+        .args(["-hide_banner", "-encoders"])
+        .output()
+        .expect("BLOCKED: ffmpeg is unavailable");
     assert!(
-        !ovl_server::hardware::validate_hdr_picture(&app, root.path(), &app.cancel.child_token())
-            .await
-            .unwrap()
+        String::from_utf8_lossy(&encoders.stdout).contains("libx265"),
+        "BLOCKED: ffmpeg lacks libx265 for the HDR fixture"
     );
+    let detected = ovl_server::hardware::detect(&app).await.unwrap();
+    assert!(
+        detected.iter().any(|a| a.name == "vaapi" && a.available),
+        "BLOCKED: VAAPI encode is unavailable, so the driver was not exercised"
+    );
+    // Generation and the hardware encode must succeed; only the decoded
+    // picture may be rejected.
+    let verdict =
+        ovl_server::hardware::probe_hdr_picture(&app, root.path(), &app.cancel.child_token())
+            .await
+            .unwrap_or_else(|e| panic!("HDR probe did not complete: {}", e.1));
+    assert!(!verdict, "the known-broken driver produced a valid picture");
     assert!(!root.path().join("hdr-probe").exists());
     app.shutdown().await;
 }

@@ -69,13 +69,36 @@ pub fn routes(app: Arc<App>) -> Router {
             tower_http::services::ServeDir::new(app.config.web.clone())
                 .append_index_html_on_directories(true),
         )
-        .layer(DefaultBodyLimit::max(64 * 1024))
+        .layer(DefaultBodyLimit::max(MAX_BODY))
+        .layer(middleware::from_fn(body_deadline))
         .layer(
             tower_http::trace::TraceLayer::new_for_http().on_response(
                 tower_http::trace::DefaultOnResponse::new().level(tracing::Level::INFO),
             ),
         )
         .with_state(app)
+}
+const MAX_BODY: usize = 64 * 1024;
+/// Total time a client may take to send a request body, on every route
+/// (including unauthenticated setup and login). Bodies are small and buffered,
+/// so a stalled or trickling upload cannot hold a handler open.
+pub const BODY_DEADLINE: std::time::Duration = std::time::Duration::from_secs(15);
+async fn body_deadline(req: Request, next: Next) -> Result<Response> {
+    let (parts, body) = req.into_parts();
+    let limited = http_body_util::Limited::new(body, MAX_BODY);
+    let bytes = match tokio::time::timeout(BODY_DEADLINE, http_body_util::BodyExt::collect(limited))
+        .await
+    {
+        Err(_) => return Err(Error::new(408, "request body timed out")),
+        Ok(Err(error)) if error.is::<http_body_util::LengthLimitError>() => {
+            return Err(Error::new(413, "request body too large"));
+        }
+        Ok(Err(_)) => return Err(Error::new(400, "invalid request body")),
+        Ok(Ok(collected)) => collected.to_bytes(),
+    };
+    Ok(next
+        .run(Request::from_parts(parts, axum::body::Body::from(bytes)))
+        .await)
 }
 pub async fn security_headers(req: Request, next: Next) -> Response {
     let path = req.uri().path().to_owned();
@@ -145,6 +168,18 @@ async fn add_library(
         .db
         .call(move |c| {
             let tx = c.transaction()?;
+            // Nested roots would index one file under two libraries' grants.
+            let roots = tx
+                .prepare("SELECT path FROM libraries")?
+                .query_map([], |r| r.get::<_, String>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            if roots
+                .iter()
+                .map(std::path::Path::new)
+                .any(|root| root.starts_with(&path) || path.starts_with(root))
+            {
+                return Err(Error::new(409, "library roots must not overlap"));
+            }
             let music = b.kind == "music";
             tx.execute(
                 "INSERT INTO libraries(name,path,kind) VALUES(?,?,?)",

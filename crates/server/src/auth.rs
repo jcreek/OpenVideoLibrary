@@ -161,6 +161,19 @@ pub async fn setup(
 ) -> Result<impl IntoResponse> {
     request_header(&headers)?;
     let _guard = app.setup.lock().await;
+    // Reject once configured without spending a bcrypt hash; `create` keeps
+    // its transactional user-count check as the final guard.
+    let configured = app
+        .db
+        .call(|c| {
+            Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM users)", [], |r| {
+                r.get::<_, bool>(0)
+            })?)
+        })
+        .await?;
+    if configured {
+        return Err(Error::new(409, "already configured"));
+    }
     let b = parse(&body)?;
     Ok((
         axum::http::StatusCode::CREATED,
@@ -219,6 +232,7 @@ pub async fn login(
         })
         .await?;
     let (id, hash) = account.ok_or_else(|| Error::new(401, "invalid credentials"))?;
+    let hash_used = hash.clone();
     let valid = app
         .tasks
         .spawn_blocking(move || {
@@ -233,15 +247,20 @@ pub async fn login(
     let token = token()?;
     let hashed = digest(&token);
     let expires = now() + 86400;
-    app.db
+    // Atomic with the hash check: a password reset that commits after
+    // verification leaves no session for the old password.
+    let created = app
+        .db
         .call(move |c| {
-            c.execute(
-                "INSERT INTO sessions VALUES(?,?,?)",
-                params![hashed, id, expires],
-            )?;
-            Ok(())
+            Ok(c.execute(
+                "INSERT INTO sessions SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE id=? AND password=?)",
+                params![hashed, id, expires, id, hash_used],
+            )?)
         })
         .await?;
+    if created == 0 {
+        return Err(Error::new(401, "invalid credentials"));
+    }
     let secure = if app.config.secure_cookies {
         "; Secure"
     } else {

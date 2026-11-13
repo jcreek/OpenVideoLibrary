@@ -50,6 +50,25 @@ impl Db {
         }
         tx.commit()?;
         crate::search::init(&conn)?;
+        // SQLite's lower() folds ASCII only; music search matches metadata with
+        // Rust's Unicode lowercase on both sides.
+        conn.create_scalar_function(
+            "ovl_lower",
+            1,
+            rusqlite::functions::FunctionFlags::SQLITE_UTF8
+                | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+            |ctx| {
+                use rusqlite::types::ValueRef;
+                Ok(match ctx.get_raw(0) {
+                    ValueRef::Null => None,
+                    ValueRef::Text(bytes) | ValueRef::Blob(bytes) => {
+                        Some(String::from_utf8_lossy(bytes).to_lowercase())
+                    }
+                    ValueRef::Integer(value) => Some(value.to_string()),
+                    ValueRef::Real(value) => Some(value.to_string()),
+                })
+            },
+        )?;
         let (tx, mut rx) = mpsc::channel::<Option<Job>>(64);
         let worker = std::thread::Builder::new()
             .name("ovl-sqlite".into())

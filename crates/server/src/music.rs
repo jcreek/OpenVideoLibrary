@@ -155,10 +155,10 @@ pub async fn albums(
         let sql=format!("SELECT f.library_id,t.artist,t.album,count(*) {CURRENT}
             WHERE {FRESH} AND {GRANT} AND t.album<>'' AND (? IS NULL OR f.library_id=?)
             AND (? IS NULL OR t.artist=?)
-            AND (instr(lower(t.album),lower(?))>0 OR instr(lower(t.artist),lower(?))>0)
+            AND (?='' OR instr(ovl_lower(t.album),ovl_lower(?))>0 OR instr(ovl_lower(t.artist),ovl_lower(?))>0)
             GROUP BY f.library_id,t.artist,t.album ORDER BY t.artist,t.album,f.library_id LIMIT 100 OFFSET ?");
         let mut stmt=c.prepare(&sql)?;
-        let rows=stmt.query_map(params![u.admin,u.id,q.library,q.library,q.artist,q.artist,q.q,q.q,q.offset],|r|
+        let rows=stmt.query_map(params![u.admin,u.id,q.library,q.library,q.artist,q.artist,q.q,q.q,q.q,q.offset],|r|
             Ok(json!({"library_id":r.get::<_,i64>(0)?,"artist":r.get::<_,String>(1)?,
                 "album":r.get::<_,String>(2)?,"tracks":r.get::<_,i64>(3)?})))?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -186,10 +186,10 @@ pub async fn artists(
     Ok(Json(app.db.call(move|c| {
         let sql=format!("SELECT f.library_id,t.artist,count(DISTINCT nullif(t.album,'')),count(*) {CURRENT}
             WHERE {FRESH} AND {GRANT} AND t.artist<>'' AND (? IS NULL OR f.library_id=?)
-            AND instr(lower(t.artist),lower(?))>0
+            AND (?='' OR instr(ovl_lower(t.artist),ovl_lower(?))>0)
             GROUP BY f.library_id,t.artist ORDER BY t.artist,f.library_id LIMIT 100 OFFSET ?");
         let mut stmt=c.prepare(&sql)?;
-        let rows=stmt.query_map(params![u.admin,u.id,q.library,q.library,q.q,q.offset],|r|
+        let rows=stmt.query_map(params![u.admin,u.id,q.library,q.library,q.q,q.q,q.offset],|r|
             Ok(json!({"library_id":r.get::<_,i64>(0)?,"artist":r.get::<_,String>(1)?,
                 "albums":r.get::<_,i64>(2)?,"tracks":r.get::<_,i64>(3)?})))?
             .collect::<rusqlite::Result<Vec<_>>>()?;

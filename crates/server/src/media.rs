@@ -67,6 +67,85 @@ async fn resolve_item(app: &App, u: User, id: i64, kind: bool) -> Result<(PathBu
     }
     Ok((real, library, kind))
 }
+
+/// Single-file demuxers accepted for library media. Playlist, concat and
+/// image-sequence demuxers, which can open further files or URLs, are excluded.
+pub(crate) const MEDIA_DEMUXERS: &str =
+    "mov,matroska,avi,mpegts,mpeg,mpegvideo,flv,asf,ogg,mp3,flac,wav,aac";
+
+/// Input options that keep an FFmpeg input on local files and single-file
+/// demuxers, so a crafted library entry cannot select a demuxer that opens
+/// other paths or URLs. They must precede that input's `-i`.
+pub(crate) fn confined_input(formats: &str) -> [String; 4] {
+    [
+        "-protocol_whitelist".into(),
+        "file".into(),
+        "-format_whitelist".into(),
+        formats.into(),
+    ]
+}
+
+/// Most handles one child may inherit (fds 3 to 10). An adaptive burn-in uses
+/// one per input plus one per rendition's subtitle filter.
+pub(crate) const MAX_INHERITED: usize = 8;
+
+/// Path at which a child sees the `slot`-th handle passed to [`process_media`].
+pub(crate) fn inherited(slot: usize) -> String {
+    format!("/dev/fd/{}", 3 + slot)
+}
+
+/// Opens an already authorized canonical media path through anchored,
+/// symlink-free component lookups and checks the opened handle is a file.
+/// Consumers then use this handle (or `/dev/fd/N` naming it), never the path,
+/// so a component swapped after authorization cannot redirect the read.
+pub(crate) async fn open_media(app: &App, path: &FsPath) -> Result<(std::fs::File, u64)> {
+    let path = path.to_owned();
+    let work = app.tasks.spawn_blocking(move || {
+        let file = open_registered_file(&path)?;
+        let metadata = file.metadata()?;
+        if !metadata.is_file() {
+            return Err(std::io::Error::other("not a regular file"));
+        }
+        Ok((file, metadata.len()))
+    });
+    tokio::time::timeout(Duration::from_secs(5), work)
+        .await
+        .map_err(|_| Error::new(504, "media open timed out"))?
+        .map_err(|_| Error::new(500, "media worker failed"))?
+        .map_err(|_| Error::new(404, "media unavailable"))
+}
+
+/// Serves authorized library media from an anchored handle. Content type comes
+/// from the authorized path; ranges and validators come from the opened file.
+pub async fn serve_media(app: &App, path: PathBuf, req: Request) -> Result<Response> {
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        let (file, _) = open_media(app, &path).await?;
+        let mime = axum::http::HeaderValue::from_static(
+            mime_guess::from_path(&path)
+                .first_raw()
+                .unwrap_or("application/octet-stream"),
+        );
+        let mut response = serve(
+            app,
+            PathBuf::from(format!("/dev/fd/{}", file.as_raw_fd())),
+            req,
+        )
+        .await?;
+        // ServeFile has opened its own handle to the same file by now.
+        drop(file);
+        if response.status().is_success() {
+            response.headers_mut().insert(header::CONTENT_TYPE, mime);
+        }
+        Ok(response)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (app, path, req);
+        Err(Error::new(503, "anchored media serving requires Unix"))
+    }
+}
 pub async fn serve(app: &App, path: PathBuf, req: Request) -> Result<Response> {
     let response = tower_http::services::ServeFile::new(path)
         .oneshot(req)
@@ -87,7 +166,7 @@ pub async fn file(
     req: Request,
 ) -> Result<Response> {
     let (path, _) = item(&app, u, id).await?;
-    serve(&app, path, req).await
+    serve_media(&app, path, req).await
 }
 #[derive(Clone, Default, Debug, Deserialize, Serialize)]
 #[serde(default)]
@@ -203,7 +282,43 @@ pub async fn process(
     limit: usize,
     cancel: tokio_util::sync::CancellationToken,
 ) -> Result<Vec<u8>> {
-    run_process(app, program, args, cwd, timeout, limit, (cancel, None)).await
+    run_process(
+        app,
+        program,
+        args,
+        cwd,
+        timeout,
+        limit,
+        (cancel, None),
+        Vec::new(),
+    )
+    .await
+}
+
+/// Like [`process`], with `files` inherited by the child at fd 3 and up, where
+/// [`inherited`] names them. The child reads exactly these handles.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn process_media(
+    app: &Arc<App>,
+    program: &str,
+    args: Vec<String>,
+    cwd: Option<PathBuf>,
+    timeout: Duration,
+    limit: usize,
+    cancel: tokio_util::sync::CancellationToken,
+    files: Vec<std::fs::File>,
+) -> Result<Vec<u8>> {
+    run_process(
+        app,
+        program,
+        args,
+        cwd,
+        timeout,
+        limit,
+        (cancel, None),
+        files,
+    )
+    .await
 }
 
 pub(crate) async fn probe_lyrics(
@@ -243,10 +358,12 @@ pub(crate) async fn probe_music_tags(
         Duration::from_secs(5),
         1 << 20,
         (app.cancel.child_token(), Some((file, slot))),
+        Vec::new(),
     )
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_process(
     app: &Arc<App>,
     program: &str,
@@ -258,7 +375,12 @@ async fn run_process(
         tokio_util::sync::CancellationToken,
         Option<(std::fs::File, tokio::sync::OwnedSemaphorePermit)>,
     ),
+    files: Vec<std::fs::File>,
 ) -> Result<Vec<u8>> {
+    const MAX_FILES: usize = MAX_INHERITED;
+    if files.len() > MAX_FILES {
+        return Err(Error::new(500, "too many media handles"));
+    }
     let request_cancel = cancel.child_token();
     let _guard = request_cancel.clone().drop_guard();
     let global = app.cancel.clone();
@@ -272,7 +394,38 @@ async fn run_process(
             };
             let mut command=Command::new(program);command.args(args).stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
             if let Some(cwd)=cwd{command.current_dir(cwd);}
+            #[cfg(unix)]
+            if !files.is_empty() {
+                use std::os::fd::AsRawFd;
+                let count = files.len();
+                let mut raw = [-1; MAX_FILES];
+                for (slot, file) in raw.iter_mut().zip(&files) {
+                    *slot = file.as_raw_fd();
+                }
+                // SAFETY: between fork and exec this runs only async-signal-safe
+                // fcntl/dup2 on stack data. Sources first move above the target
+                // range (close-on-exec), so no dup2 overwrites a later source.
+                unsafe {
+                    command.pre_exec(move || {
+                        let mut high = [-1; MAX_FILES];
+                        for (moved, source) in high.iter_mut().zip(raw).take(count) {
+                            *moved = libc::fcntl(source, libc::F_DUPFD_CLOEXEC, 64);
+                            if *moved < 0 {
+                                return Err(std::io::Error::last_os_error());
+                            }
+                        }
+                        for (i, fd) in high.iter().enumerate().take(count) {
+                            if libc::dup2(*fd, 3 + i as libc::c_int) < 0 {
+                                return Err(std::io::Error::last_os_error());
+                            }
+                        }
+                        Ok(())
+                    });
+                }
+            }
             let mut child=command.spawn().map_err(|_|Error::new(503,"media tool unavailable"))?;
+            // The child holds its own copies; the parent's handles are no longer needed.
+            drop(files);
             let stdout=child.stdout.take().expect("piped stdout");let stderr=child.stderr.take().expect("piped stderr");
             let outcome=tokio::select! {
                 _=global.cancelled()=>Err(Error::new(503,"server stopping")),
@@ -326,10 +479,10 @@ pub async fn keyframe_at_or_before(
     );
     let lookup = async {
         for interval in intervals {
-            let out = process(
-                app,
-                "ffprobe",
-                vec![
+            let (mut args, input, files) = probe_input(app, path, true).await?;
+            args.splice(
+                0..0,
+                [
                     "-v".into(),
                     "error".into(),
                     "-select_streams".into(),
@@ -340,12 +493,18 @@ pub async fn keyframe_at_or_before(
                     "packet=pts_time,flags".into(),
                     "-of".into(),
                     "csv=p=0".into(),
-                    path.to_string_lossy().into_owned(),
                 ],
+            );
+            args.push(input);
+            let out = process_media(
+                app,
+                "ffprobe",
+                args,
                 None,
                 Duration::from_secs(3),
                 1 << 20,
                 app.cancel.child_token(),
+                files,
             )
             .await?;
             if let Some(keyframe) = latest_keyframe(&String::from_utf8_lossy(&out), target) {
@@ -410,41 +569,82 @@ pub fn latest_keyframe(output: &str, target: f64) -> Option<f64> {
         .reduce(f64::max)
 }
 
-pub async fn inspect(app: &Arc<App>, path: &FsPath) -> Result<Info> {
-    let enrich = crate::hardware::wants_vaapi_hdr(
+fn hdr_enrichment() -> bool {
+    crate::hardware::wants_vaapi_hdr(
         &std::env::var("OVL_ACCELERATOR").unwrap_or("auto".into()),
         &std::env::var("OVL_HDR_ACCELERATOR").unwrap_or_default(),
-    );
-    inspect_with_hdr_metadata(app, path, enrich).await
+    )
+}
+/// Probes a trusted local file, such as generated output or a playlist the
+/// server wrote. Library media must use [`inspect_media`].
+pub async fn inspect(app: &Arc<App>, path: &FsPath) -> Result<Info> {
+    inspect_with_hdr_metadata(app, path, hdr_enrichment()).await
+}
+/// Probes authorized library media through an anchored handle, confined to
+/// local single-file demuxers.
+pub async fn inspect_media(app: &Arc<App>, path: &FsPath) -> Result<Info> {
+    inspect_source(app, path, hdr_enrichment(), true).await
 }
 /// Explicit enrichment is also used by physical acceptance tools; ordinary CPU
-/// playback avoids the additional bounded frame decode.
+/// playback avoids the additional bounded frame decode. Trusted paths only.
 pub async fn inspect_with_hdr_metadata(
     app: &Arc<App>,
     path: &FsPath,
     enrich: bool,
+) -> Result<Info> {
+    inspect_source(app, path, enrich, false).await
+}
+/// Arguments and inherited handles for one probe of `path`. Library media are
+/// read only through a fresh anchored handle with confined demuxing.
+async fn probe_input(
+    app: &App,
+    path: &FsPath,
+    library: bool,
+) -> Result<(Vec<String>, String, Vec<std::fs::File>)> {
+    if library {
+        let (file, _) = open_media(app, path).await?;
+        Ok((
+            confined_input(MEDIA_DEMUXERS).into(),
+            inherited(0),
+            vec![file],
+        ))
+    } else {
+        Ok((Vec::new(), path.to_string_lossy().into_owned(), Vec::new()))
+    }
+}
+async fn inspect_source(
+    app: &Arc<App>,
+    path: &FsPath,
+    enrich: bool,
+    library: bool,
 ) -> Result<Info> {
     let _slot = app
         .inspection
         .clone()
         .try_acquire_owned()
         .map_err(|_| Error::new(503, "media inspection busy; retry shortly"))?;
-    let out = process(
-        app,
-        "ffprobe",
-        vec![
+    let (mut args, input, files) = probe_input(app, path, library).await?;
+    args.splice(
+        0..0,
+        [
             "-v".into(),
             "error".into(),
             "-show_streams".into(),
             "-show_format".into(),
             "-of".into(),
             "json".into(),
-            path.to_string_lossy().into_owned(),
         ],
+    );
+    args.push(input);
+    let out = process_media(
+        app,
+        "ffprobe",
+        args,
         None,
         Duration::from_secs(10),
         2 << 20,
         app.cancel.child_token(),
+        files,
     )
     .await?;
     let mut info: Info = serde_json::from_slice(&out)
@@ -456,30 +656,39 @@ pub async fn inspect_with_hdr_metadata(
         && info.hdr()
         && let Some(position) = info.streams.iter().position(Track::is_playable_video)
     {
-        let frames = process(
-            app,
-            "ffprobe",
-            vec![
-                "-v".into(),
-                "error".into(),
-                "-threads".into(),
-                "2".into(),
-                "-select_streams".into(),
-                info.streams[position].index.to_string(),
-                "-read_intervals".into(),
-                "%+#8".into(),
-                "-show_frames".into(),
-                "-show_entries".into(),
-                "frame=side_data_list".into(),
-                "-of".into(),
-                "json".into(),
-                path.to_string_lossy().into_owned(),
-            ],
-            None,
-            Duration::from_secs(10),
-            512 << 10,
-            app.cancel.child_token(),
-        )
+        let frames = async {
+            let (mut args, input, files) = probe_input(app, path, library).await?;
+            args.splice(
+                0..0,
+                [
+                    "-v".into(),
+                    "error".into(),
+                    "-threads".into(),
+                    "2".into(),
+                    "-select_streams".into(),
+                    info.streams[position].index.to_string(),
+                    "-read_intervals".into(),
+                    "%+#8".into(),
+                    "-show_frames".into(),
+                    "-show_entries".into(),
+                    "frame=side_data_list".into(),
+                    "-of".into(),
+                    "json".into(),
+                ],
+            );
+            args.push(input);
+            process_media(
+                app,
+                "ffprobe",
+                args,
+                None,
+                Duration::from_secs(10),
+                512 << 10,
+                app.cancel.child_token(),
+                files,
+            )
+            .await
+        }
         .await;
         if let Ok(bytes) = frames {
             #[derive(Deserialize)]
@@ -573,7 +782,7 @@ pub async fn probe(
     Path(id): Path<i64>,
 ) -> Result<Json<Info>> {
     let (path, _) = item(&app, u, id).await?;
-    Ok(Json(inspect(&app, &path).await?))
+    Ok(Json(inspect_media(&app, &path).await?))
 }
 #[cfg(unix)]
 pub(crate) fn open_registered_file(path: &std::path::Path) -> std::io::Result<std::fs::File> {
@@ -623,7 +832,7 @@ async fn serve_artwork(app: &App, path: PathBuf, req: Request) -> Result<Respons
         Some("webp") => "image/webp",
         _ => return Err(Error::new(404, "no local artwork")),
     };
-    let mut response = serve(app, path, req).await?;
+    let mut response = serve_media(app, path, req).await?;
     response.headers_mut().insert(
         header::CONTENT_TYPE,
         axum::http::HeaderValue::from_static(mime),
@@ -704,6 +913,7 @@ async fn embedded_cover(app: &Arc<App>, path: PathBuf) -> Result<Response> {
         Duration::from_secs(5),
         2 << 20,
         (app.cancel.child_token(), Some(input)),
+        Vec::new(),
     )
     .await
     .map_err(|e| {
@@ -797,22 +1007,27 @@ pub async fn subtitle(
         .clone()
         .try_acquire_owned()
         .map_err(|_| Error::new(429, "subtitle conversion busy"))?;
-    let mut args = vec!["-nostdin".into(), "-v".into(), "error".into()];
-    if b.external {
+    let mut args: Vec<String> = vec!["-nostdin".into(), "-v".into(), "error".into()];
+    let file = if b.external {
         path.set_extension("srt");
-        let m = tokio::fs::symlink_metadata(&path)
+        let (file, len) = open_media(&app, &path)
             .await
             .map_err(|_| Error::new(404, "external SRT unavailable"))?;
-        if !m.is_file() || m.len() > 10 << 20 {
+        if len > 10 << 20 {
             return Err(Error::new(404, "external SRT unavailable"));
         }
-    }
-    args.extend(["-i".into(), path.to_string_lossy().into_owned()]);
+        args.extend(confined_input("srt"));
+        file
+    } else {
+        args.extend(confined_input(MEDIA_DEMUXERS));
+        open_media(&app, &path).await?.0
+    };
+    args.extend(["-i".into(), inherited(0)]);
     if !b.external {
         args.extend(["-map".into(), format!("0:s:{}", b.index)]);
     }
     args.extend(["-f".into(), "webvtt".into(), "pipe:1".into()]);
-    let out = process(
+    let out = process_media(
         &app,
         "ffmpeg",
         args,
@@ -820,6 +1035,7 @@ pub async fn subtitle(
         Duration::from_secs(15),
         10 << 20,
         app.cancel.child_token(),
+        vec![file],
     )
     .await?;
     Ok(([(header::CONTENT_TYPE, "text/vtt")], out).into_response())

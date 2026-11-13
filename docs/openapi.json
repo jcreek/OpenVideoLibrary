@@ -3,7 +3,7 @@
   "info": {
     "title": "OpenVideoLibrary API",
     "version": "0.1.0",
-    "description": "Native Rust preview API. No Jellyfin API compatibility. List reads omit entries whose media are inaccessible; positions retain saved ordering. Cursor is the next saved position for queues. Updates replace entries atomically and require the current Revision; stale writes return 409. Limits: 100 lists per account and 1000 entries per list. Expansion tables are additive to database schema v2."
+    "description": "Native Rust preview API. No Jellyfin API compatibility. List reads omit entries whose media are inaccessible; positions retain saved ordering. Cursor is the next saved position for queues. Updates replace entries atomically and require the current Revision; stale writes return 409. Limits: 100 lists per account and 1000 entries per list. Expansion tables are additive to database schema v2. Setup, login and cookie-authenticated requests other than GET and HEAD require the header X-OVL-Request: 1; bearer-authenticated requests do not."
   },
   "security": [
     {
@@ -101,6 +101,11 @@
           }
         },
         "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OVLRequest"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -155,6 +160,11 @@
           }
         },
         "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/OVLRequest"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -2095,6 +2105,18 @@
     }
   },
   "components": {
+    "parameters": {
+      "OVLRequest": {
+        "name": "X-OVL-Request",
+        "in": "header",
+        "required": true,
+        "description": "CSRF guard. Required on setup and login, and on cookie-authenticated requests other than GET and HEAD. Bearer-authenticated requests do not need it.",
+        "schema": {
+          "type": "string",
+          "const": "1"
+        }
+      }
+    },
     "schemas": {
       "Item": {
         "type": "object",
@@ -2199,8 +2221,7 @@
           },
           "Password": {
             "type": "string",
-            "minLength": 12,
-            "maxLength": 72
+            "description": "12–72 bytes when UTF-8 encoded. The server counts bytes, not characters, so clients must validate the encoded length."
           }
         },
         "required": [
@@ -2217,8 +2238,7 @@
           },
           "Password": {
             "type": "string",
-            "minLength": 12,
-            "maxLength": 72
+            "description": "12–72 bytes when UTF-8 encoded. The server counts bytes, not characters, so clients must validate the encoded length."
           },
           "Libraries": {
             "type": "array",
@@ -2613,8 +2633,7 @@
         "properties": {
           "Password": {
             "type": "string",
-            "minLength": 12,
-            "maxLength": 72
+            "description": "12–72 bytes when UTF-8 encoded. The server counts bytes, not characters, so clients must validate the encoded length."
           }
         },
         "required": [

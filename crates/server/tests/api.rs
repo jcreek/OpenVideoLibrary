@@ -5401,3 +5401,382 @@ async fn real_legacy_container_corpus_converts_with_exact_timeline_and_sync() {
     }
     app.shutdown().await;
 }
+
+#[tokio::test]
+async fn library_roots_cannot_nest_in_either_direction() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let media = std::fs::canonicalize(root.path()).unwrap().join("media");
+    for dir in ["shows/kids", "films"] {
+        std::fs::create_dir_all(media.join(dir)).unwrap();
+    }
+    let add = |path: std::path::PathBuf| {
+        let router = router.clone();
+        let token = token.clone();
+        async move {
+            request(
+                &router,
+                "POST",
+                "/api/v1/libraries",
+                Some(&token),
+                Some(json!({"Name":"lib","Kind":"tv","Path":path})),
+            )
+            .await
+            .0
+        }
+    };
+    assert_eq!(add(media.join("shows")).await, 201);
+    // Child, parent and the same root all overlap the existing library.
+    assert_eq!(add(media.join("shows/kids")).await, 409);
+    assert_eq!(add(media.clone()).await, 409);
+    assert_eq!(add(media.join("shows")).await, 409);
+    // A sibling, including one sharing a name prefix, does not.
+    assert_eq!(add(media.join("films")).await, 201);
+    std::fs::create_dir_all(media.join("shows-extra")).unwrap();
+    assert_eq!(add(media.join("shows-extra")).await, 201);
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn configured_setup_is_rejected_before_body_validation() {
+    let root = TempDir::new().unwrap();
+    let (app, router, _) = setup(&root).await;
+    // An invalid password would be 400 if setup still reached account creation.
+    for body in [
+        json!({"Name":"second","Password":"short"}),
+        json!({"Name":"second","Password":"test-password-123"}),
+    ] {
+        assert_eq!(
+            request(&router, "POST", "/api/v1/setup", None, Some(body))
+                .await
+                .0,
+            409
+        );
+    }
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn list_names_are_limited_by_characters_not_bytes() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    for (count, status) in [(200, 201), (201, 400)] {
+        assert_eq!(
+            request(
+                &router,
+                "POST",
+                "/api/v1/lists",
+                Some(&token),
+                Some(json!({"Kind":"playlist","Name":"é".repeat(count),"ItemIDs":[]}))
+            )
+            .await
+            .0,
+            status,
+            "{count} two-byte characters"
+        );
+    }
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn music_search_folds_unicode_case() {
+    let root = TempDir::new().unwrap();
+    let (app, _, _) = setup(&root).await;
+    let (found, missing, null): (bool, bool, Option<String>) = app
+        .db
+        .call(|c| {
+            Ok(c.query_row(
+                "SELECT instr(ovl_lower('Ébène ÑANDÚ Straße'),ovl_lower('ébène ñandú')) > 0,
+                        instr(ovl_lower('Ébène'),ovl_lower('ebene')) > 0,
+                        ovl_lower(NULL)",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert!(found, "non-ASCII letters must match across case");
+    assert!(!missing, "case folding must not strip accents");
+    assert_eq!(null, None);
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn trickled_request_body_hits_the_total_deadline() {
+    let root = TempDir::new().unwrap();
+    let app = App::open(config(root.path())).unwrap();
+    let router = app.router();
+    // One byte per second never trips an idle timeout; the total deadline must.
+    let trickle = futures_util::stream::unfold((), |()| async {
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        Some((
+            Ok::<_, std::io::Error>(axum::body::Bytes::from_static(b" ")),
+            (),
+        ))
+    });
+    let started = std::time::Instant::now();
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/setup")
+                .header("X-OVL-Request", "1")
+                .header("Content-Type", "application/json")
+                .body(Body::from_stream(trickle))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let elapsed = started.elapsed();
+    assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
+    assert!(
+        elapsed >= ovl_server::api::BODY_DEADLINE
+            && elapsed < ovl_server::api::BODY_DEADLINE + Duration::from_secs(5),
+        "{elapsed:?}"
+    );
+    assert_eq!(
+        app.db
+            .call(|c| Ok(c.query_row("SELECT count(*) FROM users", [], |r| r.get::<_, i64>(0))?))
+            .await
+            .unwrap(),
+        0
+    );
+    app.shutdown().await;
+}
+
+fn ffmpeg(args: &[&str]) {
+    let status = std::process::Command::new("ffmpeg")
+        .args(["-nostdin", "-v", "error", "-y"])
+        .args(args)
+        .status()
+        .expect("ffmpeg is required");
+    assert!(status.success(), "ffmpeg {args:?}");
+}
+
+/// Registers one file as the only item of a new library and returns its id.
+async fn add_file(app: &Arc<App>, dir: &Path, file: &Path, music: bool) -> i64 {
+    let (dir, file) = (
+        dir.to_string_lossy().into_owned(),
+        file.to_string_lossy().into_owned(),
+    );
+    app.db
+        .call(move |c| {
+            c.execute(
+                "INSERT INTO libraries(name,path,kind) VALUES('Library',?,'movie')",
+                [dir],
+            )?;
+            let lib = c.last_insert_rowid();
+            if music {
+                c.execute(
+                    "INSERT INTO ovl_music_libraries(library_id) VALUES(?)",
+                    [lib],
+                )?;
+            }
+            c.execute(
+                "INSERT INTO items(title,series,season,episode) VALUES('Track','',0,0)",
+                [],
+            )?;
+            let item = c.last_insert_rowid();
+            c.execute(
+                "INSERT INTO media_files(item_id,library_id,path,mtime,size) VALUES(?,?,?,0,1)",
+                rusqlite::params![item, lib, file],
+            )?;
+            Ok(item)
+        })
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "requires FFmpeg/FFprobe; software acceptance"]
+async fn real_id3_uslt_lyrics_are_read_without_a_sidecar() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let dir = std::fs::canonicalize(root.path()).unwrap().join("music");
+    std::fs::create_dir(&dir).unwrap();
+    let bare = root.path().join("bare.mp3");
+    ffmpeg(&[
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:duration=1",
+        "-c:a",
+        "libmp3lame",
+        "-id3v2_version",
+        "0",
+        bare.to_str().unwrap(),
+    ]);
+    // ID3v2.3 with one USLT frame: Latin-1, language "eng", descriptor "Verse".
+    let mut frame = vec![0u8];
+    frame.extend(b"engVerse\0Embedded line one\nEmbedded line two");
+    let mut tag = b"ID3\x03\x00\x00".to_vec();
+    let size = 10 + frame.len();
+    tag.extend([
+        (size >> 21) as u8 & 0x7f,
+        (size >> 14) as u8 & 0x7f,
+        (size >> 7) as u8 & 0x7f,
+        size as u8 & 0x7f,
+    ]);
+    tag.extend(b"USLT");
+    tag.extend((frame.len() as u32).to_be_bytes());
+    tag.extend([0, 0]);
+    tag.extend(frame);
+    tag.extend(std::fs::read(&bare).unwrap());
+    let track = dir.join("Track.mp3");
+    std::fs::write(&track, tag).unwrap();
+    let id = add_file(&app, &dir, &track, true).await;
+    let (status, body) = request(
+        &router,
+        "GET",
+        &format!("/api/v1/items/{id}/lyrics"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        body,
+        json!({"lines":[{"time_ms":null,"text":"Embedded line one"},{"time_ms":null,"text":"Embedded line two"}]})
+    );
+    assert!(!dir.join("Track.lrc").exists() && !dir.join("Track.txt").exists());
+    app.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "requires FFmpeg/FFprobe; software acceptance"]
+async fn real_playlist_disguised_as_media_cannot_read_outside_the_library() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let canonical = std::fs::canonicalize(root.path()).unwrap();
+    let (dir, outside) = (canonical.join("library"), canonical.join("outside"));
+    std::fs::create_dir(&dir).unwrap();
+    std::fs::create_dir(&outside).unwrap();
+    let secret = outside.join("secret.ts");
+    ffmpeg(&[
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=64x64:rate=10",
+        "-t",
+        "2",
+        "-c:v",
+        "libx264",
+        "-f",
+        "mpegts",
+        secret.to_str().unwrap(),
+    ]);
+    // Unconfined FFprobe detects this as HLS and opens the outside segment.
+    let evil = dir.join("Evil.mkv");
+    std::fs::write(
+        &evil,
+        format!(
+            "#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\n{}\n#EXT-X-ENDLIST\n",
+            secret.display()
+        ),
+    )
+    .unwrap();
+    let id = add_file(&app, &dir, &evil, false).await;
+    let (status, body) = request(
+        &router,
+        "GET",
+        &format!("/api/v1/items/{id}/probe"),
+        Some(&token),
+        None,
+    )
+    .await;
+    assert_ne!(status, 200, "probe followed the playlist: {body}");
+    for mode in ["remux", "transcode"] {
+        let (status, body) = request(
+            &router,
+            "POST",
+            &format!("/api/v1/items/{id}/playback"),
+            Some(&token),
+            Some(json!({"Mode":mode})),
+        )
+        .await;
+        assert!(
+            !status.is_success(),
+            "{mode} started from the playlist: {body}"
+        );
+    }
+    app.shutdown().await;
+}
+
+#[test]
+fn every_encode_input_is_rebound_to_its_own_inherited_handle() {
+    let source = Path::new("/library/Movie.mkv");
+    let info = |subtitle: &str| -> media::Info {
+        serde_json::from_value(json!({"streams":[
+            {"index":0,"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p","width":1920,"height":1080},
+            {"index":1,"codec_type":"audio","codec_name":"aac","channels":2},
+            {"index":2,"codec_type":"subtitle","codec_name":subtitle}],
+            "format":{"format_name":"matroska","duration":"600","start_time":"0"}}))
+        .unwrap()
+    };
+    let cases = [
+        ("remux", None, false, "subrip", 1),
+        ("transcode", None, false, "subrip", 1),
+        ("transcode", Some(0), false, "hdmv_pgs_subtitle", 2),
+        ("transcode", Some(0), true, "subrip", 0),
+    ];
+    for (mode, subtitle, adaptive, codec, inputs) in cases {
+        let info = info(codec);
+        let b = Playback {
+            mode: mode.into(),
+            subtitle,
+            adaptive,
+            start: 30.0,
+            ..Default::default()
+        };
+        let variants = playback::ladder(1920, 1080, adaptive && mode == "transcode");
+        let args = playback::encoding_args(source, &b, &info, &variants);
+        let (bound, handles) = playback::bind_input_args(args, source).unwrap();
+        let source = source.to_string_lossy();
+        assert!(
+            !bound.iter().any(|a| a.contains(source.as_ref())),
+            "{bound:?}"
+        );
+        assert!(
+            !bound.iter().any(|a| a.contains("filename=source")),
+            "{bound:?}"
+        );
+        let named: Vec<String> = bound
+            .iter()
+            .flat_map(|a| a.split(['=', ':', ' ', ';', ',', '[', ']']))
+            .filter(|p| p.starts_with("/dev/fd/"))
+            .map(str::to_owned)
+            .collect();
+        let expected: Vec<String> = (3..3 + handles).map(|fd| format!("/dev/fd/{fd}")).collect();
+        let mut seen = named.clone();
+        seen.sort();
+        seen.dedup();
+        assert_eq!(seen.len(), named.len(), "a handle is shared: {named:?}");
+        assert_eq!(seen, expected, "{mode} {codec} adaptive={adaptive}");
+        let rebound_inputs = bound.windows(2).filter(|w| w[0] == "-i").count();
+        if inputs > 0 {
+            assert_eq!(rebound_inputs, inputs, "{bound:?}");
+        } else {
+            // One input plus one text-subtitle filter per rendition.
+            assert_eq!(rebound_inputs, 1);
+            assert_eq!(handles, 1 + variants.len(), "{bound:?}");
+        }
+        for w in bound.windows(2).filter(|w| w[0] == "-i") {
+            assert!(w[1].starts_with("/dev/fd/"), "{w:?}");
+        }
+        for (i, w) in bound.iter().enumerate().filter(|(_, a)| *a == "-i") {
+            assert_eq!(
+                bound[i - 4..i],
+                [
+                    "-protocol_whitelist".to_string(),
+                    "file".into(),
+                    "-format_whitelist".into(),
+                    "mov,matroska,avi,mpegts,mpeg,mpegvideo,flv,asf,ogg,mp3,flac,wav,aac".into()
+                ],
+                "{w}"
+            );
+        }
+    }
+    // Fails closed on any input other than the authorized media.
+    let foreign = vec!["-i".into(), "/elsewhere.mkv".into()];
+    assert!(playback::bind_input_args(foreign, source).is_err());
+}

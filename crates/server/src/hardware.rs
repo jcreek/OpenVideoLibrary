@@ -208,6 +208,24 @@ pub async fn validate_hdr_picture(
     if fs2::available_space(&app.config.data)? < app.config.min_free_bytes.saturating_add(1 << 20) {
         return Ok(false);
     }
+    match probe_hdr_picture(app, workspace, cancel).await {
+        Ok(available) => Ok(available),
+        Err(error) if error.0.as_u16() == 499 => Err(error),
+        Err(error) => {
+            tracing::warn!(reason=%error.1,"HDR hardware picture probe failed or rejected the driver; using CPU");
+            Ok(false)
+        }
+    }
+}
+/// The HDR picture probe without fallback: `Ok(false)` means fixture generation
+/// and the VAAPI encode ran and the decoded picture failed validation; an error
+/// means a step (such as libx265 fixture generation or the hardware encode)
+/// did not complete.
+pub async fn probe_hdr_picture(
+    app: &Arc<App>,
+    workspace: &std::path::Path,
+    cancel: &tokio_util::sync::CancellationToken,
+) -> Result<bool> {
     let dir = workspace.join("hdr-probe");
     tokio::fs::create_dir(&dir).await?;
     let result: Result<bool> = async {
@@ -237,11 +255,5 @@ pub async fn validate_hdr_picture(
         return Err(crate::error::Error::new(499, "playback cancelled"));
     }
     cleanup?;
-    match result {
-        Ok(available) => Ok(available),
-        Err(error) => {
-            tracing::warn!(reason=%error.1,"HDR hardware picture probe rejected driver");
-            Ok(false)
-        }
-    }
+    result
 }

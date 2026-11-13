@@ -24,6 +24,12 @@ use std::{
 };
 use tokio::sync::{Mutex, watch};
 use tokio_util::sync::CancellationToken;
+/// Placeholder for the text-subtitle filter's source, bound to an anchored
+/// handle by [`bind_input_args`]. Residual risk: libass's `subtitles` filter
+/// opens that handle without FFmpeg's input whitelists. It reads the same
+/// inode as the confined, already probed input, so escaping needs library
+/// write access and a content swap between probe and filter start.
+const SUBTITLE_SOURCE: &str = "subtitles=filename=source:";
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClientCapabilities {
@@ -252,7 +258,7 @@ pub async fn start(
         if b.mode == "remux" {
             return Err(Error::new(422, "music remux is unavailable"));
         }
-        info = media::inspect(&app, &path).await?;
+        info = media::inspect_media(&app, &path).await?;
         let audio = info.streams.iter().find(|t| t.codec_type == "audio");
         let Some(audio) = audio.filter(|_| info.video().is_none()) else {
             return Err(Error::new(422, "expected an audio-only music track"));
@@ -291,7 +297,7 @@ pub async fn start(
             reason = "AAC HLS music conversion".into();
         }
     } else if b.mode != "direct" {
-        info = media::inspect(&app, &path).await?;
+        info = media::inspect_media(&app, &path).await?;
         if info.video().is_none() {
             return Err(Error::new(422, "no video track"));
         }
@@ -616,7 +622,7 @@ pub fn encoding_args(
                 // Input seeking rebases video PTS, while libass reads original cue times.
                 // Restore that timeline only around subtitle rendering, then preserve AV sync.
                 filters.push(format!("setpts=PTS+({subtitle_offset:.6})/TB"));
-                filters.push(format!("subtitles=filename=source:si={s}"));
+                filters.push(format!("{SUBTITLE_SOURCE}si={s}"));
                 filters.push(format!("setpts=PTS-({subtitle_offset:.6})/TB"));
             }
             filters.push(format!("scale={}:{}", v.width, v.height));
@@ -831,7 +837,20 @@ async fn encode(
         crate::hardware::select_hdr(app, &st.dir, &st.cancel).await?
     } else if b.mode == "transcode" && info.video().is_some() && !info.hdr() && b.subtitle.is_none()
     {
-        crate::hardware::select(app).await?
+        // A DELETE during cold detection stops waiting; dropping the detection
+        // future cancels its probe, whose tracked task kills and reaps it.
+        let detection = tokio::select! {
+            _ = st.cancel.cancelled() => return Err(Error::new(499, "playback cancelled")),
+            result = crate::hardware::select(app) => result,
+        };
+        match detection {
+            Ok(accelerator) => accelerator,
+            Err(error) if app.cancel.is_cancelled() => return Err(error),
+            Err(error) => {
+                tracing::warn!(reason=%error.1,"hardware detection unavailable; using CPU");
+                None
+            }
+        }
     } else {
         None
     };
@@ -882,15 +901,6 @@ async fn encode_attempt(
             kbps: if info.video().is_none() { 128 } else { 0 },
         }]
     };
-    if b.subtitle.is_some() {
-        #[cfg(unix)]
-        tokio::fs::symlink(&path, st.dir.join("source")).await?;
-        #[cfg(not(unix))]
-        return Err(Error::new(
-            422,
-            "subtitle burn-in requires Unix in this preview",
-        ));
-    }
     let mut args = encoding_args(&path, &b, &info, &variants);
     if let Some(name) = accelerator {
         args = if info.hdr() {
@@ -899,7 +909,8 @@ async fn encode_attempt(
             hardware_args(args, name, &variants)
         };
     }
-    let conversion = media::process(
+    let (args, files) = bind_media_inputs(app, args, &path).await?;
+    let conversion = media::process_media(
         app,
         "ffmpeg",
         args,
@@ -907,6 +918,7 @@ async fn encode_attempt(
         Duration::from_secs(6 * 3600),
         1024,
         st.cancel.clone(),
+        files,
     );
     tokio::pin!(conversion);
     let mut tick = tokio::time::interval(Duration::from_millis(50));
@@ -926,6 +938,61 @@ async fn encode_attempt(
             }
         }
     }
+}
+/// Rewrites every library input of an encode, and the subtitle filter's read
+/// of the same source, onto inherited handles with confined demuxing; returns
+/// the rewritten arguments and how many handles they name. Each consumer gets
+/// its own handle, so no two readers share a file offset. Fails closed: any
+/// input left on a path rather than an inherited handle is an error.
+pub fn bind_input_args(args: Vec<String>, path: &std::path::Path) -> Result<(Vec<String>, usize)> {
+    let source = path.to_string_lossy().into_owned();
+    let mut bound = Vec::with_capacity(args.len() + 8);
+    let mut handles = 0;
+    let mut args = args.into_iter().peekable();
+    while let Some(arg) = args.next() {
+        if arg == "-i" {
+            if args.next().as_deref() != Some(source.as_str()) {
+                return Err(Error::new(500, "encode input is not the authorized media"));
+            }
+            bound.extend(media::confined_input(media::MEDIA_DEMUXERS));
+            bound.push(arg);
+            bound.push(media::inherited(handles));
+            handles += 1;
+        } else if arg.contains(SUBTITLE_SOURCE) {
+            let mut rewritten = String::with_capacity(arg.len());
+            let mut rest = arg.as_str();
+            while let Some(at) = rest.find(SUBTITLE_SOURCE) {
+                rewritten.push_str(&rest[..at]);
+                rewritten.push_str(&format!(
+                    "subtitles=filename={}:",
+                    media::inherited(handles)
+                ));
+                handles += 1;
+                rest = &rest[at + SUBTITLE_SOURCE.len()..];
+            }
+            rewritten.push_str(rest);
+            bound.push(rewritten);
+        } else {
+            bound.push(arg);
+        }
+    }
+    if handles > media::MAX_INHERITED {
+        return Err(Error::new(500, "too many media handles"));
+    }
+    Ok((bound, handles))
+}
+/// Opens one anchored handle per input named by [`bind_input_args`].
+async fn bind_media_inputs(
+    app: &App,
+    args: Vec<String>,
+    path: &std::path::Path,
+) -> Result<(Vec<String>, Vec<std::fs::File>)> {
+    let (bound, handles) = bind_input_args(args, path)?;
+    let mut files = Vec::with_capacity(handles);
+    for _ in 0..handles {
+        files.push(media::open_media(app, path).await?.0);
+    }
+    Ok((bound, files))
 }
 async fn check_conversion_quota(app: &App, stream: &Stream) -> Result<()> {
     let mut size = 0u64;

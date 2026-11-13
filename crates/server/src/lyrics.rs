@@ -131,6 +131,17 @@ fn read_lyrics(path: &std::path::Path) -> Result<Option<Lyrics>> {
     Ok(None)
 }
 
+/// Vorbis/FLAC `LYRICS` or `UNSYNCEDLYRICS`, and FFmpeg's names for ID3 USLT
+/// frames: `lyrics-<lang>` or `lyrics-<descriptor>-<lang>`.
+fn lyrics_tag(key: &str) -> bool {
+    key.eq_ignore_ascii_case("lyrics")
+        || key.eq_ignore_ascii_case("unsyncedlyrics")
+        || (key.len() > 7
+            && key
+                .get(..7)
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case("lyrics-")))
+}
+
 pub async fn get(
     State(app): State<Arc<App>>,
     Extension(user): Extension<User>,
@@ -185,9 +196,7 @@ pub async fn get(
         let mut text = None;
         for group in tags.filter_map(serde_json::Value::as_object) {
             if let Some(value) = group.iter().find_map(|(key, value)| {
-                ["lyrics", "unsyncedlyrics"]
-                    .iter()
-                    .any(|k| key.eq_ignore_ascii_case(k))
+                lyrics_tag(key)
                     .then(|| value.as_str())
                     .flatten()
                     .filter(|s| !s.trim().is_empty())
@@ -213,6 +222,23 @@ pub async fn get(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn embedded_lyrics_keys_include_id3_uslt_names() {
+        for key in [
+            "lyrics",
+            "LYRICS",
+            "UnsyncedLyrics",
+            "lyrics-eng",
+            "LYRICS-ENG",
+            "lyrics-Verse-eng",
+        ] {
+            assert!(lyrics_tag(key), "{key}");
+        }
+        for key in ["lyric", "lyrics-", "lyricist", "synced-lyrics", "title"] {
+            assert!(!lyrics_tag(key), "{key}");
+        }
+    }
 
     #[test]
     fn lrc_offset_moves_all_cues_and_clamps_at_zero() {
