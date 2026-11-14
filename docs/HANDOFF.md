@@ -314,6 +314,35 @@ Evidence:
 Still open: a session that expires (401) keeps the previous account's
 state in memory until the next login resets it.
 
+**Third CodeRabbit review of PR 2 (14 November 2026).** A full review
+raised seven comments. Six were valid and fixed in one commit on
+`split/2-web`:
+- Setup mode ends as soon as setup succeeds, so a failed login retries the
+  login and not setup. A second login cannot start while one is pending.
+- Only the most recently chosen list is shown.
+- Progress saves and Mark watched/unwatched are written one at a time, so a
+  late save cannot undo a newer watched mark. The watched label now updates
+  after each write; it previously stayed stale (found by the new test).
+- A startup load that fails for a reason other than 401 keeps the session
+  and offers Retry.
+- The browser test waits for the scan to finish before refreshing.
+
+Skipped: installing Playwright browsers in `make browser`. Browser engines
+are a documented prerequisite, verify-local downloads nothing, and
+Playwright reports the install command when they are missing.
+
+Evidence: new browser checks fail when the setup, list, progress or retry
+fix is reverted. The double-submit guard has no test. `make verify-local`
+passed on its second run. The first run hit the known intermittent
+`abandoned_remux_start_cancels_the_session` failure (server code unchanged
+here), which then passed five isolated reruns. An independent review and follow-up found nothing blocking;
+a client timeout on progress writes was tried and removed, because an
+aborted request cannot cancel a write the server has already queued.
+
+Still open: a progress write that never completes delays later writes, and
+the player switch that waits for it, until the browser gives up on the
+request. A failed save still stops `open()` from starting the next title.
+
 ## Outstanding from the plan
 
 1. **Preview and video acceptance.** The user has no HDR content, so real HDR10, HLG and Dolby Vision acceptance is unavailable; HDR evidence stays synthetic. The queue-capture regression and the
