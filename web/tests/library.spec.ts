@@ -72,8 +72,14 @@ test('browse filters reset and account switches drop the previous account state'
  const viewer='switch-viewer',viewerPassword='switch-viewer-password-123';
  if(!(await (await page.request.get('/api/v1/users')).json()).some((u:{name:string})=>u.name===viewer))expect((await page.request.post('/api/v1/users',{headers,data:{Name:viewer,Password:viewerPassword,Libraries:[]}})).status()).toBe(201);
  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+ // Each filter control must load with its new value.
+ const continued=page.waitForRequest(r=>r.url().includes('/api/v1/items?')&&new URL(r.url()).searchParams.get('continue')==='true');
+ await page.getByLabel('Continue playing',{exact:true}).check();await continued;
+ const uncontinued=page.waitForRequest(r=>r.url().includes('/api/v1/items?')&&new URL(r.url()).searchParams.get('continue')==='false');
+ await page.getByLabel('Continue playing',{exact:true}).uncheck();await uncontinued;
+ const chosen=page.waitForRequest(r=>r.url().includes('/api/v1/items?')&&new URL(r.url()).searchParams.get('library')===String(libraryID));
  // A library chosen from the selector must still match its series.
- await page.getByLabel('Library',{exact:true}).selectOption(String(libraryID));
+ await page.getByLabel('Library',{exact:true}).selectOption(String(libraryID));await chosen;
  await page.getByRole('button',{name:'TV series',exact:true}).click();await page.getByRole('button',{name:/TV SERIES Example/}).click();
  await expect(page.getByRole('heading',{name:'Example',exact:true})).toBeVisible();
  const season=page.getByLabel('Season',{exact:true});await season.fill('1');await season.press('Tab');
