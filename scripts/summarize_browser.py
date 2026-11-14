@@ -24,9 +24,10 @@ def main():
     for suite in report['suites']:walk(suite)
     output={'recorded_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'host':platform.platform(),
             'note':'Desktop engine automation; not real mobile/TV certification or GPU acceptance.',
-            'results':results,'stats':report['stats']}
+            'results':results,'errors':[e.get('message','') for e in report.get('errors',[])],'stats':report['stats']}
     Path(args.output).write_text(json.dumps(output,indent=2)+'\n')
-    if not results or any(r['status']!='expected' for r in results):raise SystemExit(1)
+    # Run-level errors (for example in global setup or teardown) fail the run even when every test passed.
+    if not results or output['errors'] or any(r['status']!='expected' for r in results):raise SystemExit(1)
 
 
 if __name__=='__main__':main()

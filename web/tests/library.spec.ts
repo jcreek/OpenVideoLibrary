@@ -26,7 +26,12 @@ test.beforeAll(async()=>{
  serverLog='';for(const stream of [server.stdout,server.stderr])stream?.on('data',chunk=>{serverLog=(serverLog+chunk.toString()).slice(-65536);});
  let ready=false;for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:18096/api/v1/status')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,50));}if(!ready)throw Error('test server did not start');
 });
-test.afterAll(async()=>{if(server){const exit=new Promise<void>(r=>server.once('exit',()=>r()));server.kill('SIGTERM');await exit;}rmSync(root,{recursive:true,force:true});});
+test.afterAll(async()=>{
+ try{
+  // A server that already exited never emits another exit event.
+  if(server&&server.exitCode===null&&server.signalCode===null){const exit=new Promise<void>(r=>server.once('exit',()=>r()));server.kill('SIGTERM');await exit;}
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
 test('household workflow and viewer authorization',async({page,browserName})=>{
  await page.goto('/');await page.getByLabel('Username',{exact:true}).fill(username);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Create library',exact:true}).click();await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
  await page.getByText('Manage libraries',{exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Test TV');await page.getByLabel('Server folder').fill(media);await page.getByLabel('Media type').selectOption('tv');await page.getByRole('button',{name:'Add library',exact:true}).click();
@@ -51,6 +56,51 @@ test('household workflow and viewer authorization',async({page,browserName})=>{
  const accounts=await page.request.get('/api/v1/users');const viewer=(await accounts.json()).find((u:{name:string})=>u.name==='viewer');expect(viewer.libraries).toEqual([]);
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();await page.getByLabel('Username',{exact:true}).fill('viewer');await page.getByLabel('Password',{exact:true}).fill('viewer-test-password-123');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Bring your collection.'})).toBeVisible();expect((await page.request.get('/api/v1/items/1/file')).status()).toBe(404);await expect(page.getByText('Manage accounts',{exact:true})).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+});
+
+test('browse filters reset and account switches drop the previous account state',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length){
+  expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Filter TV',Path:media,Kind:'tv'}})).status()).toBe(201);await page.request.post('/api/v1/scan',{headers});
+  await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ }
+ const libraryID=(await (await page.request.get('/api/v1/libraries')).json())[0].id;
+ const item=(await (await page.request.get('/api/v1/items')).json())[0];
+ const created=await page.request.post('/api/v1/lists',{headers,data:{Kind:'playlist',Name:'Private admin playlist',ItemIDs:[item.id]}});expect(created.status()).toBe(201);const listID=(await created.json()).id;
+ const viewer='switch-viewer',viewerPassword='switch-viewer-password-123';
+ if(!(await (await page.request.get('/api/v1/users')).json()).some((u:{name:string})=>u.name===viewer))expect((await page.request.post('/api/v1/users',{headers,data:{Name:viewer,Password:viewerPassword,Libraries:[]}})).status()).toBe(201);
+ await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+ // A library chosen from the selector must still match its series.
+ await page.getByLabel('Library',{exact:true}).selectOption(String(libraryID));
+ await page.getByRole('button',{name:'TV series',exact:true}).click();await page.getByRole('button',{name:/TV SERIES Example/}).click();
+ await expect(page.getByRole('heading',{name:'Example',exact:true})).toBeVisible();
+ const season=page.getByLabel('Season',{exact:true});await season.fill('1');await season.press('Tab');
+ const cleared=page.waitForRequest(r=>r.url().includes('/api/v1/items?')&&new URL(r.url()).searchParams.get('series')==='Example'&&new URL(r.url()).searchParams.get('season')!=='1');
+ await season.fill('');await season.press('Tab');expect(new URL((await cleared).url()).searchParams.get('season')).toBe('');
+ const unfiltered=page.waitForRequest(r=>r.url().includes('/api/v1/items?')&&new URL(r.url()).searchParams.get('series')==='');
+ await page.getByRole('button',{name:'All media',exact:true}).click();await unfiltered;
+ await expect(page.getByRole('heading',{name:'Your library',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();
+ await page.getByRole('button',{name:'Private admin playlist · playlist',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Private admin playlist',exact:true})).toBeVisible();await expect(page.getByText(item.title,{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+ await page.getByLabel('Username',{exact:true}).fill(viewer);await page.getByLabel('Password',{exact:true}).fill(viewerPassword);await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Sign out',exact:true})).toBeVisible();
+ await expect(page.getByText('Private admin playlist')).toHaveCount(0);await expect(page.getByText(item.title,{exact:true})).toHaveCount(0);
+ // A response requested by the previous account must not restore its list after the switch.
+ await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+ await page.getByLabel('Username',{exact:true}).fill(username);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();
+ let release=()=>{};const gate=new Promise<void>(r=>{release=r;});let fetched=()=>{};const held=new Promise<void>(r=>{fetched=r;});let sent=()=>{};const delivered=new Promise<void>(r=>{sent=r;});
+ await page.route('**/api/v1/lists/'+listID,async route=>{const response=await route.fetch();fetched();await gate;await route.fulfill({response});sent();},{times:1});
+ await page.getByRole('button',{name:'Private admin playlist · playlist',exact:true}).click();await held;
+ await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+ await page.getByLabel('Username',{exact:true}).fill(viewer);await page.getByLabel('Password',{exact:true}).fill(viewerPassword);await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Sign out',exact:true})).toBeVisible();
+ release();await delivered;await page.evaluate(()=>new Promise(r=>setTimeout(r,250)));
+ await expect(page.getByText('Private admin playlist')).toHaveCount(0);await expect(page.getByText(item.title,{exact:true})).toHaveCount(0);await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
 test('persistent queue ordering and automatic next episode',async({page})=>{
