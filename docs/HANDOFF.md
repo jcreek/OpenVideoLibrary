@@ -288,6 +288,32 @@ and two N100 runs with all 8 checks passing. An independent review and
 two follow-ups found nothing blocking. The NFO race itself cannot be
 reproduced deterministically; its test covers symlink and FIFO refusal.
 
+**CodeRabbit review of PR 2 (14 November 2026).** PR 1 was merged into
+`main` with a merge commit, and PR 2 now targets `main`. All eight comments
+were verified and fixed in one commit on `split/2-web`:
+- Signing out or logging in resets account-owned client state (lists,
+  items, forms, player). Responses requested by the previous account are
+  dropped.
+- Sign-out sends the logout request even when player cleanup fails.
+- Library IDs stay strings, so the series filter and the selector agree.
+- "All media" clears the series and season filters, and an empty season
+  is sent as an empty value instead of `null`.
+- Metadata and TMDB results apply only to the item they were requested for.
+- `scripts/summarize_browser.py` fails on run-level Playwright errors and
+  keeps only their messages.
+- Browser test teardown no longer waits for a server that already exited.
+
+Evidence:
+- A new browser test fails when the library, season, All media, reset or
+  stale-response fix is reverted. A new Python test fails on the old
+  summary script.
+- `make verify-local` passed: 21 of 21 browser cases and the Nginx drill.
+- The server is unchanged, so the N100 was not rerun.
+- An independent review and its follow-up found nothing blocking.
+
+Still open: a session that expires (401) keeps the previous account's
+state in memory until the next login resets it.
+
 ## Outstanding from the plan
 
 1. **Preview and video acceptance.** The user has no HDR content, so real HDR10, HLG and Dolby Vision acceptance is unavailable; HDR evidence stays synthetic. The queue-capture regression and the
