@@ -33,9 +33,16 @@ test.afterAll(async()=>{
  }finally{rmSync(root,{recursive:true,force:true});}
 });
 test('household workflow and viewer authorization',async({page,browserName})=>{
- await page.goto('/');await page.getByLabel('Username',{exact:true}).fill(username);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Create library',exact:true}).click();await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+ await page.goto('/');await page.getByLabel('Username',{exact:true}).fill(username);await page.getByLabel('Password',{exact:true}).fill(password);
+ // A login failure after setup succeeded must retry the login, not setup.
+ await page.route('**/api/v1/login',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'login unavailable'})}),{times:1});
+ await page.getByRole('button',{name:'Create library',exact:true}).click();await expect(page.getByRole('alert')).toHaveText('login unavailable');
+ await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
  await page.getByText('Manage libraries',{exact:true}).click();await page.getByLabel('Name',{exact:true}).fill('Test TV');await page.getByLabel('Server folder').fill(media);await page.getByLabel('Media type').selectOption('tv');await page.getByRole('button',{name:'Add library',exact:true}).click();
- await page.getByRole('button',{name:'Scan libraries',exact:true}).click();await page.getByRole('button',{name:'Refresh library',exact:true}).click();await expect(page.getByRole('heading',{name:'Example S01E01',exact:true})).toBeVisible();
+ const scanStarted=page.waitForResponse(r=>r.url().endsWith('/api/v1/scan')&&r.request().method()==='POST');
+ await page.getByRole('button',{name:'Scan libraries',exact:true}).click();expect((await scanStarted).status()).toBe(202);
+ await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ await page.getByRole('button',{name:'Refresh library',exact:true}).click();await expect(page.getByRole('heading',{name:'Example S01E01',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'TV series',exact:true}).click();await page.getByRole('button',{name:/TV SERIES Example/}).click();await expect(page.getByRole('heading',{name:'Example',exact:true})).toBeVisible();
  await page.getByRole('button',{name:/TV ▶ Example S01E01/}).click();await expect(page.getByLabel('Audio',{exact:true}).locator('option')).toHaveCount(1);
  // Engine codec support differs; run transcoding and validate media readiness where H.264 is supported.
@@ -49,6 +56,19 @@ test('household workflow and viewer authorization',async({page,browserName})=>{
  const burnRequest=(await burned).postDataJSON();
  expect(burnRequest.Mode).toBe('transcode');
  expect(burnRequest.Capabilities.max_audio_channels).toBe(2);
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ // A progress save still in flight must not undo a later Mark watched.
+ let releaseSave=()=>{};const saveGate=new Promise<void>(r=>{releaseSave=r;});let saveSeen=()=>{};const saveHeld=new Promise<void>(r=>{saveSeen=r;});let saveSent=()=>{};const saveDone=new Promise<void>(r=>{saveSent=r;});
+ // The held save reaches the server only after release, so an unserialized mark would land first.
+ await page.route('**/api/v1/items/*/progress',async route=>{saveSeen();await saveGate;const response=await route.fetch();await route.fulfill({response});saveSent();},{times:1});
+ const marked=page.waitForResponse(r=>r.url().endsWith('/progress')&&r.request().method()==='PUT'&&r.request().postDataJSON().Watched===true);
+ const applied=page.waitForRequest(r=>r.url().endsWith('/playback')&&r.method()==='POST');
+ await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();await saveHeld;
+ await page.getByRole('button',{name:'Mark watched',exact:true}).click();await page.evaluate(()=>new Promise(r=>setTimeout(r,250)));releaseSave();await saveDone;await marked;await applied;await page.evaluate(()=>new Promise(r=>setTimeout(r,250)));
+ // Check once, without retrying: the 12-second fixture ending later would also mark it watched.
+ expect(await page.getByRole('button',{name:'Mark unwatched',exact:true}).count()).toBe(1);
+ expect((await (await page.request.get('/api/v1/items')).json()).find((i:{title:string})=>i.title==='Example S01E01')?.watched).toBeTruthy();
+ await page.getByRole('button',{name:'Mark unwatched',exact:true}).click();await expect(page.getByRole('button',{name:'Mark watched',exact:true})).toBeVisible();
  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
  await page.getByText('Edit title and metadata',{exact:true}).click();await page.getByLabel('Title',{exact:true}).fill('Edited episode');await page.getByLabel('Overview',{exact:true}).fill('Local metadata survives a refresh.');await page.getByRole('button',{name:'Save metadata',exact:true}).click();await expect(page.getByRole('heading',{name:'Edited episode',exact:true}).first()).toBeVisible();
  await page.getByRole('button',{name:'Close player',exact:true}).click();
@@ -71,7 +91,16 @@ test('browse filters reset and account switches drop the previous account state'
  const created=await page.request.post('/api/v1/lists',{headers,data:{Kind:'playlist',Name:'Private admin playlist',ItemIDs:[item.id]}});expect(created.status()).toBe(201);const listID=(await created.json()).id;
  const viewer='switch-viewer',viewerPassword='switch-viewer-password-123';
  if(!(await (await page.request.get('/api/v1/users')).json()).some((u:{name:string})=>u.name===viewer))expect((await page.request.post('/api/v1/users',{headers,data:{Name:viewer,Password:viewerPassword,Libraries:[]}})).status()).toBe(201);
- await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+ const second=await page.request.post('/api/v1/lists',{headers,data:{Kind:'collection',Name:'Second admin collection',ItemIDs:[]}});expect(second.status()).toBe(201);
+ // A failed startup load keeps the signed-in session and offers a retry.
+ await page.route('**/api/v1/lists',route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'lists unavailable'})}),{times:1});
+ await page.goto('/');await expect(page.getByRole('alert')).toContainText('lists unavailable');await expect(page.getByRole('button',{name:'Sign out',exact:true})).toBeVisible();
+ const reloaded=page.waitForResponse(r=>r.url().endsWith('/api/v1/lists')&&r.request().method()==='GET');
+ await page.getByRole('button',{name:'Retry',exact:true}).click();expect((await reloaded).status()).toBe(200);
+ await expect(page.getByRole('alert')).toHaveCount(0);await expect(page.getByRole('button',{name:'Retry',exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();await expect(page.getByRole('button',{name:'Private admin playlist · playlist',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'All media',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
  // Each filter control must load with its new value.
  const continued=page.waitForRequest(r=>r.url().includes('/api/v1/items?')&&new URL(r.url()).searchParams.get('continue')==='true');
  await page.getByLabel('Continue playing',{exact:true}).check();await continued;
@@ -89,6 +118,13 @@ test('browse filters reset and account switches drop the previous account state'
  await page.getByRole('button',{name:'All media',exact:true}).click();await unfiltered;
  await expect(page.getByRole('heading',{name:'Your library',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Collections & playlists',exact:true}).click();
+ // Only the most recently chosen list may be shown.
+ let releaseFirst=()=>{};const firstGate=new Promise<void>(r=>{releaseFirst=r;});let firstSeen=()=>{};const firstHeld=new Promise<void>(r=>{firstSeen=r;});let firstSent=()=>{};const firstDone=new Promise<void>(r=>{firstSent=r;});
+ await page.route('**/api/v1/lists/'+listID,async route=>{const response=await route.fetch();firstSeen();await firstGate;await route.fulfill({response});firstSent();},{times:1});
+ await page.getByRole('button',{name:'Private admin playlist · playlist',exact:true}).click();await firstHeld;
+ await page.getByRole('button',{name:'Second admin collection · collection',exact:true}).click();await expect(page.getByRole('heading',{name:'Second admin collection',exact:true})).toBeVisible();
+ releaseFirst();await firstDone;await page.evaluate(()=>new Promise(r=>setTimeout(r,250)));
+ await expect(page.getByRole('heading',{name:'Second admin collection',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Private admin playlist',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Private admin playlist · playlist',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Private admin playlist',exact:true})).toBeVisible();await expect(page.getByText(item.title,{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();

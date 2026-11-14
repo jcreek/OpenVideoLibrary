@@ -24,7 +24,8 @@ $: musicSelected=!!selected&&libraries.some(l=>l.id===selected?.library_id&&l.ki
 // Bumped whenever the signed-in account changes so earlier responses cannot restore its data.
 let account=0;
 class StaleAccount extends Error {}
-async function api(url:string,method='GET',body?:unknown){const owner=account;const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});if(owner!==account)throw new StaleAccount();const data=await r.json();if(owner!==account)throw new StaleAccount();if(!r.ok){if(r.status===401)logged=false;throw Error(data.error||'Request failed');}return data;}
+class ApiError extends Error {status:number;constructor(message:string,status:number){super(message);this.status=status;}}
+async function api(url:string,method='GET',body?:unknown){const owner=account;const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});if(owner!==account)throw new StaleAccount();const data=await r.json();if(owner!==account)throw new StaleAccount();if(!r.ok){if(r.status===401){logged=false;loadFailed=false;}throw new ApiError(data.error||'Request failed',r.status);}return data;}
 async function guard(fn:()=>Promise<void>){error='';try{await fn()}catch(e){if(!(e instanceof StaleAccount))error=e instanceof Error?e.message:String(e)}}
 let browseGeneration=0;
 async function load(){
@@ -51,10 +52,12 @@ async function load(){
  const rows=await api('items?'+new URLSearchParams({q:query,library,offset:String(offset),continue:String(continuing),series:seriesFilter,season:season==null?'':String(season)}));
  if(generation===browseGeneration)items=rows;
 }
+let loadFailed=false,signingIn=false;
+async function retryLoad(){await refresh();loadFailed=false;ready=true;}
 async function refresh(){const me=await api('me');admin=me.Admin;logged=true;libraries=await api('libraries');shows=await api('series');savedLists=await api('lists');if(admin){users=await api('users');scanning=(await api('scan')).running;}await load();}
-onMount(()=>{guard(async()=>{setup=(await api('status')).setup;if(!setup){try{await refresh()}catch{logged=false;error='';}}ready=true;});const interval=setInterval(()=>{if(selected&&!transition)guard(save);if(admin&&scanning)guard(async()=>{scanning=(await api('scan')).running;if(!scanning){notice='Scan finished.';await refresh();}});},15000);return()=>{clearInterval(interval);hls?.destroy();if(captionURL)URL.revokeObjectURL(captionURL);};});
+onMount(()=>{guard(async()=>{setup=(await api('status')).setup;if(!setup){try{await refresh()}catch(e){if(e instanceof ApiError&&e.status===401){logged=false;error='';}else{loadFailed=true;error=e instanceof Error?e.message:String(e);}}}ready=true;});const interval=setInterval(()=>{if(selected&&!transition&&progressPending===0)guard(save);if(admin&&scanning)guard(async()=>{scanning=(await api('scan')).running;if(!scanning){notice='Scan finished.';await refresh();}});},15000);return()=>{clearInterval(interval);hls?.destroy();if(captionURL)URL.revokeObjectURL(captionURL);};});
 function resetAccount(){
- account++;browseGeneration++;playerGeneration++;stopPlayer();
+ account++;browseGeneration++;playerGeneration++;listGeneration++;stopPlayer();loadFailed=false;
  admin=false;scanning=false;notice='';query='';library='';offset=0;continuing=false;section='library';seriesFilter='';season='';
  items=[];libraries=[];shows=[];users=[];selected=null;info=null;lyrics=null;busy=false;transition=false;
  savedLists=[];activeList=null;playingQueue=null;targetListID='';playbackReason='';
@@ -63,19 +66,31 @@ function resetAccount(){
  libraryName='';path='';kind='movie';newListName='';newListKind='playlist';
  frameRequestedAt=0;waitingAt=0;seekRequestedAt=0;duration=0;seekTo=0;lyricPosition=0;
 }
-async function login(){await guard(async()=>{if(setup)await api('setup','POST',{Name:name,Password:password});await api('login','POST',{Name:name,Password:password});password='';setup=false;resetAccount();await refresh();});}
+async function login(){
+ if(signingIn)return;signingIn=true;
+ try{await guard(async()=>{if(setup){await api('setup','POST',{Name:name,Password:password});setup=false;}await api('login','POST',{Name:name,Password:password});password='';resetAccount();await refresh();loadFailed=false;});}
+ finally{signingIn=false;}
+}
 async function signOut(){
  // Player cleanup must not prevent the logout request.
  await close(false).catch(()=>{});await pendingPlayback.catch(()=>{});
  await api('logout','POST');
  resetAccount();logged=false;name='';password='';
 }
+// Progress writes run one at a time, so a later save cannot undo a newer watched mark.
+let progressWrites:Promise<unknown>=Promise.resolve();
+// No client timeout: aborting cannot cancel a write the server already queued, so it could land out of order.
+let progressPending=0;
+function progress<T>(write:()=>Promise<T>):Promise<T>{
+ const owner=account;const guarded=()=>{if(owner!==account)throw new StaleAccount();return write();};
+ progressPending++;const run=progressWrites.then(guarded,guarded);progressWrites=run.catch(()=>{}).finally(()=>{progressPending--;});return run;
+}
 async function save(){
  const item=selected,element=video;
  if(item&&element&&!transition&&element.readyState>0){
-  const position=element.currentTime+startOffset,watched=element.ended||item.watched;
-  await api('items/'+item.id+'/progress','PUT',{Position:position,Watched:watched});
-  item.position=position;item.watched=watched;
+  // Read the player now: close() and open() tear it down straight after calling save().
+  const position=element.currentTime+startOffset,ended=element.ended;
+  await progress(async()=>{const watched=ended||item.watched;await api('items/'+item.id+'/progress','PUT',{Position:position,Watched:watched});item.position=position;item.watched=watched;if(selected===item)selected=selected;});
  }
 }
 function stopPlayer(){
@@ -158,7 +173,8 @@ function musicCapabilities():ClientCapabilities {
  return {containers:[...containers],video_codecs:[],audio_codecs:[...audio_codecs],max_audio_channels:2,hdr:false};
 }
 async function loadLists(){savedLists=await api('lists');}
-async function selectList(id:number){activeList=await api('lists/'+id);section='lists';}
+let listGeneration=0;
+async function selectList(id:number){const generation=++listGeneration,from=section;const list=await api('lists/'+id);if(generation!==listGeneration||section!==from)return;activeList=list;section='lists';}
 async function writeList(list:MediaList,entries:MediaListEntry[],cursor=list.cursor){
  if(list.entries.length!==list.entry_count)throw Error('Some saved titles are unavailable. Restore access before editing this list.');
  const result=await api('lists/'+list.id,'PUT',{Kind:list.kind,Name:list.name,ItemIDs:entries.map(e=>e.item.id),Revision:list.revision,Cursor:cursor});
@@ -189,17 +205,17 @@ async function applyPlayback(){const generation=playerGeneration;await save();if
 async function ended(){if(transition)return;const generation=playerGeneration,playing=playingQueue;await save();if(generation!==playerGeneration||!playing||playingQueue!==playing)return;const queue:MediaList=await api('lists/'+playingQueue.id);if(generation!==playerGeneration||playingQueue!==playing)return;if(queue.revision!==playing.revision)throw Error('Queue changed in another client. Resume the queue to continue.');const next=queue.entries.find(e=>e.position>queue.cursor);const updated=await moveCursor(queue,next?.position??queue.cursor+1);if(generation!==playerGeneration||playingQueue!==playing)return;playingQueue=updated;if(next)await open(next.item,true);else notice='Queue finished.';}
 function textSubtitle(codec:string){return ['subrip','ass','ssa','webvtt','mov_text','text'].includes(codec);}
 async function browseShow(show:Series){section='library';seriesFilter=show.name;library=String(show.library_id);season='';offset=0;await load();}
-async function mark(item:Item){await api('items/'+item.id+'/progress','PUT',{Position:item.position,Watched:!item.watched});item.watched=!item.watched;await load();}
+async function mark(item:Item){await progress(async()=>{const watched=!item.watched;await api('items/'+item.id+'/progress','PUT',{Position:item.position,Watched:watched});item.watched=watched;if(selected===item)selected=selected;});await load();}
 function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(Math.floor(seconds/60)%60).padStart(2,'0')+':'+String(Math.floor(seconds)%60).padStart(2,'0');}
 </script>
 
 <svelte:head><meta name="theme-color" content="#101820"/></svelte:head>
 <header><a href="/">◈ OpenVideoLibrary</a><span>Your collection. Ready to play.</span>{#if logged}<button onclick={()=>guard(signOut)}>Sign out</button>{/if}</header>
 <main>
-{#if error}<p role="alert" class="error">{error}</p>{/if}
+{#if error}<p role="alert" class="error">{error}{#if loadFailed&&logged} <button onclick={()=>guard(retryLoad)}>Retry</button>{/if}</p>{/if}
 {#if notice}<p role="status" class="notice">{notice}</p>{/if}
 {#if !ready}<p>Opening your library…</p>{:else if !logged}
-<section class="login"><p class="eyebrow">YOUR OWN MEDIA SERVER</p><h1>{setup?'Make yourself at home.':'Welcome back.'}</h1><p>{setup?'Create your administrator account to get started.':'Sign in to your library.'}</p><form onsubmit={(e)=>{e.preventDefault();login();}}><label>Username<input bind:value={name} autocomplete="username" required/></label><label>Password<input bind:value={password} type="password" autocomplete={setup?'new-password':'current-password'} minlength={setup?12:1} required/></label><button class="primary">{setup?'Create library':'Sign in'}</button></form></section>
+<section class="login"><p class="eyebrow">YOUR OWN MEDIA SERVER</p><h1>{setup?'Make yourself at home.':'Welcome back.'}</h1><p>{setup?'Create your administrator account to get started.':'Sign in to your library.'}</p><form onsubmit={(e)=>{e.preventDefault();login();}}><label>Username<input bind:value={name} autocomplete="username" required/></label><label>Password<input bind:value={password} type="password" autocomplete={setup?'new-password':'current-password'} minlength={setup?12:1} required/></label><button class="primary" disabled={signingIn}>{setup?'Create library':'Sign in'}</button></form></section>
 {:else}
 <div class="heading"><div><p class="eyebrow">AT HOME, ANYWHERE</p><h1>{activeAlbum?.album||activeArtist?.artist||seriesFilter||'Your library'}</h1></div><div class="toolbar"><button class:active={section==='library'} onclick={()=>{items=[];section='library';seriesFilter='';season='';activeAlbum=null;activeArtist=null;allArtistTracks=false;offset=0;guard(load);}}>All media</button><button class:active={section==='music'&&!activeArtist} onclick={()=>browseMusic('music')}>Music albums</button><button class:active={section==='artists'||!!activeArtist} onclick={()=>browseMusic('artists')}>Music artists</button><button class:active={section==='lists'} onclick={()=>{section='lists';activeAlbum=null;activeArtist=null;allArtistTracks=false;guard(loadLists);}}>Collections & playlists</button><button class:active={section==='series'} onclick={()=>{section='series';activeAlbum=null;activeArtist=null;allArtistTracks=false;}}>TV series</button></div></div>
 <form class="filters" onsubmit={(e)=>{e.preventDefault();offset=0;guard(load);}}><input aria-label="Search" placeholder="Search your library…" bind:value={query}/><select aria-label="Library" bind:value={library} onchange={(e)=>{library=e.currentTarget.value;offset=0;activeAlbum=null;activeArtist=null;allArtistTracks=false;seriesFilter='';season='';guard(load);}}><option value="">All libraries</option>{#each libraries as l}<option value={String(l.id)}>{l.name}{l.offline?' · offline':''}</option>{/each}</select><label class="inline"><input type="checkbox" bind:checked={continuing} onchange={(e)=>{continuing=e.currentTarget.checked;offset=0;guard(load);}}/>Continue playing</label><button>Search</button></form>
