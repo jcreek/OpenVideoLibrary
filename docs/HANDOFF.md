@@ -40,13 +40,12 @@ Four increments from this session are complete and now on `main`. The current
 Linux images also pass the container smoke. With the user's approval,
 history from the first handoff commit onward was rewritten to remove the
 N100's private address and key filename, then force-pushed. PR #1's
-commit IDs changed, but no file content did. Two local-only refs keep the
-old history on the development machine:
-`local-backup-before-history-scrub` and filter-branch's
-`refs/original/refs/heads/rust-migration`. The first is a branch, so never
-use `git push --all` or `--mirror`, and delete both once the user agrees.
-The local `rust-migration` branch is also unredacted and local-only now. It
-has no upstream; never push it.
+commit IDs changed, but no file content did. With the user's agreement, the
+two local refs that kept the old history, `local-backup-before-history-scrub`
+and filter-branch's `refs/original/refs/heads/rust-migration`, were deleted
+on 15 November 2026. The local `rust-migration` branch is unredacted and
+local-only. It has no upstream, so never push it, and never use
+`git push --all` or `--mirror`.
 
 Old commits may stay reachable on GitHub by commit ID, including from PR #1's
 force-push event and `refs/pull/1/head`. The user decided not to ask GitHub
@@ -203,8 +202,7 @@ pins the plain script, and the other five pin it with their committed patch appl
 - `n100-native-100k-rust-before-after.json`
 
 The original scripts are kept locally in the `rust-migration` branch at
-`48753e7`, and the backup refs hold the same files. Deleting the backup refs
-is fine while that branch stays. Because PR #1 was not purged, the hashes can
+`48753e7`. Because PR #1 was not purged, the hashes can
 still be verified against PR #1's head commit (`48753e7`). The prepared 10k stage on the N100 was
 created with the old device name. Regenerate it before rerunning the
 redacted 10k script, or the token lookup returns nothing.
