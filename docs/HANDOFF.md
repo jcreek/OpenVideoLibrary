@@ -175,8 +175,8 @@ PR #1 was closed and the remote `rust-migration` branch deleted after the
 final adversarial review (15 November 2026), because that unredacted tree
 was still public. The merged `split/*` branches were deleted too. GitHub
 still serves `refs/pull/1/head` (`48753e7`), and old commits stay reachable
-by ID. The user decided not to request a GitHub Support purge, so the
-unredacted tree remains retrievable by anyone who looks for it.
+by ID. The user accepted that residual exposure and decided not to request
+a GitHub Support purge.
 
 At the user's request, the split also redacts these details:
 - Local checkout paths in recorded evidence are now `<repo>` and
@@ -202,11 +202,10 @@ pins the plain script, and the other five pin it with their committed patch appl
 - `n100-native-100k-exact-search.json`
 - `n100-native-100k-rust-before-after.json`
 
-The original scripts are kept only on the development machine, in the local
-`rust-migration` branch at `48753e7`; the backup refs hold the same files.
-Deleting the backup refs is fine while that branch stays. Because PR #1 was
-not purged, the hashes can also be checked publicly by fetching
-`refs/pull/1/head`. The prepared 10k stage on the N100 was
+The original scripts are kept locally in the `rust-migration` branch at
+`48753e7`, and the backup refs hold the same files. Deleting the backup refs
+is fine while that branch stays. Because PR #1 was not purged, the hashes can
+still be verified against PR #1's head commit (`48753e7`). The prepared 10k stage on the N100 was
 created with the old device name. Regenerate it before rerunning the
 redacted 10k script, or the token lookup returns nothing.
 
