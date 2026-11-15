@@ -143,20 +143,30 @@ class ReportN100Tests(unittest.TestCase):
             return (folder / 'N100.md').read_text()
 
     @staticmethod
-    def row(p95):
-        return {'mode': 'idle', 'candidate': 'rust', 'items': 100000, 'concurrency': 100, 'requests': 2000,
-                'errors': 0, 'child_errors': 0, 'background': {'errors': 0}, 'p95_ms': p95, 'p99_ms': p95,
+    def row(p95, candidate='rust', concurrency=100, errors=0):
+        return {'mode': 'idle', 'candidate': candidate, 'items': 100000, 'concurrency': concurrency, 'requests': 2000,
+                'errors': errors, 'child_errors': 0, 'background': {'errors': 0}, 'p95_ms': p95, 'p99_ms': p95,
                 'successful_rps': 1000, 'core_peak_rss_bytes': 1 << 20, 'core_cpu_seconds': 1}
+
+    def matrix(self, p95=10):
+        return [self.row(p95, candidate, concurrency) for candidate in ('go', 'rust')
+                for concurrency in (1, 10, 25, 50, 100) for _ in range(40)]
 
     def test_missing_dataset_omits_its_conclusion(self):
         self.assertNotIn(self.CLAIM, self.render())
 
     def test_incomplete_or_slow_dataset_omits_its_conclusion(self):
         self.assertNotIn(self.CLAIM, self.render([self.row(10)]))
-        self.assertNotIn(self.CLAIM, self.render([self.row(10)] * 399 + [self.row(151)]))
+        self.assertNotIn(self.CLAIM, self.render(self.matrix()[:-1] + [self.row(151)]))
+        self.assertNotIn(self.CLAIM, self.render([self.row(10)] * 400))  # one candidate, one concurrency
 
     def test_supporting_dataset_keeps_its_conclusion(self):
-        self.assertIn(self.CLAIM, self.render([self.row(10)] * 400))
+        self.assertIn(self.CLAIM, self.render(self.matrix()))
+
+    def test_trials_without_successful_requests_render_as_unavailable(self):
+        report = self.render([self.row(None, errors=2000)])
+        self.assertIn('| idle | rust | 100 | n/a | n/a |', report)
+        self.assertNotIn(self.CLAIM, report)
 
 
 if __name__ == '__main__':

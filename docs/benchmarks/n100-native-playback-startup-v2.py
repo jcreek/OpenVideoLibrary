@@ -108,11 +108,16 @@ def ffmpeg_command(pid):
     return None
 
 
+def ffmpeg_pending(pid):
+    """An FFmpeg is running, or a group member has exited but is not yet reaped (a zombie has no cmdline)."""
+    return ffmpeg_command(pid) is not None or any(fields[0] == 'Z' for _, fields in group_members(pid))
+
+
 def wait_no_ffmpeg(pid, timeout=10):
     deadline = time.monotonic() + timeout
-    while ffmpeg_command(pid) and time.monotonic() < deadline:
+    while ffmpeg_pending(pid) and time.monotonic() < deadline:
         time.sleep(.05)
-    return ffmpeg_command(pid) is None
+    return not ffmpeg_pending(pid)
 
 
 def rss_kib(pid):
