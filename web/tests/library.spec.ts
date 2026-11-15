@@ -92,6 +92,10 @@ test('browse filters reset and account switches drop the previous account state'
  const viewer='switch-viewer',viewerPassword='switch-viewer-password-123';
  if(!(await (await page.request.get('/api/v1/users')).json()).some((u:{name:string})=>u.name===viewer))expect((await page.request.post('/api/v1/users',{headers,data:{Name:viewer,Password:viewerPassword,Libraries:[]}})).status()).toBe(201);
  const second=await page.request.post('/api/v1/lists',{headers,data:{Kind:'collection',Name:'Second admin collection',ItemIDs:[]}});expect(second.status()).toBe(201);
+ // A failed status check must not leave the page stuck while opening.
+ await page.route('**/api/v1/status',route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'status unavailable'})}),{times:1});
+ await page.goto('/');await expect(page.getByRole('alert')).toContainText('status unavailable');await expect(page.getByText('Opening your library…')).toBeVisible();
+ await page.getByRole('button',{name:'Retry',exact:true}).click();await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();await expect(page.getByRole('alert')).toHaveCount(0);
  // A failed startup load keeps the signed-in session and offers a retry.
  await page.route('**/api/v1/lists',route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'lists unavailable'})}),{times:1});
  await page.goto('/');await expect(page.getByRole('alert')).toContainText('lists unavailable');await expect(page.getByRole('button',{name:'Sign out',exact:true})).toBeVisible();
@@ -128,8 +132,13 @@ test('browse filters reset and account switches drop the previous account state'
  await page.getByRole('button',{name:'Private admin playlist · playlist',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Private admin playlist',exact:true})).toBeVisible();await expect(page.getByText(item.title,{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+ // A failed load straight after signing in keeps the session and offers a retry.
+ await page.route('**/api/v1/libraries',route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'libraries unavailable'})}),{times:1});
  await page.getByLabel('Username',{exact:true}).fill(viewer);await page.getByLabel('Password',{exact:true}).fill(viewerPassword);await page.getByRole('button',{name:'Sign in',exact:true}).click();
- await expect(page.getByRole('button',{name:'Sign out',exact:true})).toBeVisible();
+ await expect(page.getByRole('alert')).toContainText('libraries unavailable');await expect(page.getByRole('button',{name:'Sign out',exact:true})).toBeVisible();
+ const librariesReloaded=page.waitForResponse(r=>r.url().endsWith('/api/v1/libraries')&&r.request().method()==='GET');
+ await page.getByRole('button',{name:'Retry',exact:true}).click();expect((await librariesReloaded).status()).toBe(200);
+ await expect(page.getByRole('heading',{name:'Bring your collection.'})).toBeVisible();await expect(page.getByRole('alert')).toHaveCount(0);
  await expect(page.getByText('Private admin playlist')).toHaveCount(0);await expect(page.getByText(item.title,{exact:true})).toHaveCount(0);
  // A response requested by the previous account must not restore its list after the switch.
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();

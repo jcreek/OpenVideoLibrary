@@ -52,10 +52,17 @@ async function load(){
  const rows=await api('items?'+new URLSearchParams({q:query,library,offset:String(offset),continue:String(continuing),series:seriesFilter,season:season==null?'':String(season)}));
  if(generation===browseGeneration)items=rows;
 }
-let loadFailed=false,signingIn=false;
+let loadFailed=false,statusFailed=false,signingIn=false;
 async function retryLoad(){await refresh();loadFailed=false;ready=true;}
 async function refresh(){const me=await api('me');admin=me.Admin;logged=true;libraries=await api('libraries');shows=await api('series');savedLists=await api('lists');if(admin){users=await api('users');scanning=(await api('scan')).running;}await load();}
-onMount(()=>{guard(async()=>{setup=(await api('status')).setup;if(!setup){try{await refresh()}catch(e){if(e instanceof ApiError&&e.status===401){logged=false;error='';}else{loadFailed=true;error=e instanceof Error?e.message:String(e);}}}ready=true;});const interval=setInterval(()=>{if(selected&&!transition&&progressPending===0)guard(save);if(admin&&scanning)guard(async()=>{scanning=(await api('scan')).running;if(!scanning){notice='Scan finished.';await refresh();}});},15000);return()=>{clearInterval(interval);hls?.destroy();if(captionURL)URL.revokeObjectURL(captionURL);};});
+async function startup(){
+ // Without the status answer neither the login form nor the library can be shown, so offer a retry.
+ try{setup=(await api('status')).setup;}catch(e){statusFailed=true;throw e;}
+ statusFailed=false;
+ if(!setup){try{await refresh()}catch(e){if(e instanceof ApiError&&e.status===401){logged=false;error='';}else{loadFailed=true;error=e instanceof Error?e.message:String(e);}}}
+ ready=true;
+}
+onMount(()=>{guard(startup);const interval=setInterval(()=>{if(selected&&!transition&&progressPending===0)guard(save);if(admin&&scanning)guard(async()=>{scanning=(await api('scan')).running;if(!scanning){notice='Scan finished.';await refresh();}});},15000);return()=>{clearInterval(interval);hls?.destroy();if(captionURL)URL.revokeObjectURL(captionURL);};});
 function resetAccount(){
  account++;browseGeneration++;playerGeneration++;listGeneration++;stopPlayer();loadFailed=false;
  admin=false;scanning=false;notice='';query='';library='';offset=0;continuing=false;section='library';seriesFilter='';season='';
@@ -68,7 +75,10 @@ function resetAccount(){
 }
 async function login(){
  if(signingIn)return;signingIn=true;
- try{await guard(async()=>{if(setup){await api('setup','POST',{Name:name,Password:password});setup=false;}await api('login','POST',{Name:name,Password:password});password='';resetAccount();await refresh();loadFailed=false;});}
+ try{await guard(async()=>{if(setup){await api('setup','POST',{Name:name,Password:password});setup=false;}await api('login','POST',{Name:name,Password:password});password='';resetAccount();
+  // The session is valid now; a failed load keeps it and offers a retry.
+  try{await refresh();}catch(e){if(logged&&!(e instanceof StaleAccount))loadFailed=true;throw e;}
+ });}
  finally{signingIn=false;}
 }
 async function signOut(){
@@ -212,7 +222,7 @@ function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(M
 <svelte:head><meta name="theme-color" content="#101820"/></svelte:head>
 <header><a href="/">◈ OpenVideoLibrary</a><span>Your collection. Ready to play.</span>{#if logged}<button onclick={()=>guard(signOut)}>Sign out</button>{/if}</header>
 <main>
-{#if error}<p role="alert" class="error">{error}{#if loadFailed&&logged} <button onclick={()=>guard(retryLoad)}>Retry</button>{/if}</p>{/if}
+{#if error}<p role="alert" class="error">{error}{#if statusFailed} <button onclick={()=>guard(startup)}>Retry</button>{:else if loadFailed&&logged} <button onclick={()=>guard(retryLoad)}>Retry</button>{/if}</p>{/if}
 {#if notice}<p role="status" class="notice">{notice}</p>{/if}
 {#if !ready}<p>Opening your library…</p>{:else if !logged}
 <section class="login"><p class="eyebrow">YOUR OWN MEDIA SERVER</p><h1>{setup?'Make yourself at home.':'Welcome back.'}</h1><p>{setup?'Create your administrator account to get started.':'Sign in to your library.'}</p><form onsubmit={(e)=>{e.preventDefault();login();}}><label>Username<input bind:value={name} autocomplete="username" required/></label><label>Password<input bind:value={password} type="password" autocomplete={setup?'new-password':'current-password'} minlength={setup?12:1} required/></label><button class="primary" disabled={signingIn}>{setup?'Create library':'Sign in'}</button></form></section>
