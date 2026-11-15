@@ -390,6 +390,64 @@ An independent review rated the unguarded `rsync --delete` close to blocking;
 the marker fixed it. All findings were addressed or explained, and follow-up
 reviews, including one of the hash framing, found nothing blocking.
 
+**CodeRabbit review of PR 4 (15 November 2026).** It raised 20 comments on
+the benchmark harnesses. The live scripts were fixed:
+- `bench_suite.py` starts encoders inside its cleanup scope and unwinds
+  SIGTERM through it. It no longer offers `h264_vaapi`, because its
+  software-decoded input never reached VAAPI surfaces.
+- `bench_suite.py` and `remote_bench.py` reject rows whose title does not
+  match the query prefix.
+- `remote_bench.py` applies one deadline to each whole worker response line.
+  It ends the resource window with the measured load and drains background
+  requests afterwards; `remote_worker.py` now keeps its children until stdin
+  closes. New mixed-mode CPU and RSS are therefore not strictly comparable
+  with the recorded matrices (see BENCHMARKS). A trial with no successful
+  request no longer crashes the run.
+- `playback_reference.py` rejects `--repetitions` below 1, cleans up on
+  SIGTERM and fails when FFmpeg emits no output, for example after a seek
+  past the end of the file.
+- `probe_hdr.py` decodes with `-xerror`. `probe_hdr_quality.py` records a
+  graph timeout and keeps the earlier rows.
+- `report_n100.py` prints the optimized-matrix conclusion only when the
+  dataset is complete, error-free, has 400 trials covering both candidates and
+  every concurrency through 100, and stays under 150 ms. The native-SQLite
+  notes still appear whenever that file loads; their wording is not checked
+  against the rows. Null percentiles render as n/a. Its output for the
+  recorded evidence is unchanged.
+- `lan_playback_worker.py` names the missing hls.js bundle and where to copy
+  it from. `bench-sustained-playback.mjs` starts HLS at position zero.
+- The v2 playback-startup harness was changed as described in BENCHMARKS.
+  BENCHMARKS now gives true medians: the recorded summaries took the upper
+  middle row of eight.
+
+Skipped, with the archived evidence checked instead:
+- The 10k browse harness and exact-search patch are kept byte-for-byte,
+  because the search and 100k scripts are rebuilt by patching the browse
+  harness. Both recorded runs have five complete, error-free trials per arm,
+  and the search preflight matched 100 of 100 queries in both arms. The docs
+  already ask for fresh output names and that acceptance check.
+- The v1 playback-startup harness is kept as recorded; v2 supersedes it and
+  carries the requested fixes.
+
+Evidence:
+- 28 Python tests pass, including 11 new ones in
+  `scripts/test_bench_harnesses.py`. Against the old scripts, the
+  partial-line test hangs and seven of the other nine first-round tests fail.
+  The report checks added after the follow-up review fail against the first
+  fix commit.
+- Locally, FFmpeg 6.0 exits 0 after a seek past the end of the file and
+  exits 1 with `-abort_on empty_output`. That was not rechecked on the N100's
+  FFmpeg 6.1.1.
+- The revised CPU sampler ran on the N100 in a throwaway process. A child
+  measured 1.40 s while alive and 1.41 s after being reaped.
+- An independent review found nothing blocking. Its should-fix findings were
+  fixed: the reaping wording and wait, the report crash on null
+  percentiles, the report claim check and the resource-window note.
+  Not changed: a signal arriving in the instant between starting a child and
+  entering cleanup, and the stale `go-cgo` reproduce text in `N100.md`, which
+  would change the regenerated file.
+- No benchmark was rerun. The only figures that changed are the v2 medians, recomputed from the recorded rows.
+
 ## Outstanding from the plan
 
 1. **Preview and video acceptance.** The user has no HDR content, so real HDR10, HLG and Dolby Vision acceptance is unavailable; HDR evidence stays synthetic. The queue-capture regression and the

@@ -126,7 +126,11 @@ workspace. Its `/items`, range `/media` and `/scan` endpoints have no production
 authentication/playback. The retained `bench_suite.py`, `remote_bench.py` and
 `reference-bench.sh` now run Rust only and must not be mistaken for a current
 cross-language comparison. Prior response hashes refer to the earlier protocol.
-Do not silently rewrite or relabel old measurement files.
+Do not silently rewrite or relabel old measurement files. Since the PR 4 review
+(15 November 2026), `remote_bench.py` ends the core CPU/RSS window when the
+measured load ends and drains background requests afterwards. The recorded
+matrices kept in-flight background requests inside the window, so new
+mixed-mode CPU and RSS figures are not strictly comparable with them.
 
 ## Production query profiling
 
@@ -898,9 +902,9 @@ home paths in it are redacted to `$ROOT`.
 
 | Scenario | Jellyfin median (min–max), ms | Rust median (min–max), ms | CPU at first segment, Jellyfin / Rust, s |
 | --- | ---: | ---: | ---: |
-| Direct read of the 952 KB file (page-cache warm) | 15.6 (12.9–20.2) | 2.3 (1.6–2.4) | — |
-| Transcode, first segment from 0 s | 1,562 (1,557–1,669) | 1,138 (1,129–1,202) | 4.16 / 2.92 |
-| Transcode, first segment from 60 s | 1,564 (1,556–1,569) | 1,197 (1,182–1,298) | 4.17 / 3.04 |
+| Direct read of the 952 KB file (page-cache warm) | 15.25 (12.9–20.2) | 2.25 (1.6–2.4) | — |
+| Transcode, first segment from 0 s | 1,561 (1,557–1,669) | 1,137 (1,129–1,202) | 4.155 / 2.92 |
+| Transcode, first segment from 60 s | 1,563 (1,556–1,569) | 1,195 (1,182–1,298) | 4.16 / 3.035 |
 
 **The encodes were not equivalent.** The captured commands show:
 
@@ -915,7 +919,7 @@ Real segment bitrates were only about 35 kb/s of video and 21 kb/s of audio on
 both arms, because the fixture is mostly black. So the 5 Mb/s target was never
 exercised. Jellyfin was about 0.4 s slower to the first segment despite
 cheaper x264 options. Both arms burned CPU at a similar rate of about
-2.6–2.7 cores, so Jellyfin's higher CPU at that point reflects its longer wall
+2.5–2.7 cores (per-row medians 2.66 for Jellyfin, 2.53–2.56 for Rust), so Jellyfin's higher CPU at that point reflects its longer wall
 time, not heavier work. The delay is unattributed.
 
 Splitting it needs three things:
@@ -928,11 +932,24 @@ Both servers ran together, so the trial Jellyfin's background work also
 overlapped Rust's rows and counts in Jellyfin's CPU. After the run, the
 harness began registering each server for cleanup before any wait, skipping
 `N/A` packet timestamps, writing `$ROOT` instead of home paths into captured
-commands, and keeping logs when a run fails. Its measurement code is
-unchanged.
+commands, and keeping logs when a run fails. Its measurement code was
+unchanged at that point.
 
-Median session CPU from 0 s, including segments encoded ahead, was 5.81 s for
-Jellyfin and 4.26 s for Rust.
+Medians here are recomputed from the recorded rows. With eight rounds the
+recorded `median_ms` and `median_cpu_at_first_segment_s` summary fields hold
+the upper of the two middle rows, not their mean. The CodeRabbit review of
+PR 4 (15 November 2026) then changed the harness to use `statistics.median`,
+hash each binary before launch, and retry a CPU sample whenever the server's
+reaped-child counters change during it. The recorded rows predate those
+changes. Their first-segment samples were taken while FFmpeg was running.
+Session samples, and each scenario's baseline, followed a wait until no FFmpeg
+command line remained. A zombie has no command line, so an exited FFmpeg that
+the server had not yet reaped already passed that wait. A reap racing a
+recorded sample was therefore not ruled out. The harness now also waits for
+unreaped group members.
+
+Median session CPU from 0 s, including segments encoded ahead, was 5.805 s for
+Jellyfin and 4.24 s for Rust.
 
 **Scope.** This is not LAN or browser first frame, real media, equal rate
 control, OS-cold or concurrency.
