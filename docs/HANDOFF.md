@@ -324,8 +324,13 @@ Evidence:
 - The server is unchanged, so the N100 was not rerun.
 - An independent review and its follow-up found nothing blocking.
 
-Still open: a session that expires (401) keeps the previous account's
-state in memory until the next login resets it.
+A session that expires (401) used to keep the previous account's state in
+memory until the next login. Fixed on 15 November 2026: any 401 now resets
+the account state and stops the player, so HLS playlist reloads and progress
+saves stop. A browser test fails on the old client in all three engines. The
+client cannot delete the server playback session without a valid session,
+so that session holds its admission slot until the idle reaper removes it
+(300 s by default).
 
 **Third CodeRabbit review of PR 2 (14 November 2026).** A full review
 raised seven comments. Six were valid and fixed in one commit on

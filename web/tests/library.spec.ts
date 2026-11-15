@@ -278,6 +278,41 @@ test('HLS timeline follows the server-reported stream start',async({page})=>{
  expect(position).toBeGreaterThanOrEqual(5.9);
  await page.getByRole('button',{name:'Close player',exact:true}).click();
 });
+test('an expired session drops the previous account state and stops playback',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Expiry TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+ await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ // Earlier scenarios rename the first title; the last one keeps its TV label.
+ const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
+ // The client cannot delete its playback session once signed out, so the test removes it afterwards.
+ const sessions=new Set<string>();
+ page.on('request',r=>{const m=new URL(r.url()).pathname.match(/^\/api\/v1\/playback\/([A-Za-z0-9_-]+)\//);if(m)sessions.add(m[1]);});
+ try {
+ await page.clock.install();
+ await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+ await page.getByRole('button',{name:'All media',exact:true}).click();await page.getByRole('button',{name:new RegExp('TV ▶ '+item.title)}).click();
+ await page.getByLabel('Playback',{exact:true}).selectOption('remux');await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();
+ await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+ // The server session ends; the next request from the page receives 401.
+ expect((await page.request.post('/api/v1/logout',{headers})).status()).toBeLessThan(300);
+ // Any request can receive the 401 first; the click only makes sure one is sent.
+ await page.getByRole('button',{name:'All media',exact:true}).click({timeout:2000}).catch(()=>{});
+ await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+ // Nothing from the previous account keeps running: no progress saves, playlist or segment loads.
+ const after:string[]=[];
+ page.on('request',r=>{const u=new URL(r.url());if(u.pathname.startsWith('/api/v1/'))after.push(r.method()+' '+u.pathname);});
+ await page.clock.runFor(31000);
+ await page.waitForTimeout(1000);
+ expect(after).toEqual([]);
+ expect(sessions.size).toBeGreaterThan(0);
+ } finally {
+  expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+  for(const id of sessions)await page.request.delete('/api/v1/playback/'+id,{headers});
+ }
+});
+
 test('player lifecycle ignores delayed opening and closing',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);

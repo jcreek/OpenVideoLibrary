@@ -25,7 +25,11 @@ $: musicSelected=!!selected&&libraries.some(l=>l.id===selected?.library_id&&l.ki
 let account=0;
 class StaleAccount extends Error {}
 class ApiError extends Error {status:number;constructor(message:string,status:number){super(message);this.status=status;}}
-async function api(url:string,method='GET',body?:unknown){const owner=account;const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});if(owner!==account)throw new StaleAccount();const data=await r.json();if(owner!==account)throw new StaleAccount();if(!r.ok){if(r.status===401){logged=false;loadFailed=false;}throw new ApiError(data.error||'Request failed',r.status);}return data;}
+async function api(url:string,method='GET',body?:unknown){const owner=account;const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});if(owner!==account)throw new StaleAccount();const data=await r.json();if(owner!==account)throw new StaleAccount();if(!r.ok){if(r.status===401)expire();throw new ApiError(data.error||'Request failed',r.status);}return data;}
+// A 401 means the session has ended: drop the account's state and stop its player and timers.
+// The playback session cannot be deleted without a session, so no DELETE is sent; a late
+// 401 from that request could otherwise reset an account that is signing in again.
+function expire(){session='';resetAccount();logged=false;}
 async function guard(fn:()=>Promise<void>){error='';try{await fn()}catch(e){if(!(e instanceof StaleAccount))error=e instanceof Error?e.message:String(e)}}
 let browseGeneration=0;
 async function load(){
