@@ -1,0 +1,66 @@
+name: Verify Rust
+# Local/N100 verification is the default. Re-enable and dispatch only with
+# explicit approval to spend hosted Actions minutes.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    timeout-minutes: 25
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: make test
+      - run: python3 scripts/generate-types.py && git diff --exit-code -- web/src/api.generated.ts
+      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - run: cargo check --locked --manifest-path bench/rust/Cargo.toml
+      - run: cargo fmt --manifest-path bench/rust/Cargo.toml -- --check
+      - run: OVL_ACCELERATOR=cpu cargo test --locked --workspace -- --ignored
+      - run: cargo build --locked --package ovl-server && mkdir -p bin && cp target/debug/ovl-server bin/ovl
+      - run: cd web && npx playwright install --with-deps chromium firefox webkit && npm run test:e2e
+      - run: docker pull nginx:stable && python3 scripts/test_nginx.py --output nginx-acceptance.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nginx-acceptance
+          path: nginx-acceptance.json
+  images:
+    timeout-minutes: 60
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: false
+          load: true
+          tags: openvideolibrary:acceptance
+      - run: python3 scripts/test_container.py --image openvideolibrary:acceptance --output image-acceptance.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: image-acceptance-${{ strategy.job-index }}
+          path: image-acceptance.json
