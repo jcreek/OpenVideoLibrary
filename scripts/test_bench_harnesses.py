@@ -109,22 +109,18 @@ class BenchSuiteCleanupTests(unittest.TestCase):
             os.kill(pid, 9)
             self.fail('candidate process was left running')
 
-    def test_in_flight_background_request_finishes_before_the_candidate_stops(self):
+    def fake_candidate(self, root, media_seconds):
         with socket.socket() as sock:
             if sock.connect_ex(('127.0.0.1', 8097)) == 0:
                 self.skipTest('port 8097 is in use')
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            candidate = root / 'candidate'
-            # A media range takes a second, so stopping the run always finds one in flight.
-            candidate.write_text(f"""#!{sys.executable}
-import http.server, json, time
+        server = root / 'server.py'
+        server.write_text(f"""import http.server, json, time
 class H(http.server.BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
     def log_message(self, *a): pass
     def do_GET(self):
         if self.path.startswith('/media'):
-            time.sleep(1); status, body = 206, b'x'
+            time.sleep({media_seconds}); status, body = 206, b'x'
         elif self.path.startswith('/info'):
             status, body = 200, b'{{}}'
         else:
@@ -133,14 +129,43 @@ class H(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
 """)
-            candidate.chmod(0o755)
-            media = root / 'sample.mp4'
-            media.write_bytes(b'x')
-            args = argparse.Namespace(media=str(media), scan_root=None, ffmpeg_count=0, requests=1,
-                                      ffmpeg_mode='transcode', ffmpeg_encoder='libx264')
-            result = bench_suite.run(candidate, root / 'db', args, 1, '')
+        candidate = root / 'candidate'
+        # A shell wrapper keeps an interpreter path containing spaces out of the shebang.
+        candidate.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{server}"\n')
+        candidate.chmod(0o755)
+        media = root / 'sample.mp4'
+        media.write_bytes(b'x')
+        return candidate, argparse.Namespace(media=str(media), scan_root=None, ffmpeg_count=0, requests=1,
+                                             ffmpeg_mode='transcode', ffmpeg_encoder='libx264')
+
+    def test_in_flight_background_request_finishes_before_the_candidate_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # A media range takes a second, so stopping the run almost always finds one in flight.
+            candidate, args = self.fake_candidate(Path(tmp), 1)
+            result = bench_suite.run(candidate, Path(tmp) / 'db', args, 1, '')
         self.assertEqual(result['errors'], 0)
         self.assertEqual(result['background']['errors'], 0)
+
+    def test_failed_run_stops_the_candidate_before_waiting_for_background_requests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            candidate, args = self.fake_candidate(Path(tmp), 20)
+            real_load, calls = bench_suite.load, []
+
+            def failing_load(*a):
+                calls.append(1)
+                if len(calls) == 2:
+                    time.sleep(.5)  # let the stream worker start its slow request
+                    raise RuntimeError('measured load failed')
+                return real_load(*a)
+            bench_suite.load = failing_load
+            started = time.monotonic()
+            try:
+                with self.assertRaises(RuntimeError):
+                    bench_suite.run(candidate, Path(tmp) / 'db', args, 1, '')
+            finally:
+                bench_suite.load = real_load
+        # Waiting on the 20 s media request first would take far longer.
+        self.assertLess(time.monotonic() - started, 10)
 
     def test_h264_vaapi_is_rejected_without_hardware_upload(self):
         result = subprocess.run([sys.executable, str(SCRIPTS / 'bench_suite.py'), '--output', os.devnull,
@@ -152,11 +177,21 @@ http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
 class LanWorkerWaitTests(unittest.TestCase):
     def wait(self, commands, background='idle', step=50):
         chunks = iter(command.encode() + b'\n' for command in commands)
+
+        def read(fd, n):
+            # Running out of commands must not end the wait: only the deadline may.
+            chunk = next(chunks, None)
+            if chunk is None:
+                raise AssertionError('read past the scripted commands')
+            return chunk
         clock = itertools.count(step=step)
         worker = lan_playback_worker
         saved = worker.select, worker.os, worker.sys, worker.time, worker.observe_scans
-        worker.select = types.SimpleNamespace(select=lambda r, w, x, timeout: (r, [], []))
-        worker.os = types.SimpleNamespace(read=lambda fd, n: next(chunks, b''))
+        # Input is ready while commands remain; afterwards select reports a timeout.
+        pending = list(commands)
+        worker.select = types.SimpleNamespace(
+            select=lambda r, w, x, timeout: (r, [], []) if pending and not pending.pop(0) is None else ([], [], []))
+        worker.os = types.SimpleNamespace(read=read)
         worker.sys = types.SimpleNamespace(stdin=types.SimpleNamespace(fileno=lambda: 0))
         worker.time = types.SimpleNamespace(monotonic=lambda: next(clock))
         worker.observe_scans = lambda path, offset: {}
@@ -172,6 +207,11 @@ class LanWorkerWaitTests(unittest.TestCase):
 
     def test_a_silent_client_still_times_out(self):
         self.assertFalse(self.wait([], step=241))
+
+    def test_sustained_run_without_background_has_one_budget_for_the_client_limits(self):
+        # A 300 s gap before done exceeds the old shared 240 s budget but not the client limits.
+        self.assertTrue(self.wait(['done'], background=None, step=300))
+        self.assertFalse(self.wait([], background=None, step=421))
 
     def test_snapshots_beyond_the_cap_are_rejected(self):
         self.assertFalse(self.wait(['scan-snapshot'] * 11 + ['done']))
@@ -257,6 +297,12 @@ class ReportN100Tests(unittest.TestCase):
         self.assertNotIn(self.NATIVE, self.render(native_rows=self.native(rust_p95=200)))
         unpaired = [row for row in self.native() if not (row['candidate'] == 'rust' and row['repetition'] == 4)]
         self.assertNotIn(self.NATIVE, self.render(native_rows=unpaired))
+        # A second library size where Rust is slower must not be hidden behind the first.
+        # Rust stays under 150 ms there, so only the pairing can reject it.
+        slower = [dict(row, items=10000, p95_ms=140 if row['candidate'] == 'rust' else 120)
+                  for row in self.native()]
+        self.assertNotIn(self.NATIVE, self.render(native_rows=slower + self.native()))
+
 
     def test_supporting_dataset_keeps_its_conclusion(self):
         self.assertIn(self.CLAIM, self.render(self.matrix()))

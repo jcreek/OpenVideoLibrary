@@ -39,7 +39,7 @@ def run(binary,db,args,concurrency,query):
  if args.media:env['BENCH_MEDIA']=str(Path(args.media).resolve())
  if args.scan_root:env['BENCH_ROOT']=str(Path(args.scan_root).resolve())
  log=tempfile.TemporaryFile();p=subprocess.Popen([str(binary)],env=env,stdout=log,stderr=log)
- encoders=[];stop=threading.Event();threads=[];background={'scan_started':0,'stream_requests':0,'errors':0}
+ encoders=[];stop=threading.Event();threads=[];finished=False;background={'scan_started':0,'stream_requests':0,'errors':0}
  def worker(kind):
   conn=http.client.HTTPConnection('127.0.0.1',8097,timeout=30)
   while not stop.is_set():
@@ -82,12 +82,15 @@ def run(binary,db,args,concurrency,query):
   result=load(args.requests,concurrency,query,stop,background);end=sample(p.pid)
   stop.set();monitor_thread.join()
   result.update({'candidate_info':candidate_info,'ffmpeg_peak_rss_bytes':ffmpeg_peak[0],'ffmpeg_cpu_seconds':sum(max(0,sample(v.pid)[1]-old[1]) for v,old in zip(encoders,ffmpeg_start)),'ffmpeg_exited_early':sum(v.poll() is not None for v in encoders),'process_first_request_ms':cold['p95_ms'],'response_sha256':hashlib.sha256(canonical.encode()).hexdigest(),'core_peak_rss_bytes':max(peak[0],end[0]),'core_cpu_seconds':max(0,end[1]-baseline[1]),'background':background})
+  finished=True
   return result
  finally:
-  # Background requests finish against a live candidate, so shutdown is not counted as a load error.
+  # After a completed load, background requests finish against a live candidate, so shutdown is
+  # not counted as a load error. On failure or cancellation the candidate stops first, as before.
   stop.set()
-  for t in threads:
-   if t.ident:t.join(timeout=31)
+  if finished:
+   for t in threads:
+    if t.ident:t.join(timeout=31)
   p.terminate()
   for encoder in encoders:
    encoder.terminate()
@@ -95,6 +98,8 @@ def run(binary,db,args,concurrency,query):
    except subprocess.TimeoutExpired:encoder.kill();encoder.wait()
   try:p.wait(timeout=5)
   except subprocess.TimeoutExpired:p.kill();p.wait()
+  for t in threads:
+   if t.ident:t.join(timeout=31)
   log.close()
 
 def cancel(signum,frame):raise SystemExit(128+signum)

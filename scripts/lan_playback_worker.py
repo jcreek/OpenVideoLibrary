@@ -87,9 +87,11 @@ def observe_scans(log_path, offset):
 
 
 def await_client(log_path, log_offset, background, restarted):
-    # Each command restarts the wait, so five long repetitions cannot exhaust one shared budget.
-    # The snapshot cap still bounds the whole phase.
-    wait = 360 if background == "scan" else 240
+    # With a background workload, each snapshot restarts the wait; the snapshot cap bounds the
+    # phase (at most 11 x 240 s idle, 16 x 360 s scan). Without one the client sends only done,
+    # so the single budget covers its own limits: readiness 10 s, browser launch 15 s and five
+    # repetitions of page load 10 s + HLS load 10 s + playback 45 s, plus margin for setup and writes.
+    wait = 360 if background == "scan" else 240 if background else 10 + 15 + 5 * (10 + 10 + 45) + 70
     deadline = time.monotonic() + wait
     snapshots = 0
     pending = bytearray()

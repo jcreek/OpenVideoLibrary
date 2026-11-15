@@ -43,10 +43,12 @@ def supports_target(name):
 def supports_native(name):
  rows=clean(name,{'go-cgo','rust'})
  if rows is None or any(r['p95_ms'] is None for r in rows):return False
- # Every concurrency-200 trial pairs with the other candidate's trial of the same mode, query and repetition.
- arm=lambda c:{(r['mode'],r['query'],r['repetition']):r for r in rows if r['candidate']==c and r['concurrency']==200}
+ # Every concurrency-200 trial pairs with the other candidate's trial of the same mode, size, query and repetition.
+ trials=lambda c:[r for r in rows if r['candidate']==c and r['concurrency']==200]
+ arm=lambda c:{(r['mode'],r['items'],r['query'],r['repetition']):r for r in trials(c)}
  go,rust=arm('go-cgo'),arm('rust')
- lower=bool(go) and go.keys()==rust.keys() and all(rust[k][m]<go[k][m] for k in go for m in ('p95_ms','core_cpu_seconds','core_peak_rss_bytes'))
+ unique=len(go)==len(trials('go-cgo')) and len(rust)==len(trials('rust'))
+ lower=bool(go) and unique and go.keys()==rust.keys() and all(rust[k][m]<go[k][m] for k in go for m in ('p95_ms','core_cpu_seconds','core_peak_rss_bytes'))
  return (lower and any(r['candidate']=='go-cgo' and r['mode']=='idle' and r['p95_ms']>150 for r in rows)
          and all(r['p95_ms']<150 for r in rows if r['candidate']=='rust'))
 if supports_target('n100-matched-optimized.json'):lines += ['- The 400-trial optimized matrix meets the 150 ms browse/search p95 target at every tested concurrency, through 100 concurrent requests, for both candidates. This is a bounded workload result, not a sustainable capacity limit.']
