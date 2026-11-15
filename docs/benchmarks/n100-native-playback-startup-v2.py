@@ -13,7 +13,7 @@ Changes from v1 (after independent review):
 
 Results are diagnostics, not LAN first-frame acceptance.
 """
-import hashlib, http.client, json, os, pathlib, secrets, shutil, signal, socket, subprocess, tempfile, time, urllib.parse, uuid
+import hashlib, http.client, json, os, pathlib, secrets, shutil, signal, socket, statistics, subprocess, tempfile, time, urllib.parse, uuid
 
 HOME = pathlib.Path.home()
 JELLY = HOME / 'ovl-jellyfin-12.4-hc7ns1a3/jellyfin'
@@ -76,15 +76,25 @@ def group_members(pid):
             yield entry, fields
 
 
+def reaped_cpu(pid):
+    fields = pathlib.Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()
+    return int(fields[13]) + int(fields[14])
+
+
 def group_cpu(pid):
-    """utime+stime of the server's process group plus the server's reaped children."""
+    """utime+stime of the server's process group plus the server's reaped children.
+
+    A child reaped mid-scan would be missed or counted twice, so the scan is
+    retried until the server's reaped-child counters are unchanged across it.
+    """
     tick = os.sysconf('SC_CLK_TCK')
-    total = 0
-    for entry, fields in group_members(pid):
-        total += int(fields[11]) + int(fields[12])
-        if int(entry.name) == pid:
-            total += int(fields[13]) + int(fields[14])
-    return total / tick
+    for _ in range(100):
+        before = reaped_cpu(pid)
+        total = sum(int(fields[11]) + int(fields[12]) for _, fields in group_members(pid))
+        after = reaped_cpu(pid)
+        if before == after:
+            return (total + after) / tick
+    raise RuntimeError('CPU sample kept racing child reaping')
 
 
 def ffmpeg_command(pid):
@@ -179,9 +189,10 @@ def setup(arm, media, contexts):
         command = [str(RUST)]
         env = {**os.environ, 'OVL_LISTEN': f'127.0.0.1:{port}', 'OVL_DATA': str(trial / 'data'), 'OVL_ACCELERATOR': 'cpu'}
     log = trial / 'process.log'
+    binary_sha256 = digest(command[0])  # before launch, so a failure cannot orphan the server
     proc = subprocess.Popen(command, env=env, cwd=trial, stdout=log.open('wb'), stderr=subprocess.STDOUT, start_new_session=True)
     ctx = {'arm': arm, 'port': port, 'proc': proc, 'trial': trial, 'media': media,
-           'result': {'binary_sha256': digest(command[0]), 'scenarios': {}, 'ffmpeg_command': {}}}
+           'result': {'binary_sha256': binary_sha256, 'scenarios': {}, 'ffmpeg_command': {}}}
     contexts.append(ctx)  # registered before any wait so an interrupt still stops it
     for _ in range(240):
         if proc.poll() is not None:
@@ -343,10 +354,9 @@ def main():
         for ctx in contexts:
             for name, rows in ctx['result']['scenarios'].items():
                 ms = sorted(r['ms'] for r in rows)
-                summary = {'median_ms': ms[len(ms) // 2], 'min_ms': ms[0], 'max_ms': ms[-1]}
+                summary = {'median_ms': statistics.median(ms), 'min_ms': ms[0], 'max_ms': ms[-1]}
                 if 'cpu_at_first_segment_s' in rows[0]:
-                    cpu = sorted(r['cpu_at_first_segment_s'] for r in rows)
-                    summary['median_cpu_at_first_segment_s'] = cpu[len(cpu) // 2]
+                    summary['median_cpu_at_first_segment_s'] = statistics.median(r['cpu_at_first_segment_s'] for r in rows)
                 ctx['result'].setdefault('summary', {})[name] = summary
             report['arms'][ctx['arm']] = ctx['result']
         report['load_after'] = os.getloadavg()

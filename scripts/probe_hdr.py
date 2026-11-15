@@ -40,7 +40,7 @@ def main():
             output=root/'sdr.mp4'
             command=['ffmpeg','-nostdin','-hide_banner','-v','error','-vaapi_device','/dev/dri/renderD128','-hwaccel','vaapi','-hwaccel_output_format','vaapi','-i',str(source),'-vf','tonemap_vaapi=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709,scale_vaapi=w=320:h=180:format=nv12','-c:v','h264_vaapi','-b:v','1M','-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709',str(output)]
             if run('physical-vaapi-hdr',command):
-                decoded=run('decode-sdr-output',['ffmpeg','-nostdin','-hide_banner','-v','error','-i',str(output),'-f','null','-'])
+                decoded=run('decode-sdr-output',['ffmpeg','-nostdin','-hide_banner','-v','error','-xerror','-i',str(output),'-f','null','-'])
                 report['supported']=decoded
                 report['output_sha256']=hashlib.sha256(output.read_bytes()).hexdigest()
     Path(args.output).parent.mkdir(parents=True,exist_ok=True)

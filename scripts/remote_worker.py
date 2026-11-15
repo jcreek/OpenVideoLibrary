@@ -51,7 +51,8 @@ def main():
       stop.set()
       if monitor:monitor.join()
       stats=[proc_sample(c.pid) for c in children]
-      emit({'core_peak_rss_bytes':max(peak[0],stats[0][0]),'core_cpu_seconds':max(0,stats[0][1]-baseline[0]),'ffmpeg_peak_rss_bytes':sum(max(peak[i],stats[i][0]) for i in range(1,len(children))),'ffmpeg_cpu_seconds':sum(max(0,stats[i][1]-baseline[i]) for i in range(1,len(children))),'child_errors':sum(c.poll() is not None for c in children)});break
+      emit({'core_peak_rss_bytes':max(peak[0],stats[0][0]),'core_cpu_seconds':max(0,stats[0][1]-baseline[0]),'ffmpeg_peak_rss_bytes':sum(max(peak[i],stats[i][0]) for i in range(1,len(children))),'ffmpeg_cpu_seconds':sum(max(0,stats[i][1]-baseline[i]) for i in range(1,len(children))),'child_errors':sum(c.poll() is not None for c in children)})
+      # Children keep running until stdin closes, so the client can drain background requests outside the measured window.
    finally:
     stop.set()
     if monitor:monitor.join()

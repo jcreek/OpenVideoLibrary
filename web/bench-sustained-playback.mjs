@@ -99,7 +99,7 @@ export async function playCohort({ browser, origin, token, item, mode, server, d
             video.src = playback.url;
           } else {
             if (!window.Hls?.isSupported()) throw Error('HLS MSE unavailable');
-            hls = new window.Hls({ maxBufferLength: 12 });
+            hls = new window.Hls({ maxBufferLength: 12, startPosition: 0 });
             hls.on(window.Hls.Events.ERROR, (_, data) => {
               if (data.fatal) rejectPlayback(Error('HLS failed: ' + data.details));
             });

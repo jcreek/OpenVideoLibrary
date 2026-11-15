@@ -3,9 +3,16 @@
 import argparse,concurrent.futures,datetime,http.client,json,os,pathlib,random,select,shlex,socket,statistics,subprocess,tempfile,threading,time,urllib.parse
 
 def read_event(process,timeout=60):
- if not select.select([process.stdout],[],[],timeout)[0]:raise RuntimeError('SSH worker response timed out')
- line=process.stdout.readline()
- if not line:raise RuntimeError('SSH worker exited without response')
+ # One absolute deadline covers the whole line; a partial line followed by a stall still times out.
+ deadline=time.monotonic()+timeout;fd=process.stdout.fileno();buffer=getattr(process,'event_buffer',b'')
+ while b'\n' not in buffer:
+  remaining=deadline-time.monotonic()
+  if remaining<=0 or not select.select([fd],[],[],remaining)[0]:raise RuntimeError('SSH worker response timed out')
+  chunk=os.read(fd,65536)
+  if not chunk:raise RuntimeError('SSH worker exited without response')
+  buffer+=chunk
+  if len(buffer)>1<<20:raise RuntimeError('SSH worker response too large')
+ line,_,process.event_buffer=buffer.partition(b'\n')
  result=json.loads(line)
  if result.get('error'):raise RuntimeError(result['error'])
  return result
@@ -17,7 +24,7 @@ def load(count,concurrency,query,port):
   start=time.perf_counter()
   try:
    local.conn.request('GET','/items?'+urllib.parse.urlencode({'q':query,'offset':(i%10)*100}));response=local.conn.getresponse();data=json.loads(response.read())
-   if response.status!=200 or len(data)!=100 or any(not isinstance(v.get('id'),int) or not isinstance(v.get('title'),str) for v in data):raise ValueError('invalid response')
+   if response.status!=200 or len(data)!=100 or any(not isinstance(v.get('id'),int) or not isinstance(v.get('title'),str) or not v['title'].casefold().startswith(query.casefold()) for v in data):raise ValueError('invalid response')
    return (time.perf_counter()-start)*1000,False
   except Exception:local.conn.close();return (time.perf_counter()-start)*1000,True
  start=time.perf_counter()
@@ -74,11 +81,13 @@ def main():
           # Warm transport/readiness separately from the measured request distribution.
           load(10,1,query,a.port)
           worker.stdin.write('{"command":"start"}\n');worker.stdin.flush();read_event(worker)
-          result=load(a.requests,concurrency,query,a.port);stop.set()
+          result=load(a.requests,concurrency,query,a.port)
+          # End the resource window with load(); background requests drain afterwards while the candidate still runs.
+          worker.stdin.write('{"command":"finish"}\n');worker.stdin.flush();metrics=read_event(worker);stop.set()
           for thread in threads:thread.join(timeout=21)
-          worker.stdin.write('{"command":"finish"}\n');worker.stdin.flush();metrics=read_event(worker)
           result.update(metrics);result.update({'candidate':candidate,'mode':mode,'items':count,'concurrency':concurrency,'query':query,'repetition':repetition,'candidate_info':ready['candidate_info'],'binary_sha256':ready['binary_sha256'],'background':background,'sample':ready['sample']});report['results'].append(result);save()
-          print(f'{mode} {count} c={concurrency} {candidate} p95={result["p95_ms"]:.2f}ms errors={result["errors"]+metrics["child_errors"]+background["errors"]}',flush=True)
+          p95='unavailable' if result['p95_ms'] is None else f'{result["p95_ms"]:.2f}ms'
+          print(f'{mode} {count} c={concurrency} {candidate} p95={p95} errors={result["errors"]+metrics["child_errors"]+background["errors"]}',flush=True)
          finally:
           stop.set()
           if worker.stdin:worker.stdin.close()
@@ -86,7 +95,8 @@ def main():
           except subprocess.TimeoutExpired:worker.terminate();worker.wait(timeout=5)
   groups={}
   for row in report['results']:groups.setdefault(f'{row["mode"]}/{row["candidate"]}/{row["items"]}/{row["concurrency"]}/{row["query"]}',[]).append(row)
-  report['summary']={key:{'p95_median_ms':statistics.median(r['p95_ms'] for r in rows),'p95_stdev_ms':statistics.stdev(r['p95_ms'] for r in rows),'successful_rps_median':statistics.median(r['successful_rps'] for r in rows),'core_peak_rss_median_bytes':statistics.median(r['core_peak_rss_bytes'] for r in rows),'core_cpu_median_seconds':statistics.median(r['core_cpu_seconds'] for r in rows),'errors':sum(r['errors']+r['child_errors']+r['background']['errors'] for r in rows)} for key,rows in groups.items()};report['complete']=True;save()
+  def p95s(rows):return [r['p95_ms'] for r in rows if r['p95_ms'] is not None]
+  report['summary']={key:{'p95_median_ms':statistics.median(p95s(rows)) if p95s(rows) else None,'p95_stdev_ms':statistics.stdev(p95s(rows)) if len(p95s(rows))>1 else None,'trials_without_p95':len(rows)-len(p95s(rows)),'successful_rps_median':statistics.median(r['successful_rps'] for r in rows),'core_peak_rss_median_bytes':statistics.median(r['core_peak_rss_bytes'] for r in rows),'core_cpu_median_seconds':statistics.median(r['core_cpu_seconds'] for r in rows),'errors':sum(r['errors']+r['child_errors']+r['background']['errors'] for r in rows)} for key,rows in groups.items()};report['complete']=True;save()
   if any(v['errors'] for v in report['summary'].values()):raise RuntimeError('matrix recorded request/background errors')
  finally:
   tunnel.terminate()

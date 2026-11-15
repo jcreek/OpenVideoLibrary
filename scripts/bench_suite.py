@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Compare compiled candidate prototypes. Results do not select a production backend."""
-import argparse,concurrent.futures,datetime,hashlib,http.client,json,os,platform,random,shutil,sqlite3,statistics,subprocess,tempfile,threading,time,urllib.parse
+import argparse,concurrent.futures,datetime,hashlib,http.client,json,os,platform,random,shutil,signal,sqlite3,statistics,subprocess,tempfile,threading,time,urllib.parse
 from pathlib import Path
 
 def seed(path,count):
@@ -24,7 +24,7 @@ def load(requests,concurrency,query,stop,background):
   try:
    local.conn.request('GET','/items?'+urllib.parse.urlencode({'offset':(i%10)*100,'q':query}))
    response=local.conn.getresponse();body=response.read();data=json.loads(body)
-   if response.status!=200 or len(data)!=100 or any(not isinstance(v.get('id'),int) or not isinstance(v.get('title'),str) for v in data):raise ValueError('invalid response')
+   if response.status!=200 or len(data)!=100 or any(not isinstance(v.get('id'),int) or not isinstance(v.get('title'),str) or not v['title'].casefold().startswith(query.casefold()) for v in data):raise ValueError('invalid response')
    return (time.perf_counter()-start)*1000,False
   except Exception:
    local.conn.close();return (time.perf_counter()-start)*1000,True
@@ -39,13 +39,7 @@ def run(binary,db,args,concurrency,query):
  if args.media:env['BENCH_MEDIA']=str(Path(args.media).resolve())
  if args.scan_root:env['BENCH_ROOT']=str(Path(args.scan_root).resolve())
  log=tempfile.TemporaryFile();p=subprocess.Popen([str(binary)],env=env,stdout=log,stderr=log)
- encoders=[]
- for _ in range(args.ffmpeg_count):
-  encode=['-c:v','copy'] if args.ffmpeg_mode=='remux' else ['-c:v',args.ffmpeg_encoder,'-b:v','3M']
-  if args.ffmpeg_encoder=='libx264' and args.ffmpeg_mode=='transcode':encode+=['-preset','veryfast','-threads','2','-pix_fmt','yuv420p']
-  command=['ffmpeg','-nostdin','-v','error','-stream_loop','-1','-re','-i',str(Path(args.media).resolve()),*encode,'-c:a','aac','-f','mpegts','pipe:1']
-  encoders.append(subprocess.Popen(command,stdout=subprocess.DEVNULL,stderr=log))
- stop=threading.Event();threads=[];background={'scan_started':0,'stream_requests':0,'errors':0}
+ encoders=[];stop=threading.Event();threads=[];background={'scan_started':0,'stream_requests':0,'errors':0}
  def worker(kind):
   conn=http.client.HTTPConnection('127.0.0.1',8097,timeout=30)
   while not stop.is_set():
@@ -60,6 +54,12 @@ def run(binary,db,args,concurrency,query):
    stop.wait(.02 if kind=='stream' else .1)
   conn.close()
  try:
+  # Encoders start inside the cleanup scope so a failed start cannot orphan earlier children.
+  for _ in range(args.ffmpeg_count):
+   encode=['-c:v','copy'] if args.ffmpeg_mode=='remux' else ['-c:v',args.ffmpeg_encoder,'-b:v','3M']
+   if args.ffmpeg_encoder=='libx264' and args.ffmpeg_mode=='transcode':encode+=['-preset','veryfast','-threads','2','-pix_fmt','yuv420p']
+   command=['ffmpeg','-nostdin','-v','error','-stream_loop','-1','-re','-i',str(Path(args.media).resolve()),*encode,'-c:a','aac','-f','mpegts','pipe:1']
+   encoders.append(subprocess.Popen(command,stdout=subprocess.DEVNULL,stderr=log))
   deadline=time.monotonic()+20
   while True:
    if p.poll() is not None:log.seek(0);raise RuntimeError('candidate exited: '+log.read().decode(errors='replace'))
@@ -94,8 +94,12 @@ def run(binary,db,args,concurrency,query):
   for t in threads:t.join(timeout=31)
   log.close()
 
+def cancel(signum,frame):raise SystemExit(128+signum)
+
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--rust',default='bench/rust/target/release/ovl-bench-rust');p.add_argument('--items',nargs='+',type=int,default=[10000,100000]);p.add_argument('--concurrency',nargs='+',type=int,default=[1,10,50]);p.add_argument('--requests',type=int,default=2000);p.add_argument('--repetitions',type=int,default=5);p.add_argument('--media');p.add_argument('--scan-root');p.add_argument('--output',required=True);p.add_argument('--ffmpeg-count',type=int,default=0);p.add_argument('--ffmpeg-mode',choices=['remux','transcode'],default='transcode');p.add_argument('--ffmpeg-encoder',choices=['libx264','h264_qsv','h264_nvenc','h264_vaapi'],default='libx264');p.add_argument('--baseline',help='same-host suite result used for variance-derived regression checks');a=p.parse_args()
+ # Termination unwinds through run()'s cleanup, which stops and reaps every child.
+ for sig in (signal.SIGTERM,signal.SIGHUP):signal.signal(sig,cancel)
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--rust',default='bench/rust/target/release/ovl-bench-rust');p.add_argument('--items',nargs='+',type=int,default=[10000,100000]);p.add_argument('--concurrency',nargs='+',type=int,default=[1,10,50]);p.add_argument('--requests',type=int,default=2000);p.add_argument('--repetitions',type=int,default=5);p.add_argument('--media');p.add_argument('--scan-root');p.add_argument('--output',required=True);p.add_argument('--ffmpeg-count',type=int,default=0);p.add_argument('--ffmpeg-mode',choices=['remux','transcode'],default='transcode');p.add_argument('--ffmpeg-encoder',choices=['libx264','h264_qsv','h264_nvenc'],default='libx264');p.add_argument('--baseline',help='same-host suite result used for variance-derived regression checks');a=p.parse_args()
  if a.requests<1 or a.repetitions<3 or min(a.concurrency)<1 or min(a.items)<1000:p.error('require >=3 repetitions, >=1000 items and positive requests/concurrency')
  if a.ffmpeg_count<0 or (a.ffmpeg_count and not a.media):p.error('FFmpeg workloads require --media and a nonnegative count')
  binaries={'rust':Path(a.rust).resolve()}

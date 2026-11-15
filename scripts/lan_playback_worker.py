@@ -194,6 +194,10 @@ def main():
         hls_hash = None
         if args.sustained:
             asset = Path('scripts/bench-hls.min.js')
+            if not asset.is_file():
+                raise RuntimeError(f'{asset} is missing: --sustained (every mode) needs the locked hls.js '
+                                   'bundle; copy web/node_modules/hls.js/dist/hls.min.js there after '
+                                   'npm ci --prefix web (see docs/BENCHMARKS.md)')
             with asset.open('rb') as stream:
                 bundle = stream.read(2 << 20)
             if not bundle or len(bundle) >= 2 << 20:

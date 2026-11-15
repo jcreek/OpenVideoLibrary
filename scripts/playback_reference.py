@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Isolated N100 application playback check. Reads NAS media; uses disposable app data."""
-import argparse,hashlib,http.client,json,os,pathlib,secrets,socket,subprocess,tempfile,threading,time,urllib.error,urllib.request
+import argparse,hashlib,http.client,json,os,pathlib,secrets,signal,socket,subprocess,tempfile,threading,time,urllib.error,urllib.request
 from remote_worker import proc_sample
 
+def cancel(signum,frame):raise SystemExit(128+signum)
+
 def main():
- p=argparse.ArgumentParser();p.add_argument('--output',required=True);p.add_argument('--repetitions',type=int,default=3);a=p.parse_args();source=pathlib.Path(__file__).resolve().parents[1];workspace=source.parent;sample=json.loads((workspace/'sample.json').read_text());port=18096
+ # Termination unwinds through the cleanup below, which stops and reaps the server.
+ for sig in (signal.SIGTERM,signal.SIGHUP):signal.signal(sig,cancel)
+ p=argparse.ArgumentParser();p.add_argument('--output',required=True);p.add_argument('--repetitions',type=int,default=3);a=p.parse_args()
+ if a.repetitions<1:p.error('--repetitions must be at least 1')
+ source=pathlib.Path(__file__).resolve().parents[1];workspace=source.parent;sample=json.loads((workspace/'sample.json').read_text());port=18096
  with socket.socket() as sock:
   if sock.connect_ex(('127.0.0.1',port))==0:raise RuntimeError('playback test port occupied')
  report={'kind':'N100 application playback; loopback FFmpeg first decoded frame, not browser/LAN acceptance','media':sample['probe'],'results':[]}
@@ -36,7 +42,7 @@ def main():
      before=proc_sample(server.pid);start=time.perf_counter();session=api(f'items/{item}/playback','POST',{'Mode':mode,'Adaptive':adaptive,'Audio':0,'Start':60});created=time.perf_counter();client=None
      try:
       url=f'http://127.0.0.1:{port}'+session['url']
-      try:client=subprocess.run(['ffmpeg','-nostdin','-v','error','-threads','1','-headers','Authorization: Bearer '+token+'\r\n','-ss','0' if mode!='direct' else '60','-i',url,'-frames:v','1','-f','null','-'],capture_output=True,text=True,timeout=40)
+      try:client=subprocess.run(['ffmpeg','-nostdin','-v','error','-threads','1','-headers','Authorization: Bearer '+token+'\r\n','-ss','0' if mode!='direct' else '60','-i',url,'-frames:v','1','-abort_on','empty_output','-f','null','-'],capture_output=True,text=True,timeout=40)
       except subprocess.TimeoutExpired:raise RuntimeError('playback client exceeded 40 seconds') from None
       elapsed=time.perf_counter()-start
       children=[]

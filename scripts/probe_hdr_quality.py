@@ -19,8 +19,11 @@ def main():
     args=parser.parse_args()
     report={'scope':'Calibrated PQ grayscale graph diagnostic, no production/visual-quality acceptance','graphs':[]}
     def run(command):
-        result=subprocess.run(command,capture_output=True,timeout=30)
-        return result
+        # subprocess.run kills and reaps the child on timeout; report it as a failed run.
+        try:
+            return subprocess.run(command,capture_output=True,timeout=30)
+        except subprocess.TimeoutExpired as error:
+            return subprocess.CompletedProcess(command,None,error.stdout or b'',error.stderr or b'')
     with tempfile.TemporaryDirectory(prefix='ovl-hdr-quality-') as tmp:
         root=Path(tmp)
         raw=root/'signal.yuv'
@@ -31,7 +34,7 @@ def main():
         source=root/'source.mp4'
         command=['ffmpeg','-nostdin','-v','error','-f','rawvideo','-pixel_format','yuv420p10le','-video_size','320x180','-framerate','12','-i',str(raw),'-c:v','libx265','-preset','ultrafast','-threads','2','-x265-params','pools=1:frame-threads=1:log-level=error:hdr10=1:master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400','-color_primaries','bt2020','-color_trc','smpte2084','-colorspace','bt2020nc','-color_range','tv',str(source)]
         result=run(command)
-        if result.returncode: raise RuntimeError(result.stderr.decode(errors='replace')[-8192:])
+        if result.returncode!=0: raise RuntimeError('fixture encode failed or timed out: '+result.stderr.decode(errors='replace')[-8192:])
         report['fixture_sha256']=hashlib.sha256(source.read_bytes()).hexdigest()
         tone='tonemap_vaapi=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709'
         scale='scale_vaapi=w=320:h=180:format=nv12'
@@ -43,10 +46,12 @@ def main():
             command+=['-ss','1.25','-i',str(source),'-vf',filters,'-an','-c:v','h264_vaapi','-b:v','1M','-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709',str(output)]
             result=run(command)
             row={'name':name,'command':command,'exit_code':result.returncode,'stderr':result.stderr.decode(errors='replace')[-8192:]}
+            if result.returncode is None: row['error']='30 second deadline exceeded'
             if result.returncode==0:
                 decoded=run(['ffmpeg','-nostdin','-v','error','-i',str(output),'-frames:v','1','-pix_fmt','rgb24','-f','rawvideo','pipe:1'])
                 row['decode_exit_code']=decoded.returncode
-                if len(decoded.stdout)==320*180*3:
+                if decoded.returncode is None: row['decode_error']='30 second deadline exceeded'
+                if decoded.returncode is not None and len(decoded.stdout)==320*180*3:
                     row['patch_rgb']=[list(decoded.stdout[(90*320+x)*3:(90*320+x)*3+3]) for x in [40,120,200,280]]
                 row['output_sha256']=hashlib.sha256(output.read_bytes()).hexdigest()
             report['graphs'].append(row)
