@@ -87,7 +87,10 @@ def observe_scans(log_path, offset):
 
 
 def await_client(log_path, log_offset, background, restarted):
-    deadline = time.monotonic() + (360 if background == "scan" else 240)
+    # Each command restarts the wait, so five long repetitions cannot exhaust one shared budget.
+    # The snapshot cap still bounds the whole phase.
+    wait = 360 if background == "scan" else 240
+    deadline = time.monotonic() + wait
     snapshots = 0
     pending = bytearray()
     while time.monotonic() < deadline:
@@ -112,6 +115,7 @@ def await_client(log_path, log_offset, background, restarted):
         if command != b'scan-snapshot' or not background or snapshots >= (15 if background == 'scan' else 10):
             break
         snapshots += 1
+        deadline = time.monotonic() + wait
         print(json.dumps({**observe_scans(log_path, log_offset),
                           'uptime_ms': (time.monotonic() - restarted) * 1000}), flush=True)
     return False

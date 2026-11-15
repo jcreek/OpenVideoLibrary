@@ -84,14 +84,17 @@ def run(binary,db,args,concurrency,query):
   result.update({'candidate_info':candidate_info,'ffmpeg_peak_rss_bytes':ffmpeg_peak[0],'ffmpeg_cpu_seconds':sum(max(0,sample(v.pid)[1]-old[1]) for v,old in zip(encoders,ffmpeg_start)),'ffmpeg_exited_early':sum(v.poll() is not None for v in encoders),'process_first_request_ms':cold['p95_ms'],'response_sha256':hashlib.sha256(canonical.encode()).hexdigest(),'core_peak_rss_bytes':max(peak[0],end[0]),'core_cpu_seconds':max(0,end[1]-baseline[1]),'background':background})
   return result
  finally:
-  stop.set();p.terminate()
+  # Background requests finish against a live candidate, so shutdown is not counted as a load error.
+  stop.set()
+  for t in threads:
+   if t.ident:t.join(timeout=31)
+  p.terminate()
   for encoder in encoders:
    encoder.terminate()
    try:encoder.wait(timeout=5)
    except subprocess.TimeoutExpired:encoder.kill();encoder.wait()
   try:p.wait(timeout=5)
   except subprocess.TimeoutExpired:p.kill();p.wait()
-  for t in threads:t.join(timeout=31)
   log.close()
 
 def cancel(signum,frame):raise SystemExit(128+signum)

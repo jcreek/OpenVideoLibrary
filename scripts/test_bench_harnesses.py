@@ -1,8 +1,9 @@
 """Regression tests for benchmark harness failure paths (no candidate servers or media needed)."""
-import argparse, http.server, json, os, shutil, subprocess, sys, tempfile, threading, time, unittest
+import argparse, contextlib, http.server, io, itertools, json, os, shutil, socket, subprocess, sys, tempfile, threading, time, types, unittest
 from pathlib import Path
 
 import bench_suite
+import lan_playback_worker
 import remote_bench
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -108,11 +109,72 @@ class BenchSuiteCleanupTests(unittest.TestCase):
             os.kill(pid, 9)
             self.fail('candidate process was left running')
 
+    def test_in_flight_background_request_finishes_before_the_candidate_stops(self):
+        with socket.socket() as sock:
+            if sock.connect_ex(('127.0.0.1', 8097)) == 0:
+                self.skipTest('port 8097 is in use')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            candidate = root / 'candidate'
+            # A media range takes a second, so stopping the run always finds one in flight.
+            candidate.write_text(f"""#!{sys.executable}
+import http.server, json, time
+class H(http.server.BaseHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'
+    def log_message(self, *a): pass
+    def do_GET(self):
+        if self.path.startswith('/media'):
+            time.sleep(1); status, body = 206, b'x'
+        elif self.path.startswith('/info'):
+            status, body = 200, b'{{}}'
+        else:
+            status, body = 200, json.dumps([{{'id': i, 'title': 'Movie %d' % i}} for i in range(100)]).encode()
+        self.send_response(status); self.send_header('Content-Length', str(len(body))); self.end_headers()
+        self.wfile.write(body)
+http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
+""")
+            candidate.chmod(0o755)
+            media = root / 'sample.mp4'
+            media.write_bytes(b'x')
+            args = argparse.Namespace(media=str(media), scan_root=None, ffmpeg_count=0, requests=1,
+                                      ffmpeg_mode='transcode', ffmpeg_encoder='libx264')
+            result = bench_suite.run(candidate, root / 'db', args, 1, '')
+        self.assertEqual(result['errors'], 0)
+        self.assertEqual(result['background']['errors'], 0)
+
     def test_h264_vaapi_is_rejected_without_hardware_upload(self):
         result = subprocess.run([sys.executable, str(SCRIPTS / 'bench_suite.py'), '--output', os.devnull,
                                  '--ffmpeg-encoder', 'h264_vaapi'], capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 2)
         self.assertIn('invalid choice', result.stderr)
+
+
+class LanWorkerWaitTests(unittest.TestCase):
+    def wait(self, commands, background='idle', step=50):
+        chunks = iter(command.encode() + b'\n' for command in commands)
+        clock = itertools.count(step=step)
+        worker = lan_playback_worker
+        saved = worker.select, worker.os, worker.sys, worker.time, worker.observe_scans
+        worker.select = types.SimpleNamespace(select=lambda r, w, x, timeout: (r, [], []))
+        worker.os = types.SimpleNamespace(read=lambda fd, n: next(chunks, b''))
+        worker.sys = types.SimpleNamespace(stdin=types.SimpleNamespace(fileno=lambda: 0))
+        worker.time = types.SimpleNamespace(monotonic=lambda: next(clock))
+        worker.observe_scans = lambda path, offset: {}
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                return worker.await_client(None, 0, background, 0)
+        finally:
+            worker.select, worker.os, worker.sys, worker.time, worker.observe_scans = saved
+
+    def test_each_command_restarts_the_wait(self):
+        # Ten snapshots spread over far more than one 240 s budget still reach done.
+        self.assertTrue(self.wait(['scan-snapshot'] * 10 + ['done']))
+
+    def test_a_silent_client_still_times_out(self):
+        self.assertFalse(self.wait([], step=241))
+
+    def test_snapshots_beyond_the_cap_are_rejected(self):
+        self.assertFalse(self.wait(['scan-snapshot'] * 11 + ['done']))
 
 
 class PlaybackReferenceArgumentTests(unittest.TestCase):
@@ -126,7 +188,9 @@ class PlaybackReferenceArgumentTests(unittest.TestCase):
 class ReportN100Tests(unittest.TestCase):
     CLAIM = 'The 400-trial optimized matrix meets the 150 ms'
 
-    def render(self, matched_rows=None):
+    NATIVE = 'In the native SQLite comparison, Rust had lower paired p95 latency'
+
+    def render(self, matched_rows=None, native_rows=None):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'scripts').mkdir()
@@ -139,18 +203,32 @@ class ReportN100Tests(unittest.TestCase):
             if matched_rows is not None:
                 (folder / 'n100-matched-optimized.json').write_text(
                     json.dumps({'complete': True, 'results': matched_rows}))
+            if native_rows is not None:
+                (folder / 'n100-native-sqlite.json').write_text(
+                    json.dumps({'complete': True, 'results': native_rows}))
             subprocess.run([sys.executable, '-I', str(root / 'scripts/report_n100.py')], check=True, timeout=30)
             return (folder / 'N100.md').read_text()
 
     @staticmethod
-    def row(p95, candidate='rust', concurrency=100, errors=0):
-        return {'mode': 'idle', 'candidate': candidate, 'items': 100000, 'concurrency': concurrency, 'requests': 2000,
+    def row(p95, candidate='rust', concurrency=100, errors=0, mode='idle', query='', repetition=0, cost=1):
+        return {'mode': mode, 'candidate': candidate, 'items': 100000, 'concurrency': concurrency, 'requests': 2000,
                 'errors': errors, 'child_errors': 0, 'background': {'errors': 0}, 'p95_ms': p95, 'p99_ms': p95,
-                'successful_rps': 1000, 'core_peak_rss_bytes': 1 << 20, 'core_cpu_seconds': 1}
+                'query': query, 'repetition': repetition, 'successful_rps': 1000,
+                'core_peak_rss_bytes': cost << 20, 'core_cpu_seconds': cost}
 
     def matrix(self, p95=10):
-        return [self.row(p95, candidate, concurrency) for candidate in ('go', 'rust')
-                for concurrency in (1, 10, 25, 50, 100) for _ in range(40)]
+        return [self.row(p95, candidate, concurrency, mode=mode, query=query, repetition=repetition)
+                for candidate in ('go', 'rust') for concurrency in (1, 10, 25, 50, 100)
+                for mode in ('idle', 'mixed-vaapi') for query in ('', 'Movie 0009') for repetition in range(10)]
+
+    def native(self, rust_p95=80):
+        rows = []
+        for mode in ('idle', 'mixed-vaapi'):
+            for repetition in range(5):
+                rows.append(self.row(190 if mode == 'idle' else 120, 'go-cgo', 200, mode=mode,
+                                     repetition=repetition, cost=2))
+                rows.append(self.row(rust_p95, 'rust', 200, mode=mode, repetition=repetition))
+        return rows
 
     def test_missing_dataset_omits_its_conclusion(self):
         self.assertNotIn(self.CLAIM, self.render())
@@ -159,6 +237,26 @@ class ReportN100Tests(unittest.TestCase):
         self.assertNotIn(self.CLAIM, self.render([self.row(10)]))
         self.assertNotIn(self.CLAIM, self.render(self.matrix()[:-1] + [self.row(151)]))
         self.assertNotIn(self.CLAIM, self.render([self.row(10)] * 400))  # one candidate, one concurrency
+
+    def test_a_candidate_missing_one_concurrency_omits_its_conclusion(self):
+        rows = self.matrix()
+        for row in rows:
+            if row['candidate'] == 'go' and row['concurrency'] == 100:
+                row['candidate'] = 'rust'
+        self.assertNotIn(self.CLAIM, self.render(rows))
+
+    def test_a_candidate_missing_search_omits_its_conclusion(self):
+        rows = self.matrix()
+        for row in rows:
+            if row['candidate'] == 'go' and row['query']:
+                row['candidate'] = 'rust'
+        self.assertNotIn(self.CLAIM, self.render(rows))
+
+    def test_native_comparison_needs_supporting_measurements(self):
+        self.assertIn(self.NATIVE, self.render(native_rows=self.native()))
+        self.assertNotIn(self.NATIVE, self.render(native_rows=self.native(rust_p95=200)))
+        unpaired = [row for row in self.native() if not (row['candidate'] == 'rust' and row['repetition'] == 4)]
+        self.assertNotIn(self.NATIVE, self.render(native_rows=unpaired))
 
     def test_supporting_dataset_keeps_its_conclusion(self):
         self.assertIn(self.CLAIM, self.render(self.matrix()))

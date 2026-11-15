@@ -29,13 +29,27 @@ for mode,adaptive,label in [('direct',False,'Direct'),('transcode',False,'Single
  rs=[r['first_decoded_frame_ms']/1000 for r in p['results'] if r['mode']==mode and r['adaptive']==adaptive];lines.append(f'| {label} | {min(rs):.2f}–{max(rs):.2f} s |')
 lines += ['', '[Playback results](n100-playback.json), [hardware smoke checks](n100-hardware-smoke.json), [environment](n100-environment.json).','', 'These timings include the FFmpeg client’s buffering. They are not browser/LAN startup measurements. HLS startup needs further investigation before making a user-visible startup claim.','', '## Interpretation and outstanding acceptance','']
 # Dataset conclusions appear only when their measurements were loaded and support them.
-def supports_target(name):
- if name not in loaded:return False
+def clean(name,candidates):
+ if name not in loaded:return None
  p,rows,errors=loaded[name]
- # The claim covers both candidates at every concurrency through 100.
- return (p.get('complete') is True and len(rows)==400 and errors==0 and len({r['candidate'] for r in rows})==2
-         and {1,10,25,50,100}<={r['concurrency'] for r in rows} and all(r['p95_ms'] is not None and r['p95_ms']<150 for r in rows))
+ return rows if p.get('complete') is True and errors==0 and {r['candidate'] for r in rows}==candidates else None
+def supports_target(name):
+ rows=clean(name,{'go','rust'})
+ if rows is None or len(rows)!=400:return False
+ # The claim covers both candidates, browse and search, at every concurrency through 100, in every mode and size.
+ cases={(r['mode'],r['items'],r['query']) for r in rows};seen={(r['candidate'],r['mode'],r['items'],r['query'],r['concurrency']) for r in rows}
+ return ({q=='' for _,_,q in cases}=={True,False} and all((c,*case,n) in seen for c in ('go','rust') for case in cases for n in (1,10,25,50,100))
+         and all(r['p95_ms'] is not None and r['p95_ms']<150 for r in rows))
+def supports_native(name):
+ rows=clean(name,{'go-cgo','rust'})
+ if rows is None or any(r['p95_ms'] is None for r in rows):return False
+ # Every concurrency-200 trial pairs with the other candidate's trial of the same mode, query and repetition.
+ arm=lambda c:{(r['mode'],r['query'],r['repetition']):r for r in rows if r['candidate']==c and r['concurrency']==200}
+ go,rust=arm('go-cgo'),arm('rust')
+ lower=bool(go) and go.keys()==rust.keys() and all(rust[k][m]<go[k][m] for k in go for m in ('p95_ms','core_cpu_seconds','core_peak_rss_bytes'))
+ return (lower and any(r['candidate']=='go-cgo' and r['mode']=='idle' and r['p95_ms']>150 for r in rows)
+         and all(r['p95_ms']<150 for r in rows if r['candidate']=='rust'))
 if supports_target('n100-matched-optimized.json'):lines += ['- The 400-trial optimized matrix meets the 150 ms browse/search p95 target at every tested concurrency, through 100 concurrent requests, for both candidates. This is a bounded workload result, not a sustainable capacity limit.']
-if 'n100-native-sqlite.json' in loaded:lines += ['- In the native SQLite comparison, Rust had lower paired p95 latency, CPU cost and RSS at concurrency 200. Go exceeded 150 ms p95 in some idle trials; Rust stayed below it in all tested trials. Trial medians alone conceal this variation.', '- The native Go driver removes the Go-translated SQLite implementation as a confound. Driver bindings, scheduling, JSON encoding and build options still differ; results compare stacks rather than isolate language cost.']
-lines += ['- The load generator, SSH tunnel, short trial duration, warm caches, synthetic ASCII metadata and shared household services limit inference. Establish longer steady-state saturation and repeat on separate days before selecting a backend.', '- Cold-cache browsing, full-library scan throughput, browser playback startup, seeking/stalls, direct/remux/transcode concurrency, upload limits, real Nginx deployment and a pinned isolated Jellyfin comparison remain pending.', '- No Jellyfin speedup, maximum stream capacity, AMD/NVIDIA support validation or production Rust feature parity is claimed.', '', 'Reproduce with `scripts/remote_worker.py` staged in the private benchmark workspace, then `scripts/remote_bench.py --host USER@HOST --key KEY --workspace /ABSOLUTE/WORKSPACE --requests 2000 --repetitions 5 --concurrency 1 10 25 50 100 --modes idle mixed-vaapi --output RESULT.json`. Build the additional native Go variant with `CGO_ENABLED=1 go build -tags sqlite_cgo -o bin/bench-go-cgo ./bench/go`, and select it using `--candidates go-cgo rust`. The host and private media paths are deliberately absent from published reports.','']
+if supports_native('n100-native-sqlite.json'):lines += ['- In the native SQLite comparison, Rust had lower paired p95 latency, CPU cost and RSS at concurrency 200. Go exceeded 150 ms p95 in some idle trials; Rust stayed below it in all tested trials. Trial medians alone conceal this variation.', '- The native Go driver removes the Go-translated SQLite implementation as a confound. Driver bindings, scheduling, JSON encoding and build options still differ; results compare stacks rather than isolate language cost.']
+lines += ['- The load generator, SSH tunnel, short trial duration, warm caches, synthetic ASCII metadata and shared household services limit inference. Establish longer steady-state saturation and repeat on separate days before selecting a backend.', '- Cold-cache browsing, full-library scan throughput, browser playback startup, seeking/stalls, direct/remux/transcode concurrency, upload limits, real Nginx deployment and a pinned isolated Jellyfin comparison remain pending.', '- No Jellyfin speedup, maximum stream capacity, AMD/NVIDIA support validation or production Rust feature parity is claimed.', '', 'Reproduce with `scripts/remote_worker.py` staged in the private benchmark workspace, then `scripts/remote_bench.py --host USER@HOST --key KEY --workspace /ABSOLUTE/WORKSPACE --requests 2000 --repetitions 5 --concurrency 1 10 25 50 100 --modes idle mixed-vaapi --output RESULT.json`. The harness in this repository runs only the Rust candidate. The Go prototypes are not included, so the recorded Go rows cannot be rerun from it. The host and private media paths are deliberately absent from published reports.','']
 (folder/'N100.md').write_text('\n'.join(lines))
