@@ -199,16 +199,17 @@ pins the plain script, and the other five pin it with their committed patch appl
 - `n100-native-100k-exact-search.json`
 - `n100-native-100k-rust-before-after.json`
 
-The original scripts are kept only in the operator's local backup refs. Once
-GitHub purges PR #1, these hashes cannot be checked against the public
-repository. The prepared 10k stage on the N100 was
+The original scripts are kept only on the development machine, in the local
+`rust-migration` branch at `48753e7`; the backup refs hold the same files.
+Deleting the backup refs is fine while that branch stays. Once GitHub purges
+PR #1, these hashes cannot be checked against the public repository, and
+deleting the local branch too makes them unverifiable anywhere. The prepared 10k stage on the N100 was
 created with the old device name. Regenerate it before rerunning the
 redacted 10k script, or the token lookup returns nothing.
 
 - State on 15 November 2026: all six split PRs have merged (GitHub #6, #2,
   #3, #4, #5 and #7), bottom-up. GitHub #1 is closed. While the stack was
   open, every PR stayed in draft until the PR beneath it had merged.
-- Merge bottom-up.
 
 Split gates:
 - PR 1: Rust format, Clippy, 32 API tests, 12 ignored media tests and the
