@@ -150,6 +150,8 @@ http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
         self.assertEqual(result['background']['errors'], 0)
 
     def test_signal_while_waiting_for_background_requests_still_reaps_the_candidate(self):
+        pidfile, live_at_wait = [None], []
+
         class SignalledThread(threading.Thread):
             def __init__(self, *a, **kw):
                 super().__init__(*a, **kw)
@@ -158,10 +160,17 @@ http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
 
             def join(self, timeout=None):
                 if self.stream:
+                    # Only the success path waits while the candidate is still running.
+                    try:
+                        os.kill(int(pidfile[0].read_text()), 0)
+                        live_at_wait.append(True)
+                    except (OSError, ValueError):
+                        live_at_wait.append(False)
                     raise SystemExit(143)  # SIGTERM arriving during the success-path wait
                 return super().join(timeout)
         with tempfile.TemporaryDirectory() as tmp:
             candidate, args = self.fake_candidate(Path(tmp), 1)
+            pidfile[0] = Path(tmp) / 'pid'
             saved = bench_suite.threading.Thread
             bench_suite.threading.Thread = SignalledThread
             try:
@@ -170,6 +179,7 @@ http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
             finally:
                 bench_suite.threading.Thread = saved
             pid = int((Path(tmp) / 'pid').read_text())
+        self.assertEqual(live_at_wait, [True])
         try:
             os.kill(pid, 0)
         except ProcessLookupError:
