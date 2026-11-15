@@ -343,6 +343,17 @@ Still open: a progress write that never completes delays later writes, and
 the player switch that waits for it, until the browser gives up on the
 request. A failed save still stops `open()` from starting the next title.
 
+**Fourth CodeRabbit review of PR 2 (15 November 2026).** An incremental
+review raised two comments; both were valid and fixed:
+- A failed startup status check no longer leaves the page on "Opening
+  your library…"; Retry repeats the check.
+- A load that fails straight after signing in keeps the session and
+  offers Retry.
+
+Evidence: browser checks fail when either fix is reverted, and
+`make verify-local` passed. An independent review found nothing blocking. Not covered by a test: a status check that
+fails, then succeeds on Retry while the library load fails.
+
 ## Outstanding from the plan
 
 1. **Preview and video acceptance.** The user has no HDR content, so real HDR10, HLG and Dolby Vision acceptance is unavailable; HDR evidence stays synthetic. The queue-capture regression and the
