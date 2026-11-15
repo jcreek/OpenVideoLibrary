@@ -151,8 +151,13 @@ http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
 
     def test_signal_while_waiting_for_background_requests_still_reaps_the_candidate(self):
         class SignalledThread(threading.Thread):
+            def __init__(self, *a, **kw):
+                super().__init__(*a, **kw)
+                # Thread.run() deletes _args when the target returns, so record the kind now.
+                self.stream = kw.get('args') == ('stream',)
+
             def join(self, timeout=None):
-                if self._args == ('stream',):
+                if self.stream:
                     raise SystemExit(143)  # SIGTERM arriving during the success-path wait
                 return super().join(timeout)
         with tempfile.TemporaryDirectory() as tmp:
