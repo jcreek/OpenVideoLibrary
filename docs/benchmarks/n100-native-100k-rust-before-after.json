@@ -1,0 +1,260 @@
+{
+  "scope": "Rust before/after native authenticated warm loopback, synthetic local fixture; shared N100",
+  "repetitions": 5,
+  "concurrency": 10,
+  "requests_per_trial": 300,
+  "page_size": 50,
+  "items": 100000,
+  "arms": {
+    "before": {
+      "binary_sha256": "8eb82e07f70e89825a04d495794aee89f01f8660b935149f591c9f8b00f29a9b",
+      "trials": [
+        {
+          "trial": 1,
+          "seconds": 19.293094355030917,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 15.549605184083456,
+          "response_bytes": 1993542,
+          "core_cpu_seconds": 19.38000000000001,
+          "rss_before_kib": 13608,
+          "rss_after_kib": 14152,
+          "p50_ms": 632.8074670163915,
+          "p95_ms": 732.9526239773259,
+          "p99_ms": 814.160094014369
+        },
+        {
+          "trial": 2,
+          "seconds": 19.59700884099584,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 15.308458675204395,
+          "response_bytes": 1993522,
+          "core_cpu_seconds": 19.67,
+          "rss_before_kib": 14152,
+          "rss_after_kib": 14260,
+          "p50_ms": 643.6093460069969,
+          "p95_ms": 795.7017549779266,
+          "p99_ms": 909.0964590432122
+        },
+        {
+          "trial": 3,
+          "seconds": 19.73986144794617,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 15.197675059224565,
+          "response_bytes": 1994280,
+          "core_cpu_seconds": 19.819999999999993,
+          "rss_before_kib": 14260,
+          "rss_after_kib": 14384,
+          "p50_ms": 628.2158310059458,
+          "p95_ms": 943.1154859485105,
+          "p99_ms": 1091.3060810416937
+        },
+        {
+          "trial": 4,
+          "seconds": 19.793516479083337,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 15.156478148641398,
+          "response_bytes": 1993827,
+          "core_cpu_seconds": 19.870000000000005,
+          "rss_before_kib": 14384,
+          "rss_after_kib": 14516,
+          "p50_ms": 615.8236810006201,
+          "p95_ms": 988.1561049260199,
+          "p99_ms": 1104.0295619750395
+        },
+        {
+          "trial": 5,
+          "seconds": 19.435690845013596,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 15.435520270017452,
+          "response_bytes": 1993289,
+          "core_cpu_seconds": 19.52000000000001,
+          "rss_before_kib": 14516,
+          "rss_after_kib": 14728,
+          "p50_ms": 635.656688013114,
+          "p95_ms": 793.9679899718612,
+          "p99_ms": 864.4337001023814
+        }
+      ],
+      "browse_validation": "102 sampled ordered pages including the final page and empty tail",
+      "search_probe": [
+        {
+          "offset": 0,
+          "rows": 50,
+          "bytes": 6651,
+          "first": [
+            "Fixture 000001",
+            "Fixture 000002"
+          ],
+          "last": [
+            "Fixture 000049",
+            "Fixture 000050"
+          ],
+          "matches": true
+        },
+        {
+          "offset": 9950,
+          "rows": 49,
+          "bytes": 6518,
+          "first": [
+            "Fixture 009951",
+            "Fixture 009952"
+          ],
+          "last": [
+            "Fixture 009998",
+            "Fixture 009999"
+          ],
+          "matches": true
+        },
+        {
+          "offset": 9999,
+          "rows": 0,
+          "bytes": 2,
+          "first": [],
+          "last": [],
+          "matches": true
+        }
+      ],
+      "p95_median_ms": 795.7017549779266,
+      "p95_sample_sd_ms": 109.02126428045258,
+      "exit_code": 0
+    },
+    "after": {
+      "binary_sha256": "8b6dedfe41334c5263ea671aebf03f59aab8d0d3efba43e4c2245862426e66cd",
+      "trials": [
+        {
+          "trial": 1,
+          "seconds": 6.021085831918754,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 49.82490008856065,
+          "response_bytes": 1993542,
+          "core_cpu_seconds": 6.090000000000003,
+          "rss_before_kib": 13496,
+          "rss_after_kib": 13904,
+          "p50_ms": 195.81532198935747,
+          "p95_ms": 261.0631539719179,
+          "p99_ms": 279.2301580775529
+        },
+        {
+          "trial": 2,
+          "seconds": 5.878993044025265,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 51.02914695653291,
+          "response_bytes": 1993522,
+          "core_cpu_seconds": 5.949999999999989,
+          "rss_before_kib": 13904,
+          "rss_after_kib": 14036,
+          "p50_ms": 198.27905704732984,
+          "p95_ms": 246.26140506006777,
+          "p99_ms": 265.0202609365806
+        },
+        {
+          "trial": 3,
+          "seconds": 5.994178595021367,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 50.048558821582894,
+          "response_bytes": 1994280,
+          "core_cpu_seconds": 6.060000000000002,
+          "rss_before_kib": 14036,
+          "rss_after_kib": 14076,
+          "p50_ms": 194.60021704435349,
+          "p95_ms": 258.8731129653752,
+          "p99_ms": 291.28941299859434
+        },
+        {
+          "trial": 4,
+          "seconds": 5.9567798799835145,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 50.36278090585248,
+          "response_bytes": 1993827,
+          "core_cpu_seconds": 6.019999999999996,
+          "rss_before_kib": 14076,
+          "rss_after_kib": 14144,
+          "p50_ms": 196.63141097407788,
+          "p95_ms": 255.7275900617242,
+          "p99_ms": 279.24196096137166
+        },
+        {
+          "trial": 5,
+          "seconds": 6.2557243979536,
+          "requests": 300,
+          "errors": [],
+          "success_rps": 47.95607685308792,
+          "response_bytes": 1993289,
+          "core_cpu_seconds": 6.3300000000000125,
+          "rss_before_kib": 14144,
+          "rss_after_kib": 14236,
+          "p50_ms": 206.55333099421114,
+          "p95_ms": 268.75670393928885,
+          "p99_ms": 295.33124493900687
+        }
+      ],
+      "browse_validation": "102 sampled ordered pages including the final page and empty tail",
+      "search_probe": [
+        {
+          "offset": 0,
+          "rows": 50,
+          "bytes": 6651,
+          "first": [
+            "Fixture 000001",
+            "Fixture 000002"
+          ],
+          "last": [
+            "Fixture 000049",
+            "Fixture 000050"
+          ],
+          "matches": true
+        },
+        {
+          "offset": 9950,
+          "rows": 49,
+          "bytes": 6518,
+          "first": [
+            "Fixture 009951",
+            "Fixture 009952"
+          ],
+          "last": [
+            "Fixture 009998",
+            "Fixture 009999"
+          ],
+          "matches": true
+        },
+        {
+          "offset": 9999,
+          "rows": 0,
+          "bytes": 2,
+          "first": [],
+          "last": [],
+          "matches": true
+        }
+      ],
+      "p95_median_ms": 258.8731129653752,
+      "p95_sample_sd_ms": 8.196300395762174,
+      "exit_code": 0
+    }
+  },
+  "fixture_sha256": "ac1b5b7956fb21afa23812603d5fb6ae15a35ffd0c40b8991842bfb05b3db1d7",
+  "environment": {
+    "date_utc": "2026-11-12",
+    "cpu": "Intel N100 (4 logical CPUs)",
+    "ram_bytes": 16539791360,
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "Linux 6.8.0-147-generic x86_64",
+    "python": "3.12.3",
+    "ffmpeg": "6.1.1-3ubuntu5",
+    "jellyfin": "12.4.0"
+  },
+  "source_sha256": {
+    "before": "12219fb2f513591bf40b8df583cf00745928654dcfe98d111b8dba3da9740ae0",
+    "after": "e31a4eb4333979fe90da156d8c6fd79f3ffb4f3066a3399aa9c30a805bdd901c"
+  },
+  "harness_sha256": "031170dffa7b20702c7eb10c59a5b87b0845add6c7a190e426a0a44c99a6a432"
+}

@@ -13,10 +13,10 @@ only in the operator's private notes.
 
 - Use the Rust checkout on the development machine. The older Go reference
   was archived outside the repository as a non-git snapshot with no handoff.
-- With the user's authorization, branch `rust-migration` was pushed to `origin`.
-  [Draft PR #1](https://github.com/jcreek/OpenVideoLibrary/pull/1) targets
-  `main` and carries every commit, including the queue-capture increment.
-  Confirm with `git status -sb` and `gh pr view 1`. The only workflow,
+- The migration is on `main`, merged through the six stacked PRs described in
+  "Review stack". The original branch, `rust-migration`, and its draft PR #1
+  were closed and the remote branch deleted because their tree held
+  unredacted local-network details. Work from `main`. The only workflow,
   `Verify Rust`, is manual-dispatch and disabled. Pushes spend no Actions
   minutes. Do not re-enable or dispatch it.
 - On the N100, use the established unprivileged SSH test account and
@@ -36,7 +36,7 @@ only in the operator's private notes.
 
 ## Pick up here
 
-Four increments from this session are complete and on PR #1. The current
+Four increments from this session are complete and now on `main`. The current
 Linux images also pass the container smoke. With the user's approval,
 history from the first handoff commit onward was rewritten to remove the
 N100's private address and key filename, then force-pushed. PR #1's
@@ -45,9 +45,11 @@ old history on the development machine:
 `local-backup-before-history-scrub` and filter-branch's
 `refs/original/refs/heads/rust-migration`. The first is a branch, so never
 use `git push --all` or `--mirror`, and delete both once the user agrees.
+The local `rust-migration` branch is also unredacted and local-only now. It
+has no upstream; never push it.
 
 Old commits may stay reachable on GitHub by commit ID, including from PR #1's
-force-push event, until GitHub purges them. If the address must be
+force-push event and `refs/pull/1/head`, until GitHub purges them. If the address must be
 unrecoverable, the user needs to ask GitHub Support. The review-stack split
 removes local-network details from the tree (see "Review stack").
 Keep any such detail in gitignored local files, such as `.env`, or in the
@@ -158,14 +160,22 @@ was split into six stacked PRs. Each one adds only its own files, taken from
 5. `split/5-docs`: these docs.
 6. `split/6-evidence`: the recorded JSON evidence.
 
-The only new content is:
+When the split was made, the only new content was:
 - `.coderabbit.yaml`;
 - `.env.example`;
 - the interim Makefiles in PRs 1–2 (replaced by the final one in PR 3);
 - this section, the date in the header and the edited publication paragraph.
 
-PR #1
-stays open as a draft reference until the user decides to close it.
+Each PR then took fixes from its CodeRabbit and independent reviews, recorded
+below. So `main` is `48753e7` with the redactions, these additions and those
+review fixes, including new tests, a probe-failure table and contract changes
+in `docs/openapi.json`.
+
+PR #1 was closed and the remote `rust-migration` branch deleted after the
+final adversarial review (15 November 2026), because that unredacted tree
+was still public. GitHub keeps `refs/pull/1/head` and old commits reachable
+by ID until GitHub Support purges them; the user is asking Support to do
+so.
 
 At the user's request, the split also redacts these details:
 - Local checkout paths in recorded evidence are now `<repo>` and
@@ -191,15 +201,17 @@ pins the plain script, and the other five pin it with their committed patch appl
 - `n100-native-100k-exact-search.json`
 - `n100-native-100k-rust-before-after.json`
 
-The original scripts remain in PR #1's history. The prepared 10k stage on the N100 was
+The original scripts are kept only on the development machine, in the local
+`rust-migration` branch at `48753e7`; the backup refs hold the same files.
+Deleting the backup refs is fine while that branch stays. Once GitHub purges
+PR #1, these hashes cannot be checked against the public repository, and
+deleting the local branch too makes them unverifiable anywhere. The prepared 10k stage on the N100 was
 created with the old device name. Regenerate it before rerunning the
 redacted 10k script, or the token lookup returns nothing.
 
-- State on 15 November 2026: split PRs 1 to 4 have merged (GitHub #6, #2,
-  #3 and #4). Split PR 5 (GitHub #5) is ready for review, and split PR 6
-  (GitHub #7) stays in draft until split PR 5 merges. GitHub #1 remains an
-  open draft for reference. Every PR stays in draft until the PR beneath it has merged.
-- Merge bottom-up.
+- State on 15 November 2026: all six split PRs have merged (GitHub #6, #2,
+  #3, #4, #5 and #7), bottom-up. GitHub #1 is closed. While the stack was
+  open, every PR stayed in draft until the PR beneath it had merged.
 
 Split gates:
 - PR 1: Rust format, Clippy, 32 API tests, 12 ignored media tests and the

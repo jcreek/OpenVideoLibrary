@@ -1,0 +1,27 @@
+{
+  "recorded_utc": "2026-11-13T09:02:53.996960+00:00",
+  "scope": "native Linux binary API/range/read-only/shutdown smoke; no container, GPU, browser or capacity claim",
+  "binary_sha256": "24127c781622eb1eb778067d8f8bccd350a631ece5ed36537f60b20b0a487edc",
+  "machine": "x86_64",
+  "runtime": {
+    "architecture": "x86_64",
+    "os": "linux",
+    "server_version": "0.1.0",
+    "sqlite_version": "3.54.1"
+  },
+  "checks": [
+    "authenticated setup/login",
+    "unauthorized media denied",
+    "read-only fixture scan",
+    "range bytes verified",
+    "viewer grants enforced",
+    "queue revision conflicts",
+    "fixture read-only and unchanged",
+    "SIGTERM exit zero"
+  ],
+  "complete": true,
+  "image": "ovl:acceptance-amd64",
+  "image_id": "sha256:0ba34aa9702cecb4b54e392c066d4c9f9b32e958165640979834c88dadcec63c",
+  "source_tree": "acf25de812ea52aa54715b1a82ee78609b7ef1e9",
+  "host": "N100 over SSH (Ubuntu 24.04, isolated test account)"
+}

@@ -1,0 +1,26 @@
+{
+  "recorded_utc": "2026-11-09T10:25:37.872973+00:00",
+  "scope": "Real disposable Nginx TLS proxy and live Rust backup/restore; not a production deployment or playback-quality benchmark",
+  "host": "macOS-26.5-arm64-arm-64bit",
+  "nginx_platform": "linux/arm64",
+  "binary_sha256": "ee14817369999e23630b301100ff877594fe216d4d0740b63dda2bbdcaf3ba82",
+  "runtime": {
+    "architecture": "aarch64",
+    "os": "macos",
+    "server_version": "0.1.0",
+    "sqlite_version": "3.54.1"
+  },
+  "nginx_image_id": "sha256:444d474369737d45215e4c3019f87e3f657b6a9c09e6ec1e9b97a5f161223bac",
+  "checks": [
+    "trusted TLS and Secure/HttpOnly/SameSite cookie",
+    "proxy CSRF enforcement",
+    "range bytes/content-range/no-store",
+    "64KiB request limit",
+    "persistent queue",
+    "live WAL backup and fresh restore",
+    "restored sessions revoked",
+    "restored credentials, queue and media preserved",
+    "both SIGTERM exits zero"
+  ],
+  "complete": true
+}

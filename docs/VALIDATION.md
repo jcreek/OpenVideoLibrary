@@ -4,7 +4,8 @@ Current evidence is recorded in the dated increments below; later source-matched
 artifacts supersede earlier counts without expanding their platform scope.
 Source hashes and platform scope belong to each captured artifact; historical
 application/prototype reports do not certify this implementation. The migration
-is published as draft PR #1; no registry image or stable release is published.
+is published on `main` through a stack of six reviewed PRs; no registry image or stable
+release is published.
 
 ## Initial preview checkpoint (historical)
 
