@@ -22,7 +22,8 @@ only in the operator's private notes.
 - On the N100, use the established unprivileged SSH test account and
   approved key. It runs Ubuntu 24.04 and uses strict host trust.
   `scripts/validate_n100.py --workspace` stages source into
-  `<workspace>/source`. Pass `--vaapi-driver-path` with the isolated full
+  `<workspace>/source`, which must be new or hold the
+  `.ovl-validate-staging` marker, because the upload prunes it. Pass `--vaapi-driver-path` with the isolated full
   Intel driver directory recorded in `validation-n100-covering.json`.
   The N100 has no Node or Playwright, so Linux browser runs are blocked.
 - FFmpeg/FFprobe may be absent from PATH on the development machine. Put
@@ -353,6 +354,41 @@ review raised two comments; both were valid and fixed:
 Evidence: browser checks fail when either fix is reverted, and
 `make verify-local` passed. An independent review found nothing blocking. Not covered by a test: a status check that
 fails, then succeeds on Retry while the library load fails.
+
+**CodeRabbit review of PR 3 (15 November 2026).** It raised seven comments;
+six were valid and fixed:
+- The container check now proves the read-only mount denies writes. Before,
+  file permissions alone could pass it.
+- The native-binary smoke now stops the server before removing its data on
+  failure paths too.
+- `validate_n100.py` runs from the repository root, hashes before upload and
+  records the hash scope (Cargo files, `crates/`, `scripts/`). Each file is
+  hashed as a framed record, so different layouts cannot share a hash. Its
+  `rsync --delete` only stages into a new directory or one holding the
+  `.ovl-validate-staging` marker; a symlinked destination is refused. It no
+  longer uploads `.env` files, `*.db` databases (with WAL/SHM) or
+  `bench/rust/target`.
+- ROLLOUT takes the cutover backup after the previous server stops.
+- `compose.yaml` notes that `./data` must belong to UID 10001.
+- Repair tests cover several pages and a failure on a later page.
+
+Skipped: creating the schema in `bench/rust`, because the harnesses seed it
+and the benchmarked binary must stay unchanged.
+
+Evidence:
+- `make verify-local` passed at fix commit `a4b615a`.
+- All eight N100 checks passed at `a68ae34`, which adds the framed hash from
+  CodeRabbit's incremental review. Its `source_sha256` (v2 format) is
+  `33c5ad114e0314434a97f8dbd41e120e3623c896567183b2979d8e1403e5b8c8`. The
+  report was not committed.
+- The fixed container check passed on the existing arm64 image
+  `sha256:14a9dde3…` (built from tree `acf25de`) and failed with the read-only
+  flag removed; the old check passed without it. No new image report was
+  recorded, and the amd64 image was not rerun.
+
+An independent review rated the unguarded `rsync --delete` close to blocking;
+the marker fixed it. All findings were addressed or explained, and follow-up
+reviews, including one of the hash framing, found nothing blocking.
 
 ## Outstanding from the plan
 

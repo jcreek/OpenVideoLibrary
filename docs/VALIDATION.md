@@ -1428,6 +1428,14 @@ Both passed every `scripts/test_container.py` check:
 See `validation-image-arm64-current.json` and
 `validation-image-amd64-current.json`.
 
+Those runs predate a fix to the write check. Its fixture was not writable by
+the container user, so file permissions alone could deny the write. On
+15 November 2026 the fixed check (world-writable fixture, and a required
+"Read-only file system" error, from commit `a4b615a`) passed on the same arm64
+image, `sha256:14a9dde3…`, and failed with the read-only flag removed. That
+run was not recorded as a new report, so `validation-image-arm64-current.json`
+still describes the earlier run. The amd64 image was not rerun.
+
 The amd64 container also ran under emulation, not on native x86 hardware. GPU
 devices, browser playback and stream capacity are outside this smoke. The
 N100 still has no container runtime for the test account, so the images were
