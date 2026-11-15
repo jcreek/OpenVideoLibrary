@@ -27,9 +27,10 @@ def source_hash():
         paths += sorted(p for p in Path(root).rglob('*')
                         if p.is_file() and p.name != '.DS_Store' and not p.name.startswith('._')
                         and '__pycache__' not in p.parts)
+    # One framed record per file (path, NUL, content hash, newline). Paths cannot hold
+    # NUL, so different layouts cannot feed the digest the same bytes.
     for path in paths:
-        digest.update(str(path).encode())
-        digest.update(path.read_bytes())
+        digest.update(os.fsencode(path.as_posix()) + b'\0' + hashlib.sha256(path.read_bytes()).digest() + b'\n')
     return digest.hexdigest()
 
 
@@ -72,7 +73,7 @@ def main():
                    check=True, timeout=120)
     report = {'recorded_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'source_sha256': source_sha256,
-              'source_hash_scope': 'Cargo files, crates/ and scripts/', 'scope': 'SSH N100 Linux tests; no benchmark certification',
+              'source_hash_scope': 'Cargo files, crates/ and scripts/ (v2: sha256 of framed path and content-hash records)', 'scope': 'SSH N100 Linux tests; no benchmark certification',
               'driver_override': args.vaapi_driver_path, 'checks': [], 'complete': False}
     output.parent.mkdir(parents=True, exist_ok=True)
     checks = [
