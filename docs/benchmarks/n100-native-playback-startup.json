@@ -323,7 +323,7 @@
   "recorded_utc": "2026-11-13",
   "source_tree": "acf25de812ea52aa54715b1a82ee78609b7ef1e9",
   "caveats": [
-    "warm loopback on a shared household N100; arms ran sequentially, Jellyfin first",
+    "warm loopback on a shared N100 with a household media service running; arms ran sequentially, Jellyfin first",
     "generated mostly-black 1080p fixture (952,209-byte file): encoder work per frame is far below real media",
     "server CPU covers the whole session until stop plus 2 s, including segments encoded ahead, with reaped FFmpeg children",
     "segment duration not independently verified; Jellyfin was requested SegmentLength=4",

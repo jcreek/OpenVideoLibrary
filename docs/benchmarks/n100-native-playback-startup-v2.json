@@ -1106,7 +1106,7 @@
   "source_tree": "acf25de812ea52aa54715b1a82ee78609b7ef1e9",
   "recorded_utc": "2026-11-13",
   "caveats": [
-    "warm loopback on a shared household N100; interleaved arms after one warm-up",
+    "warm loopback on a shared N100 with a household media service running; interleaved arms after one warm-up",
     "generated mostly-black fixture: real segment bitrates were about 35 kb/s video and 21 kb/s audio, so the 5 Mb/s target was not exercised",
     "encodes were not equivalent: Jellyfin used CRF 23 capped at the source-derived 322,520 b/s maxrate with faster x264 options (subme=0, me=hex, rc_lookahead=10) and deep probing; Rust used 5000k ABR veryfast",
     "not LAN, not browser decoded first frame, not OS-cold, no concurrency"
