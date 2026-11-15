@@ -81,3 +81,38 @@ class RepairLibraryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             repair(self.snapshot, self.out, 4, self.media)
         self.assertEqual(sentinel.read_text(), 'keep')
+
+    def add_files(self, count):
+        """Add files 1..count with sparse IDs to library 4, beyond one 128-row page."""
+        ids = [1000 + 7 * n for n in range(count)]
+        with closing(sqlite3.connect(self.data / 'library.db')) as db, db:
+            db.execute("INSERT INTO libraries VALUES(9,'Other','/other','movie',0)")
+            db.execute("INSERT INTO media_files VALUES(5000,23,9,'/other/keep.mp4',1,1)")
+            for n, file_id in enumerate(ids):
+                name = f'page{n:03d}.mp3'
+                (self.media / name).write_bytes(b'x' * n)
+                db.execute('INSERT INTO media_files VALUES(?,23,4,?,123,?)', (file_id, str(self.old / name), n))
+        backup(self.data, self.snapshot.with_name('paged'))
+        return self.snapshot.with_name('paged'), ids
+
+    def test_repairs_every_page_once_and_leaves_other_libraries(self):
+        snapshot, ids = self.add_files(300)
+        result = repair(snapshot, self.out, 4, self.media)
+        self.assertEqual(result['verified_file_count'], 301)
+        with closing(sqlite3.connect(self.out / 'library.db')) as db:
+            rows = dict(db.execute('SELECT id,path FROM media_files WHERE library_id=4'))
+            self.assertEqual(len(rows), 301)
+            for n, file_id in enumerate(ids):
+                self.assertEqual(rows[file_id], str(self.media / f'page{n:03d}.mp3'))
+            self.assertEqual(db.execute('SELECT path FROM media_files WHERE id=5000').fetchone(), ('/other/keep.mp4',))
+            self.assertEqual(db.execute('SELECT path FROM libraries WHERE id=9').fetchone(), ('/other',))
+
+    def test_failure_on_a_later_page_leaves_no_output(self):
+        snapshot, _ = self.add_files(300)
+        original = checksum(snapshot / 'library.db')
+        (self.media / 'page200.mp3').unlink()
+        with self.assertRaisesRegex(ValueError, 'missing'):
+            repair(snapshot, self.out, 4, self.media)
+        self.assertFalse(self.out.exists())
+        self.assertEqual(checksum(snapshot / 'library.db'), original)
+        self.assertEqual([p.name for p in self.root.iterdir() if p.name.startswith('.ovl-path-repair-')], [])

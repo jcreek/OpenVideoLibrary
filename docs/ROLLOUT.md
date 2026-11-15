@@ -2,10 +2,12 @@
 
 1. Build and run checks using disposable data first. Run generated-media tests,
    the browser workflow and the target N100/device matrix before production use.
-2. Create a format-1 backup with `scripts/backup.py`; verify restore into a new
-   folder. Keep that snapshot outside application data and media mounts.
-3. Stop the previous server and confirm its process has exited. The shared
+2. Stop the previous server and confirm its process has exited. The shared
    `server.lock` protocol prevents simultaneous access; never bypass it.
+3. Only then create a format-1 backup with `scripts/backup.py`, so it holds every
+   write; verify restore into a new folder. Keep that snapshot outside application
+   data and media mounts. Use it for the trial and cutover, and keep the previous
+   server stopped until cutover; if it restarts, stop it and back up again first.
 4. For a trial, restore the snapshot into a fresh directory, retain the original
    media paths and start Rust with `OVL_DATA` pointing at the restored data. Restored
    sessions are revoked; sign in again. Set the built frontend path and cookie mode.

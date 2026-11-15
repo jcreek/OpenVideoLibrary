@@ -9,16 +9,24 @@ import argparse
 import datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
 import time
 
+MARKER = '.ovl-validate-staging'
+
 
 def source_hash():
     digest = hashlib.sha256()
     paths = [Path('Cargo.toml'), Path('Cargo.lock'), Path('rust-toolchain.toml')]
-    paths += sorted(p for p in Path('crates').rglob('*') if p.is_file())
+    # Covers the Rust sources and the scripts the remote tests run (not web/ or docs/),
+    # skipping the noise files rsync does not stage.
+    for root in ('crates', 'scripts'):
+        paths += sorted(p for p in Path(root).rglob('*')
+                        if p.is_file() and p.name != '.DS_Store' and not p.name.startswith('._')
+                        and '__pycache__' not in p.parts)
     for path in paths:
         digest.update(str(path).encode())
         digest.update(path.read_bytes())
@@ -38,22 +46,34 @@ def main():
         parser.error('host and absolute isolated workspace required')
     if args.vaapi_driver_path and (args.accelerator != 'vaapi' or not args.vaapi_driver_path.startswith('/') or args.vaapi_driver_path == '/'):
         parser.error('driver override requires VAAPI and an absolute isolated directory')
-    key = str(Path(args.key).expanduser())
+    # Resolve caller-relative paths, then stage and hash from the repository root.
+    key = str(Path(args.key).expanduser().resolve())
+    output = Path(args.output).resolve()
+    os.chdir(Path(__file__).resolve().parent.parent)
+    source_sha256 = source_hash()
     ssh = ['ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
            '-o', 'IdentitiesOnly=yes', '-o', 'ConnectTimeout=5', '-i', key]
     destination = args.workspace.rstrip('/') + '/source'
-    # Refuse accidentally staging over an existing unrelated application checkout.
-    preflight = 'mkdir -p ' + shlex.quote(args.workspace) + ' && test ! -e ' + shlex.quote(destination + '/go.mod')
+    # rsync --delete prunes the destination, so only stage into a new directory or one
+    # this script marked earlier; refuse symlinks and unrelated application checkouts.
+    marker = destination + '/' + MARKER
+    preflight = ('test ! -L ' + shlex.quote(destination) + ' && { test ! -e ' + shlex.quote(destination)
+                 + ' || test -f ' + shlex.quote(marker) + '; } && test ! -e ' + shlex.quote(destination + '/go.mod')
+                 + ' && mkdir -p ' + shlex.quote(destination) + ' && touch ' + shlex.quote(marker))
     subprocess.run(ssh + [args.host, preflight], check=True, timeout=15)
-    excludes = ['.git', 'target', 'node_modules', 'bin', 'data', 'test-results',
-                'playwright-report', '.DS_Store', '._*', '__pycache__']
-    subprocess.run(['rsync', '-az', *['--exclude=' + v for v in excludes],
+    # Root-only excludes are anchored so same-named crate paths are staged; web build
+    # outputs stay excluded at any depth. --delete keeps the remote tree equal to the
+    # local one; excluded paths such as the remote target cache are kept.
+    excludes = ['/' + MARKER, '/.git', '/target', '/bench/rust/target', '/bin', '/data',
+                'node_modules', 'test-results', 'playwright-report', '.DS_Store', '._*',
+                '__pycache__', '.env', '.env.*', '*.db', '*.db-wal', '*.db-shm']
+    subprocess.run(['rsync', '-az', '--delete', *['--exclude=' + v for v in excludes],
                     '-e', shlex.join(ssh), './', args.host + ':' + shlex.quote(destination) + '/'],
                    check=True, timeout=120)
     report = {'recorded_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-              'source_sha256': source_hash(), 'scope': 'SSH N100 Linux tests; no benchmark certification',
+              'source_sha256': source_sha256,
+              'source_hash_scope': 'Cargo files, crates/ and scripts/', 'scope': 'SSH N100 Linux tests; no benchmark certification',
               'driver_override': args.vaapi_driver_path, 'checks': [], 'complete': False}
-    output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     checks = [
         ('environment', 'uname -a; lscpu; free -b; rustc --version; cargo --version; ffmpeg -version; readlink -f /sys/class/drm/renderD128/device/driver; dpkg-query -W intel-media-va-driver mesa-va-drivers; if command -v vainfo >/dev/null; then vainfo --display drm --device /dev/dri/renderD128; else printf "vainfo unavailable; physical graph tests recorded separately\\n"; fi'),

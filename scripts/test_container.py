@@ -38,11 +38,13 @@ def main():
     try:
         with tempfile.TemporaryDirectory(prefix='ovl-image-') as tmp:
             media = Path(tmp) / 'media'
-            media.mkdir(mode=0o755)
+            # World-writable (sticky), so only the readonly mount can deny the container's write.
+            media.mkdir()
+            media.chmod(0o1777)
             Path(tmp).chmod(0o755)
             fixture = media / 'Example.S01E01.mp4'
             fixture.write_bytes(b'0123456789' * 100)
-            fixture.chmod(0o444)
+            fixture.chmod(0o666)
             digest = hashlib.sha256(fixture.read_bytes()).hexdigest()
             docker('run', '-d', '--name', name, '--read-only', '--cap-drop', 'ALL',
                    '--security-opt', 'no-new-privileges', '--tmpfs', '/tmp:rw,nosuid,nodev,size=16m',
@@ -102,7 +104,7 @@ def main():
             assert api('lists/1/cursor', token, {'Revision': 1, 'Cursor': 1}, 'PUT')[0] == 200
             assert api('lists/1/cursor', token, {'Revision': 1, 'Cursor': 0}, 'PUT')[0] == 409
             denied = subprocess.run(['docker', 'exec', name, 'sh', '-c', 'printf forbidden >> /media/Example.S01E01.mp4'], capture_output=True, timeout=10)
-            assert denied.returncode != 0
+            assert denied.returncode != 0 and b'Read-only file system' in denied.stderr, denied.stderr
             assert hashlib.sha256(fixture.read_bytes()).hexdigest() == digest
             report['checks'] = ['authenticated setup/login', 'unauthorized media denied', 'read-only mount scan',
                                 'range bytes verified', 'viewer grants enforced', 'queue revision conflicts',
