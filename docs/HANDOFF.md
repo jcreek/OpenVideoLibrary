@@ -195,8 +195,9 @@ The original scripts remain in PR #1's history. The prepared 10k stage on the N1
 created with the old device name. Regenerate it before rerunning the
 redacted 10k script, or the token lookup returns nothing.
 
-- PR 1 is the only one ready for review. Every PR above it stays in draft
-  until the PR beneath it has merged.
+- State on 15 November 2026: PRs 1 to 4 have merged (GitHub #6, #2, #3 and
+  #4). PR 5 (#5) is ready for review, and PR 6 (#7) stays in draft until it
+  merges. Every PR stays in draft until the PR beneath it has merged.
 - Merge bottom-up.
 
 Split gates:
@@ -478,6 +479,21 @@ Evidence: 39 Python tests pass. Each new behavioural test fails against the
 commit before its fix. An independent review and two follow-up reviews found
 nothing blocking, and their should-fix findings are included above. No
 benchmark was rerun.
+
+**CodeRabbit review of PR 5 (15 November 2026).** It raised seven comments
+on the docs, all valid and fixed:
+- README: `.env` with `OVL_MEDIA_DIR` is set up before the first Compose
+  command, which otherwise fails interpolation. `OVL_SECURE_COOKIES` is fixed
+  in `compose.yaml`, so local HTTP development now uses a Compose override
+  file instead of a shell or `.env` value. `docker compose config` confirmed
+  both behaviours.
+- BENCHMARKS: the unrun comparison is the pinned-container one; the native
+  Jellyfin and Rust diagnostics do not replace it. Four shell continuations
+  in fenced blocks used a doubled backslash; both corrected `patch` commands
+  were run and their outputs compile.
+- HANDOFF gives the current stack state. PARITY limits mono downmix routing
+  to DTS 5.1, as VALIDATION records. PLAYBACK no longer lists AAC HLS music
+  conversion and artist browsing as missing.
 
 ## Outstanding from the plan
 

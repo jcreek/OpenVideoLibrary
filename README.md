@@ -54,18 +54,32 @@ Subtitle burn-in remains software.
 
 ## Docker and Nginx
 
+Copy `.env.example` to `.env` (gitignored) and set `OVL_MEDIA_DIR` to the
+host media directory first; every Compose command needs it. `compose.yaml` mounts
+it with `:ro`, which must stay.
+
 ```sh
+cp .env.example .env   # then edit OVL_MEDIA_DIR
 mkdir -p data
 sudo chown 10001:10001 data
 docker compose build
 docker compose up -d
 ```
 
-Copy `.env.example` to `.env` (gitignored) and set `OVL_MEDIA_DIR` to the
-host media directory. `compose.yaml` mounts it with `:ro`, which must stay. The supplied
-Compose configuration requires HTTPS cookies and is intended for the existing
-TLS reverse proxy. For isolated local HTTP development set
-`OVL_SECURE_COOKIES=false`. See `docs/nginx.conf`. No image was published and the
+The supplied Compose configuration requires HTTPS cookies and is intended for the
+existing TLS reverse proxy. Its `OVL_SECURE_COOKIES: "true"` is fixed, so a shell or
+`.env` value does not change it. For isolated local HTTP development, add a Compose
+override, for example `compose.http.yaml` (keep it out of commits):
+
+```yaml
+services:
+  openvideolibrary:
+    environment:
+      OVL_SECURE_COOKIES: "false"
+```
+
+Then run `docker compose -f compose.yaml -f compose.http.yaml up -d`. See
+`docs/nginx.conf`. No image was published and the
 native amd64/ARM64 image smoke checks pass for their recorded source snapshots.
 Production-host deployment and GPU-in-container acceptance remain open.
 

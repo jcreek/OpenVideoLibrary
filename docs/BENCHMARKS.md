@@ -62,8 +62,9 @@ pins `jellyfin/jellyfin:12.4` to its verified immutable digest.
 
 Run it only with isolated config/cache and sufficient Docker space. Never mount
 an existing Jellyfin config. Complete scans and configure equivalent media,
-metadata, clients and GPU access. The pin is verified; the comparison has not
-been run in this migration. Full cold-cache/mixed-load/playback orchestration
+metadata, clients and GPU access. The pin is verified, but this pinned-container
+comparison has not been run. The native Jellyfin and Rust diagnostics below,
+including the 10k and 100k browse runs, do not replace it. Full cold-cache/mixed-load/playback orchestration
 remains acceptance work; the synthetic API runner is not a substitute.
 
 ### Native N100 baseline preflight
@@ -580,7 +581,7 @@ query validation, trial data, and environment. The exact harness is
 recreated from the archived browse harness and search patch:
 
 ```sh
-patch -s -o /tmp/ovl-exact-search.py docs/benchmarks/n100-native-10k-browse.py \\
+patch -s -o /tmp/ovl-exact-search.py docs/benchmarks/n100-native-10k-browse.py \
   < docs/benchmarks/n100-native-10k-exact-search.patch
 ```
 
@@ -601,8 +602,8 @@ Run from the Rust checkout with the SSH key and host for the isolated
 test account:
 
 ```sh
-ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i "$N100_SSH_KEY" "$N100_SSH_HOST" \\
-  'timeout --signal=TERM --kill-after=35s 13000s nice -n 10 ionice -c2 -n7 python3 -u -' \\
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i "$N100_SSH_KEY" "$N100_SSH_HOST" \
+  'timeout --signal=TERM --kill-after=35s 13000s nice -n 10 ionice -c2 -n7 python3 -u -' \
   < docs/benchmarks/n100-native-100k-prepare.py
 ```
 
@@ -625,7 +626,7 @@ verify metadata and ordering.
 Recreate the staged timing script from the browse archive:
 
 ```sh
-patch -s -o /tmp/ovl-100k-browse.py docs/benchmarks/n100-native-10k-browse.py \\
+patch -s -o /tmp/ovl-100k-browse.py docs/benchmarks/n100-native-10k-browse.py \
   < docs/benchmarks/n100-native-100k-browse.patch
 ```
 
