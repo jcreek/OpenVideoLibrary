@@ -410,10 +410,8 @@ the benchmark harnesses. The live scripts were fixed:
   graph timeout and keeps the earlier rows.
 - `report_n100.py` prints the optimized-matrix conclusion only when the
   dataset is complete, error-free, has 400 trials covering both candidates and
-  every concurrency through 100, and stays under 150 ms. The native-SQLite
-  notes still appear whenever that file loads; their wording is not checked
-  against the rows. Null percentiles render as n/a. Its output for the
-  recorded evidence is unchanged.
+  every concurrency through 100, and stays under 150 ms. Null percentiles
+  render as n/a. Its output for the recorded evidence is unchanged.
 - `lan_playback_worker.py` names the missing hls.js bundle and where to copy
   it from. `bench-sustained-playback.mjs` starts HLS at position zero.
 - The v2 playback-startup harness was changed as described in BENCHMARKS.
@@ -444,9 +442,42 @@ Evidence:
   fixed: the reaping wording and wait, the report crash on null
   percentiles, the report claim check and the resource-window note.
   Not changed: a signal arriving in the instant between starting a child and
-  entering cleanup, and the stale `go-cgo` reproduce text in `N100.md`, which
-  would change the regenerated file.
+  entering cleanup.
 - No benchmark was rerun. The only figures that changed are the v2 medians, recomputed from the recorded rows.
+
+**Second CodeRabbit review of PR 4.** It reviewed the two fix commits and
+raised five comments, all valid and fixed:
+- `report_n100.py` prints the optimized-matrix conclusion only when every
+  candidate covers every concurrency through 100 for each mode, size and
+  query, with browse and search both present. A global check had allowed one
+  candidate to be missing a concurrency.
+- The native SQLite conclusions are now derived from the rows, not from the
+  file being present. Every concurrency-200 trial must pair with the other
+  candidate's trial for the same mode, size, query and repetition, and Rust
+  must be lower in every pair for p95, CPU and RSS. At least one idle Go trial
+  must exceed 150 ms, and every Rust trial must stay under 150 ms. The
+  recorded data meets all of these: Rust is lower in 20 of 20 pairs on each
+  metric, Go exceeds 150 ms in three idle trials, and the highest Rust p95 is
+  89 ms.
+- The reproduce text in `N100.md` no longer describes building and selecting
+  the Go candidate, which the harness rejects. No published revision contains
+  the Go prototypes, so the recorded Go rows cannot be rerun from this
+  repository. Regenerating `N100.md` changes only that sentence.
+- `bench_suite.py` waits for background requests before stopping the
+  candidate after a completed load, so shutdown is no longer counted as a
+  background error. On failure or cancellation it stops the candidate first,
+  and a signal during the wait still stops and reaps every child.
+- `lan_playback_worker.py` restarts its client wait after each background
+  snapshot. The snapshot cap bounds the phase to at most 11 × 240 s idle or
+  16 × 360 s with scans. Without a background workload the client sends only
+  `done`, so that single budget is 420 s: the client's readiness, launch and
+  per-repetition limits sum to 350 s, plus a 70 s margin for steps with no
+  limit of their own.
+
+Evidence: 39 Python tests pass. Each new behavioural test fails against the
+commit before its fix. An independent review and two follow-up reviews found
+nothing blocking, and their should-fix findings are included above. No
+benchmark was rerun.
 
 ## Outstanding from the plan
 
