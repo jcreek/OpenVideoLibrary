@@ -1,6 +1,6 @@
 # OpenVideoLibrary migration handoff
 
-Updated 13 November 2026 (review-stack split). This file records the handoff
+Updated 15 November 2026 (review-stack split and CodeRabbit reviews). This file records the handoff
 for agents resuming work. Read AGENTS.md, STATUS.md, PARITY.md,
 VALIDATION.md, BENCHMARKS.md, ROLLOUT.md, ADR-001-rust.md and openapi.json
 before changing code or making acceptance claims.
@@ -195,9 +195,10 @@ The original scripts remain in PR #1's history. The prepared 10k stage on the N1
 created with the old device name. Regenerate it before rerunning the
 redacted 10k script, or the token lookup returns nothing.
 
-- State on 15 November 2026: PRs 1 to 4 have merged (GitHub #6, #2, #3 and
-  #4). PR 5 (#5) is ready for review, and PR 6 (#7) stays in draft until it
-  merges. Every PR stays in draft until the PR beneath it has merged.
+- State on 15 November 2026: split PRs 1 to 4 have merged (GitHub #6, #2,
+  #3 and #4). Split PR 5 (GitHub #5) is ready for review, and split PR 6
+  (GitHub #7) stays in draft until split PR 5 merges. GitHub #1 remains an
+  open draft for reference. Every PR stays in draft until the PR beneath it has merged.
 - Merge bottom-up.
 
 Split gates:
@@ -494,6 +495,11 @@ on the docs, all valid and fixed:
 - HANDOFF gives the current stack state. PARITY limits mono downmix routing
   to DTS 5.1, as VALIDATION records. PLAYBACK no longer lists AAC HLS music
   conversion and artist browsing as missing.
+
+An independent review found nothing blocking. Its should-fix findings were
+fixed: the stack-state wording now says which numbering it uses, and this
+file's date is current. It also led to a gitignore entry for the HTTP
+Compose override.
 
 ## Outstanding from the plan
 

@@ -69,7 +69,8 @@ docker compose up -d
 The supplied Compose configuration requires HTTPS cookies and is intended for the
 existing TLS reverse proxy. Its `OVL_SECURE_COOKIES: "true"` is fixed, so a shell or
 `.env` value does not change it. For isolated local HTTP development, add a Compose
-override, for example `compose.http.yaml` (keep it out of commits):
+override. `compose.http.yaml` is gitignored for this; do not use
+`compose.override.yaml`, which Compose loads automatically:
 
 ```yaml
 services:
@@ -78,7 +79,8 @@ services:
       OVL_SECURE_COOKIES: "false"
 ```
 
-Then run `docker compose -f compose.yaml -f compose.http.yaml up -d`. See
+Then run `docker compose -f compose.yaml -f compose.http.yaml up -d`, and pass the
+same `-f` pair to later commands such as `logs` and `down`. See
 `docs/nginx.conf`. No image was published and the
 native amd64/ARM64 image smoke checks pass for their recorded source snapshots.
 Production-host deployment and GPU-in-container acceptance remain open.

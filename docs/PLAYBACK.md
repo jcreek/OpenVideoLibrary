@@ -190,7 +190,8 @@ Music classification and tag indexing use additive tables and preserve the v2 li
 rows, IDs and legacy kind constraint. Older binaries can preserve the
 database but see these libraries as movies and do not offer this music
 workflow. AAC HLS conversion is used only for clients that advertise support, and
-the artists view groups indexed album artists within one library. Real-device audio
+the artists view groups indexed artists (the album artist, or the track artist
+when that is empty) within one library. Real-device audio
 acceptance and broader artwork and lyrics support remain open.
 
 ### Local lyrics
