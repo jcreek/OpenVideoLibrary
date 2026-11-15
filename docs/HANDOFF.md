@@ -45,6 +45,8 @@ old history on the development machine:
 `local-backup-before-history-scrub` and filter-branch's
 `refs/original/refs/heads/rust-migration`. The first is a branch, so never
 use `git push --all` or `--mirror`, and delete both once the user agrees.
+The local `rust-migration` branch is also unredacted and local-only now. It
+has no upstream; never push it.
 
 Old commits may stay reachable on GitHub by commit ID, including from PR #1's
 force-push event and `refs/pull/1/head`, until GitHub purges them. If the address must be
