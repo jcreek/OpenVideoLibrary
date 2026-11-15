@@ -88,16 +88,19 @@ def run(binary,db,args,concurrency,query):
   # After a completed load, background requests finish against a live candidate, so shutdown is
   # not counted as a load error. On failure or cancellation the candidate stops first, as before.
   stop.set()
-  if finished:
-   for t in threads:
-    if t.ident:t.join(timeout=31)
-  p.terminate()
-  for encoder in encoders:
-   encoder.terminate()
-   try:encoder.wait(timeout=5)
-   except subprocess.TimeoutExpired:encoder.kill();encoder.wait()
-  try:p.wait(timeout=5)
-  except subprocess.TimeoutExpired:p.kill();p.wait()
+  try:
+   if finished:
+    for t in threads:
+     if t.ident:t.join(timeout=31)
+  finally:
+   # A signal during that wait still stops and reaps every child.
+   p.terminate()
+   for encoder in encoders:
+    encoder.terminate()
+    try:encoder.wait(timeout=5)
+    except subprocess.TimeoutExpired:encoder.kill();encoder.wait()
+   try:p.wait(timeout=5)
+   except subprocess.TimeoutExpired:p.kill();p.wait()
   for t in threads:
    if t.ident:t.join(timeout=31)
   log.close()

@@ -120,6 +120,7 @@ class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self):
         if self.path.startswith('/media'):
+            open({str(root / 'media-requested')!r}, 'w').close()
             time.sleep({media_seconds}); status, body = 206, b'x'
         elif self.path.startswith('/info'):
             status, body = 200, b'{{}}'
@@ -127,6 +128,8 @@ class H(http.server.BaseHTTPRequestHandler):
             status, body = 200, json.dumps([{{'id': i, 'title': 'Movie %d' % i}} for i in range(100)]).encode()
         self.send_response(status); self.send_header('Content-Length', str(len(body))); self.end_headers()
         self.wfile.write(body)
+import os
+open({str(root / 'pid')!r}, 'w').write(str(os.getpid()))
 http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
 """)
         candidate = root / 'candidate'
@@ -146,6 +149,29 @@ http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
         self.assertEqual(result['errors'], 0)
         self.assertEqual(result['background']['errors'], 0)
 
+    def test_signal_while_waiting_for_background_requests_still_reaps_the_candidate(self):
+        class SignalledThread(threading.Thread):
+            def join(self, timeout=None):
+                if self._args == ('stream',):
+                    raise SystemExit(143)  # SIGTERM arriving during the success-path wait
+                return super().join(timeout)
+        with tempfile.TemporaryDirectory() as tmp:
+            candidate, args = self.fake_candidate(Path(tmp), 1)
+            saved = bench_suite.threading.Thread
+            bench_suite.threading.Thread = SignalledThread
+            try:
+                with self.assertRaises(SystemExit):
+                    bench_suite.run(candidate, Path(tmp) / 'db', args, 1, '')
+            finally:
+                bench_suite.threading.Thread = saved
+            pid = int((Path(tmp) / 'pid').read_text())
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+        os.kill(pid, 9)
+        self.fail('candidate process was left running')
+
     def test_failed_run_stops_the_candidate_before_waiting_for_background_requests(self):
         with tempfile.TemporaryDirectory() as tmp:
             candidate, args = self.fake_candidate(Path(tmp), 20)
@@ -164,7 +190,8 @@ http.server.ThreadingHTTPServer(('127.0.0.1', 8097), H).serve_forever()
                     bench_suite.run(candidate, Path(tmp) / 'db', args, 1, '')
             finally:
                 bench_suite.load = real_load
-        # Waiting on the 20 s media request first would take far longer.
+            # The slow request was in flight, so waiting on it first would take far longer.
+            self.assertTrue((Path(tmp) / 'media-requested').exists())
         self.assertLess(time.monotonic() - started, 10)
 
     def test_h264_vaapi_is_rejected_without_hardware_upload(self):
@@ -190,7 +217,7 @@ class LanWorkerWaitTests(unittest.TestCase):
         # Input is ready while commands remain; afterwards select reports a timeout.
         pending = list(commands)
         worker.select = types.SimpleNamespace(
-            select=lambda r, w, x, timeout: (r, [], []) if pending and not pending.pop(0) is None else ([], [], []))
+            select=lambda r, w, x, timeout: (r, [], []) if pending and pending.pop(0) is not None else ([], [], []))
         worker.os = types.SimpleNamespace(read=read)
         worker.sys = types.SimpleNamespace(stdin=types.SimpleNamespace(fileno=lambda: 0))
         worker.time = types.SimpleNamespace(monotonic=lambda: next(clock))
@@ -212,6 +239,9 @@ class LanWorkerWaitTests(unittest.TestCase):
         # A 300 s gap before done exceeds the old shared 240 s budget but not the client limits.
         self.assertTrue(self.wait(['done'], background=None, step=300))
         self.assertFalse(self.wait([], background=None, step=421))
+
+    def test_a_client_that_stops_after_a_snapshot_times_out(self):
+        self.assertFalse(self.wait(['scan-snapshot'], step=100))
 
     def test_snapshots_beyond_the_cap_are_rejected(self):
         self.assertFalse(self.wait(['scan-snapshot'] * 11 + ['done']))
