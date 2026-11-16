@@ -103,7 +103,8 @@ async function signOut(){
  await close(false).catch(()=>{});await pendingPlayback.catch(()=>{});
  // The session may have ended meanwhile and another account signed in; leave that account alone.
  if(owner!==account)return;
- const request=api('logout','POST');loggingOut=request.catch(()=>{});await request;
+ // A second sign-out must not replace an earlier logout that is still pending.
+ const request=api('logout','POST');loggingOut=Promise.all([loggingOut,request.then(()=>{},()=>{})]).then(()=>{});await request;
  resetAccount();logged=false;name='';password='';
 }
 // Progress writes run one at a time, so a later save cannot undo a newer watched mark.

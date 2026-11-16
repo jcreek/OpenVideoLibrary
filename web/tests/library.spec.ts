@@ -459,6 +459,39 @@ for(const held of ['cleanup','logout'] as const)test('an interrupted sign-out do
  }
 });
 
+test('a sign-in waits for every pending logout, not only the latest',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ await signIn(page);
+ const logoutURL=(u:URL)=>u.pathname==='/api/v1/logout';
+ const routes:Route[]=[];let holding=true;
+ try {
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  // Two clicks send two logout requests; the second one finishes first.
+  await page.route(logoutURL,route=>{if(!holding)return route.fallback();routes.push(route);});
+  await page.getByRole('button',{name:'Sign out',exact:true}).click();
+  await expect.poll(()=>routes.length).toBe(1);
+  await page.getByRole('button',{name:'Sign out',exact:true}).click();
+  await expect.poll(()=>routes.length).toBe(2);
+  await routes[1].continue();
+  await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+  // The first logout is still pending when the user signs in again.
+  const signedIn=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/login',{timeout:3000}).catch(()=>{});
+  await page.getByLabel('Username').fill(username);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await signedIn;
+  holding=false;await routes[0].continue();
+  await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  // The new account's cookie survived the late logout response.
+  const items=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/items');
+  await page.getByRole('button',{name:'All media',exact:true}).click();
+  expect((await items).status()).toBe(200);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+ } finally {
+  holding=false;for(const route of routes)await route.continue().catch(()=>{});
+  await page.unrouteAll({behavior:'ignoreErrors'});
+ }
+});
+
 // The old DELETE comes either from close() itself or, when the player closes while the
 // playback request is in flight, from the late cleanup once that request returns.
 for(const whileCreating of [false,true])test('the next account does not wait for the previous account\'s playback cleanup'+(whileCreating?' (closed while starting)':''),async({page})=>{

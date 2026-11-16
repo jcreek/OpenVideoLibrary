@@ -376,8 +376,13 @@ client in all three engines:
   signed in again, the old sign-out later sent logout with the new cookie and
   reset the new account. It now stops if the account has changed.
 - A logout response clears the session cookie, so a login sent while that
-  logout was in flight could lose its new cookie. A login now waits for any
-  logout request to settle.
+  logout was in flight could lose its new cookie. A login now waits for every
+  logout request still pending, including an earlier one from a second click
+  on Sign out (a fifth CodeRabbit pass found that case; it has its own test).
+  A double click still sends two logouts. If the server answered the second
+  (a 401) before the client handled the first, the user would see the
+  session-ended message instead of a clean sign-out. That is cosmetic, and
+  making a second click reuse the pending sign-out would fix it.
 
 If a sign-out stops this way, it never sends its logout. With this server
 that is harmless, because a signed-in 401 only means the session is already
