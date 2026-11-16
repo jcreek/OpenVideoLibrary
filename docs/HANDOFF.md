@@ -403,11 +403,14 @@ All three were fixed on 16 November 2026 (below).
   title and client in a new additive table, `ovl_progress_order`, and ignores
   an older or repeated write from that client (`applied: false`). Writes
   without these fields, or from other clients, behave as before
-  (last arrival wins). A reload gets a new client ID, so it counts as
+  (last arrival wins). The contract requires `Client` and `Sequence`
+  together (`dependentRequired`). A reload gets a new client ID, so it counts as
   another client. `progress` itself is unchanged, so the legacy server
   can still read the database. Because callers choose the client ID, only
-  the 8 most recent clients per user and title are kept, always including
-  the one writing (tested), and rows older than a day are pruned by the
+  the 8 most recently written clients per user and title are kept, always
+  including the one writing. Each accepted write replaces its client's row,
+  so the row order is the write order even within one second (tested). Rows
+  older than a day are pruned by the
   minute maintenance task (not tested). Once a client's row is evicted or
   pruned, a late write from it is applied again (last arrival wins).
   The check and the write share one immediate transaction.
@@ -423,7 +426,9 @@ All three were fixed on 16 November 2026 (below).
   keeps the database busy on the N100 has not been measured.
 - **Failed saves.** Opening or closing a title, applying settings and
   advancing a queue no longer stop when the save fails; the error is shown
-  and the player moves on. Pausing and the 15 s save no longer clear an
+  and the player moves on. Applying settings restarts from the live
+  playhead, not the last saved position, so a failed save does not jump
+  back (tested). Pausing and the 15 s save no longer clear an
   unrelated error message first.
 - **Player cleanup.** Each playback DELETE, including the late cleanup of a
   playback request that returned after the player closed, is waited for at

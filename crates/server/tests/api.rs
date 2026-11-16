@@ -355,23 +355,46 @@ async fn progress_ignores_an_older_write_from_the_same_client() {
                 .await
         ));
     }
-    let clients: Vec<String> = app
-        .db
-        .call(move |c| {
-            let mut s = c.prepare(
-                "SELECT client FROM ovl_progress_order WHERE item_id=? AND user_id=(SELECT id FROM users WHERE name='admin') ORDER BY client",
-            )?;
-            let rows = s
-                .query_map([id], |r| r.get(0))?
-                .collect::<rusqlite::Result<Vec<String>>>()?;
-            Ok(rows)
-        })
-        .await
-        .unwrap();
+    let clients = || {
+        let app = app.clone();
+        async move {
+            app.db
+                .call(move |c| {
+                    let mut s = c.prepare(
+                        "SELECT client FROM ovl_progress_order WHERE item_id=? AND user_id=(SELECT id FROM users WHERE name='admin') ORDER BY client",
+                    )?;
+                    let rows = s
+                        .query_map([id], |r| r.get(0))?
+                        .collect::<rusqlite::Result<Vec<String>>>()?;
+                    Ok(rows)
+                })
+                .await
+                .unwrap()
+        }
+    };
     assert_eq!(
-        clients,
+        clients().await,
         (2..10).map(|n| format!("spray-{n}")).collect::<Vec<_>>()
     );
+    // Eviction follows write order even within one second: the oldest client
+    // writes again, so the next new client evicts the least recently written one.
+    assert!(applied(
+        put(json!({"Position":5,"Watched":false,"Client":"spray-2","Sequence":2})).await
+    ));
+    assert!(applied(
+        put(json!({"Position":5,"Watched":false,"Client":"spray-new","Sequence":1})).await
+    ));
+    let mut expected: Vec<String> = (2..10)
+        .filter(|n| *n != 3)
+        .map(|n| format!("spray-{n}"))
+        .collect();
+    expected.push("spray-new".into());
+    expected.sort();
+    assert_eq!(clients().await, expected);
+    // Its older write, arriving late, is still ignored.
+    assert!(!applied(
+        put(json!({"Position":6,"Watched":false,"Client":"spray-2","Sequence":1})).await
+    ));
     app.shutdown().await;
 }
 #[tokio::test]

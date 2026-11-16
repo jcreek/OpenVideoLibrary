@@ -585,14 +585,15 @@ async fn progress(
                 if stale {
                     return Ok(false);
                 }
+                // REPLACE gives the row a new rowid above all others, so rowid order is write order.
                 tx.execute(
-                    "INSERT INTO ovl_progress_order VALUES(?,?,?,?,?) ON CONFLICT(user_id,item_id,client) DO UPDATE SET sequence=excluded.sequence,updated=excluded.updated",
+                    "INSERT OR REPLACE INTO ovl_progress_order VALUES(?,?,?,?,?)",
                     params![u.id, id, client, sequence, now],
                 )?;
                 // Clients are chosen by the caller, so keep only the most recent few per title.
                 tx.execute(
                     // The client that just wrote is always kept; the others compete for the rest.
-                    "DELETE FROM ovl_progress_order WHERE user_id=?1 AND item_id=?2 AND client<>?3 AND rowid NOT IN (SELECT rowid FROM ovl_progress_order WHERE user_id=?1 AND item_id=?2 AND client<>?3 ORDER BY updated DESC, rowid DESC LIMIT ?4)",
+                    "DELETE FROM ovl_progress_order WHERE user_id=?1 AND item_id=?2 AND client<>?3 AND rowid NOT IN (SELECT rowid FROM ovl_progress_order WHERE user_id=?1 AND item_id=?2 AND client<>?3 ORDER BY rowid DESC LIMIT ?4)",
                     params![u.id, id, client, PROGRESS_ORDER_CLIENTS - 1],
                 )?;
             }

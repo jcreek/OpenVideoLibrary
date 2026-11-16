@@ -254,7 +254,11 @@ async function moveCursor(list:MediaList,cursor:number){
  await loadLists();return updated;
 }
 async function playEntry(list:MediaList,entry:MediaListEntry){const generation=++playerGeneration;const queue=list.kind==='queue'?await moveCursor(list,entry.position):null;if(generation!==playerGeneration)return;playingQueue=queue;await open(entry.item,list.kind==='queue');}
-async function applyPlayback(){const generation=playerGeneration;await save().catch(saveFailed);if(generation===playerGeneration)await start(selected?.position||0);}
+async function applyPlayback(){
+ const generation=playerGeneration;await save().catch(saveFailed);if(generation!==playerGeneration)return;
+ // Restart from the live playhead: if the save failed, the saved position is out of date.
+ await start(video&&video.readyState>0?video.currentTime+startOffset:selected?.position||0);
+}
 async function ended(){if(transition)return;const generation=playerGeneration,playing=playingQueue;await save().catch(saveFailed);if(generation!==playerGeneration||!playing||playingQueue!==playing)return;const queue:MediaList=await api('lists/'+playingQueue.id);if(generation!==playerGeneration||playingQueue!==playing)return;if(queue.revision!==playing.revision)throw Error('Queue changed in another client. Resume the queue to continue.');const next=queue.entries.find(e=>e.position>queue.cursor);const updated=await moveCursor(queue,next?.position??queue.cursor+1);if(generation!==playerGeneration||playingQueue!==playing)return;playingQueue=updated;if(next)await open(next.item,true);else notice='Queue finished.';}
 function textSubtitle(codec:string){return ['subrip','ass','ssa','webvtt','mov_text','text'].includes(codec);}
 async function browseShow(show:Series){section='library';seriesFilter=show.name;library=String(show.library_id);season='';offset=0;await load();}

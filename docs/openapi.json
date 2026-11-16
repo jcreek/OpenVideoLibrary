@@ -2373,6 +2373,14 @@
             "description": "Increases with each write from Client. A write whose Sequence is not above the last one stored for that Client and title is ignored."
           }
         },
+        "dependentRequired": {
+          "Client": [
+            "Sequence"
+          ],
+          "Sequence": [
+            "Client"
+          ]
+        },
         "required": [
           "Position",
           "Watched"

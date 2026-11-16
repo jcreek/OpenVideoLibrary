@@ -562,6 +562,40 @@ test('a failed progress save does not stop the next title from opening',async({p
  }
 });
 
+test('applying playback settings after a failed save restarts from the playhead',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ await signIn(page);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Progress TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+ await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id)[0];
+ const progressURL=(u:URL)=>u.pathname==='/api/v1/items/'+item.id+'/progress';
+ const creation=(r:{url():string;method():string})=>r.method()==='POST'&&new URL(r.url()).pathname==='/api/v1/items/'+item.id+'/playback';
+ // The saved position is the start, so a restart from it would be easy to tell apart.
+ expect((await page.request.put('/api/v1/items/'+item.id+'/progress',{headers,data:{Position:0,Watched:false}})).status()).toBe(200);
+ try {
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  const automatic=page.waitForResponse(r=>creation(r.request()));
+  await page.locator('.card').filter({has:page.getByRole('heading',{name:item.title,exact:true})}).click();await automatic;
+  await expect(page.getByRole('button',{name:'Apply playback settings',exact:true})).toBeEnabled();
+  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(1);
+  // Saves fail from now on; the viewer then seeks forward and applies new settings.
+  await page.route(progressURL,route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'progress store unavailable'})}));
+  await page.locator('video').evaluate((v:HTMLVideoElement)=>{v.currentTime=6;});
+  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.currentTime)).toBeGreaterThanOrEqual(5.9);
+  const restarted=page.waitForRequest(creation);
+  await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();
+  expect((await restarted).postDataJSON().Start).toBeGreaterThanOrEqual(5.9);
+  await expect(page.getByRole('alert')).toHaveText('progress store unavailable');
+  await page.unroute(progressURL);
+  await page.getByRole('button',{name:'Close player',exact:true}).click();
+ } finally {
+  await page.unrouteAll({behavior:'ignoreErrors'});
+  // Later tests find titles by their card labels, which depend on this progress.
+  try{await page.request.put('/api/v1/items/'+item.id+'/progress',{headers,data:{Position:item.position,Watched:item.watched}});}catch{}
+ }
+});
+
 test('player cleanup that never answers does not block the next title or signing out',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
