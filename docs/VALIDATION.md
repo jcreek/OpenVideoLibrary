@@ -1482,3 +1482,54 @@ workspace was removed after the run.
 Real HDR10, HLG and Dolby Vision acceptance is unavailable, because the user
 has no HDR content. HDR evidence remains synthetic: the PQ/HLG software path
 and the N100 VAAPI HDR10 checks.
+
+## Unowned remux workspace and idle-reaped test sessions — 2026-11-16
+
+`playback::start` awaited `create_dir_all` while holding the stream admission
+lock, before the session existed. A client that disconnected during that await
+left an empty `transcodes/<id>` that nothing owned until the next startup sweep.
+This was the likely cause of the intermittent
+`abandoned_remux_start_cancels_the_session` failure on the N100. The mkdir is
+now synchronous, so no await separates creating the workspace from handing it
+to the session task.
+
+- New ignored test `dropped_start_never_leaves_an_unowned_workspace`. It polls
+  a start request by hand and drops it after 1, 2, … polls until a start
+  completes. It also drops the request as soon as the handler is parked
+  holding the admission lock. After each drop it checks that no session
+  remains and that `transcodes/` is empty.
+- On macOS arm64, with only the fix reverted, the test failed all five runs,
+  each with an unowned workspace:
+  - the first version failed 3 of 3 runs, at 17–18 polls;
+  - the final version failed at 17 polls idle and at 15 polls with every core
+    busy.
+
+  With the fix, it passed idle and under the same load.
+- The legacy-corpus DELETE 404 was test timing. The tests' 5 s `stream_idle`
+  reaped a finished session while the test probed its files on disk. The nine
+  tests that inspect session output on disk without touching it over HTTP now
+  use a 600 s idle period (`setup_retained`). Other tests keep 5 s reaping.
+- On macOS arm64, before the review fixes, 20 runs each of
+  `abandoned_remux_start_cancels_the_session` and the new test, and 3 runs of
+  the legacy corpus, all passed.
+- `make verify-local` passed on macOS arm64:
+  - 42 API tests;
+  - 15 of 15 ignored CPU media tests;
+  - 39 Python tests;
+  - 60 of 60 browser cases in Chromium, Firefox and WebKit;
+  - the Nginx/TLS drill.
+- All eight N100 SSH checks passed (`validation-n100-remux-start-leak.json`,
+  source `29c8a975…`). That includes `software-media` with 15 of 15 ignored
+  tests. This single run does not prove the intermittent failure is gone; it
+  did not reproduce.
+- Start latency on macOS arm64, release build, 3 alternating runs of 120 remux
+  starts at concurrency 2: p50 was 18.0–18.4 ms with the fix and 18.1–18.5 ms
+  without it, with overlapping ranges. There is no measurable change. The N100
+  was not measured.
+
+Remaining gaps:
+- The synchronous mkdir runs on a runtime worker under the lock, as the
+  free-space check already did. A hung remote data directory therefore stalls
+  a worker rather than a blocking-pool thread.
+- A failed workspace removal at session end is still ignored.
+- An abandoned TMDB artwork download can leave `artwork/poster-<token>`.

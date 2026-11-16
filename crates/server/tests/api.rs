@@ -69,7 +69,24 @@ async fn account(router: &Router, name: &str) -> String {
     v["token"].as_str().unwrap().to_owned()
 }
 async fn setup(root: &TempDir) -> (Arc<App>, Router, String) {
-    let app = App::open(config(root.path())).unwrap();
+    setup_with(root, config(root.path())).await
+}
+/// For tests that inspect a finished session's files on disk without touching
+/// it over HTTP and then DELETE it: the shared 5 s idle period could reap the
+/// session mid-check, so the DELETE returned 404.
+async fn setup_retained(root: &TempDir) -> (Arc<App>, Router, String) {
+    setup_with(
+        root,
+        Config {
+            stream_idle: Duration::from_secs(600),
+            ..config(root.path())
+        },
+    )
+    .await
+}
+async fn setup_with(root: &TempDir, config: Config) -> (Arc<App>, Router, String) {
+    assert!(config.data.starts_with(root.path()));
+    let app = App::open(config).unwrap();
     let router = app.router();
     let (status, v) = request(
         &router,
@@ -977,7 +994,7 @@ async fn real_media_remux_adaptive_audio_subtitles_and_cleanup() {
 async fn real_hdr_software_tone_mapping() {
     for transfer in ["smpte2084", "arib-std-b67"] {
         let root = TempDir::new().unwrap();
-        let (app, router, token) = setup(&root).await;
+        let (app, router, token) = setup_retained(&root).await;
         let item = add_media(&app, root.path()).await;
         let path = root.path().join("media/Example.S01E01.mp4");
         let status = std::process::Command::new("ffmpeg")
@@ -1625,7 +1642,7 @@ async fn real_media_container_audio_matrix_decodes_negotiated_output() {
         ),
     ] {
         let root = TempDir::new().unwrap();
-        let (app, router, token) = setup(&root).await;
+        let (app, router, token) = setup_retained(&root).await;
         let item = add_media(&app, root.path()).await;
         let path = root
             .path()
@@ -2416,7 +2433,7 @@ fn bitmap_fixture(x: u16, y: u16) -> Vec<u8> {
 async fn real_bitmap_subtitles_select_seek_clear_and_scale() {
     for hdr in [false, true] {
         let root = TempDir::new().unwrap();
-        let (app, router, token) = setup(&root).await;
+        let (app, router, token) = setup_retained(&root).await;
         let item = add_media(&app, root.path()).await;
         let first = root.path().join("first.sup");
         let second = root.path().join("second.sup");
@@ -2891,7 +2908,7 @@ async fn real_bitmap_subtitles_select_seek_clear_and_scale() {
 async fn real_styled_subtitles_preserve_embedded_font_and_seek_timing() {
     for source_offset in [0, 5] {
         let root = TempDir::new().unwrap();
-        let (app, router, token) = setup(&root).await;
+        let (app, router, token) = setup_retained(&root).await;
         let item = add_media(&app, root.path()).await;
         let font = root.path().join("font.ttf");
         std::fs::write(&font, include_bytes!("fixtures/OVLFixtureBars.ttf")).unwrap();
@@ -3350,7 +3367,7 @@ async fn invalid_audio_channel_reports_fail_before_probe_or_allocation() {
 #[ignore = "requires FFmpeg AAC 5.1 encode/decode and libx264; decoded channel-tone software acceptance"]
 async fn real_surround_audio_negotiates_and_downmixes_selected_channels() {
     let root = TempDir::new().unwrap();
-    let (app, router, token) = setup(&root).await;
+    let (app, router, token) = setup_retained(&root).await;
     let item = add_media(&app, root.path()).await;
     let path = root.path().join("media/Example.S01E01.mp4");
     let args=["-nostdin","-v","error","-y","-f","lavfi","-i","testsrc2=size=320x180:rate=12",
@@ -3581,7 +3598,7 @@ fn playable_video_selection_skips_artwork_and_timed_thumbnails() {
 #[ignore = "requires FFmpeg AAC, MJPEG and H.264 encoders"]
 async fn real_embedded_artwork_does_not_count_as_playable_video() {
     let root = TempDir::new().unwrap();
-    let (app, router, token) = setup(&root).await;
+    let (app, router, token) = setup_retained(&root).await;
     let item = add_media(&app, root.path()).await;
     let path = root.path().join("media/Example.S01E01.mp4");
     for movie in [false, true] {
@@ -4655,7 +4672,7 @@ async fn beep_onset(app: &Arc<App>, src: &Path, t: f64) -> (f64, f64) {
 async fn real_long_file_seeks_keep_source_timeline_and_av_sync() {
     const FPS: f64 = 24_000.0 / 1_001.0;
     let root = TempDir::new().unwrap();
-    let (app, router, token) = setup(&root).await;
+    let (app, router, token) = setup_retained(&root).await;
     let item = add_media(&app, root.path()).await;
     let media_dir = std::fs::canonicalize(root.path().join("media")).unwrap();
     // Sixteen bars encode the source frame number; audio beeps for 0.1 s at each
@@ -5080,10 +5097,126 @@ async fn abandoned_remux_start_cancels_the_session() {
 }
 
 #[tokio::test]
+#[ignore = "requires FFmpeg/FFprobe with MPEG-4 Part 2 and AAC; software acceptance"]
+async fn dropped_start_never_leaves_an_unowned_workspace() {
+    use std::{
+        future::Future,
+        task::{Context, Poll, Waker},
+    };
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let item = add_media(&app, root.path()).await;
+    let path = std::fs::canonicalize(root.path().join("media/Example.S01E01.mp4")).unwrap();
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-nostdin",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=size=320x180:rate=24",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440",
+            "-t",
+            "10",
+            "-c:v",
+            "mpeg4",
+            "-c:a",
+            "aac",
+        ])
+        .arg(&path)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let transcodes = app.config.data.join("transcodes");
+    let workspaces = || {
+        std::fs::read_dir(&transcodes)
+            .map(|d| d.count())
+            .unwrap_or(0)
+    };
+    // Poll the start request by hand and drop it after `polls` polls, or as
+    // soon as it is parked while holding the stream admission lock. Whatever
+    // the drop point, no session may outlive it and no workspace directory may
+    // be left behind without a session to own and remove it. The number of
+    // polls a start needs depends on host speed, so keep raising it until one
+    // start completes: every drop point before completion has then been tried.
+    let mut parked_holding_lock = 0;
+    let mut completed = false;
+    for polls in 1.. {
+        assert!(polls <= 5000, "no start completed within {polls} polls");
+        let uri = format!("/api/v1/items/{item}/playback");
+        let mut start = Box::pin(request(
+            &router,
+            "POST",
+            &uri,
+            Some(&token),
+            Some(json!({"Mode":"remux","Start":0})),
+        ));
+        let mut cx = Context::from_waker(Waker::noop());
+        let mut created = None;
+        for _ in 0..polls {
+            if let Poll::Ready(response) = start.as_mut().poll(&mut cx) {
+                created = Some(response);
+                break;
+            }
+            if app.streams.try_lock().is_err() {
+                parked_holding_lock += 1;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(2)).await;
+        }
+        drop(start);
+        if let Some((status, session)) = created {
+            assert_eq!(status, 201, "{session}");
+            completed = true;
+            let id = session["id"].as_str().unwrap();
+            assert_eq!(
+                request(
+                    &router,
+                    "DELETE",
+                    &format!("/api/v1/playback/{id}"),
+                    Some(&token),
+                    None,
+                )
+                .await
+                .0,
+                200
+            );
+        }
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while !app.streams.lock().await.is_empty() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("session left running after {polls} polls"));
+        // Let any filesystem work the dropped request started finish.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(
+            workspaces(),
+            0,
+            "unowned workspace left after dropping the start at {polls} polls"
+        );
+        if completed {
+            break;
+        }
+    }
+    assert_eq!(
+        parked_holding_lock, 0,
+        "starting a session waited while holding the stream admission lock"
+    );
+    app.shutdown().await;
+}
+
+#[tokio::test]
 #[ignore = "generated surround corpus requires FFmpeg AC-3/E-AC-3/DTS/TrueHD/FLAC/PCM/Opus/AAC encoders and libx264; software acceptance"]
 async fn real_surround_codec_corpus_downmixes_with_correct_channel_routing() {
     let root = TempDir::new().unwrap();
-    let (app, router, token) = setup(&root).await;
+    let (app, router, token) = setup_retained(&root).await;
     let item = add_media(&app, root.path()).await;
     let media_dir = std::fs::canonicalize(root.path().join("media")).unwrap();
     // Each source channel carries its own tone; a stereo downmix must keep left
@@ -5320,7 +5453,7 @@ async fn real_surround_codec_corpus_downmixes_with_correct_channel_routing() {
 async fn real_legacy_container_corpus_converts_with_exact_timeline_and_sync() {
     const FPS: f64 = 24.0;
     let root = TempDir::new().unwrap();
-    let (app, router, token) = setup(&root).await;
+    let (app, router, token) = setup_retained(&root).await;
     let item = add_media(&app, root.path()).await;
     let media_dir = std::fs::canonicalize(root.path().join("media")).unwrap();
     let bars = (0..16)

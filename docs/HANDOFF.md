@@ -1,6 +1,6 @@
 # OpenVideoLibrary migration handoff
 
-Updated 15 November 2026 (review-stack split and CodeRabbit reviews). This file records the handoff
+Updated 16 November 2026 (unowned remux workspace fix). This file records the handoff
 for agents resuming work. Read AGENTS.md, STATUS.md, PARITY.md,
 VALIDATION.md, BENCHMARKS.md, ROLLOUT.md, ADR-001-rust.md and openapi.json
 before changing code or making acceptance claims.
@@ -218,29 +218,39 @@ Split gates:
 - PR 3: full `make verify-local` and the 8 N100 checks.
 - PR 4: all 10 Python tests and syntax checks.
 
-**Intermittent N100 failure, still open:** in the first PR 3 N100 run,
-`software-media` failed 2 of 12 tests.
+**Intermittent N100 failure, cause fixed 16 November 2026:** in the first PR 3
+N100 run, `software-media` failed 2 of 12 tests. Both passed when rerun on
+their own, and a full 8-check rerun passed.
 - `abandoned_remux_start_cancels_the_session`: the transcode directory was
-  not yet empty after its sessions ended.
+  not yet empty after its sessions ended. **Product leak, fixed.**
+  `playback::start` awaited `create_dir_all` while holding the `streams`
+  lock, before it inserted the session and armed its drop guard. A client
+  that disconnected during that await left an empty `transcodes/<id>` that
+  nothing owned until the startup sweep. The mkdir is now synchronous, so
+  no await separates creating the workspace from handing it to the session
+  task. The new `dropped_start_never_leaves_an_unowned_workspace` polls a
+  start by hand and drops it at every poll count until one start completes,
+  and also as soon as the handler is parked holding the admission lock. It
+  fails on the old code on macOS arm64 (an unowned workspace after 15–18
+  polls, idle and with every core busy) and passes with the fix.
 - `real_legacy_container_corpus_converts_with_exact_timeline_and_sync`:
-  the session DELETE returned 404, so the session was already gone.
+  the session DELETE returned 404. **Test timing, fixed.** The tests' 5 s
+  `stream_idle` let the reaper remove a finished session while the test
+  probed its files on disk without touching it over HTTP. The nine tests
+  that inspect session output on disk now use `setup_retained` (600 s idle);
+  the others keep the 5 s reaping.
 
-Both passed when rerun on their own, and a full 8-check rerun passed. The
-split's reviewer found likely causes from reading the code. Neither has been
-fixed or confirmed by a regression test yet:
-- **Remux leftover directory (likely a small product leak).**
-  - `playback::start` awaits `create_dir_all` while holding the `streams`
-    lock, and only afterwards inserts the session and arms its drop guard.
-  - A client disconnecting during that await leaves an empty
-    `transcodes/<id>` that nothing owns until the startup sweep.
-  - Holding the lock across that filesystem work also serialises admission
-    under load.
-- **Legacy-corpus 404 (test timing).**
-  - The test config's 5 s `stream_idle` lets the reaper remove a finished
-    session while the test probes its files on disk without touching it over
-    HTTP.
-  - Fix this in the test by lengthening the idle period or touching the
-    session between probes.
+See "Unowned remux workspace and idle-reaped test sessions" in
+VALIDATION.md for evidence. All eight N100 checks passed afterwards
+(`validation-n100-remux-start-leak.json`); one passing run cannot prove
+an intermittent failure is gone, so watch later runs. The synchronous mkdir runs on a runtime worker
+under the admission lock, as the free-space check already did, so a hung
+remote data directory now stalls a worker rather than a blocking-pool
+thread; admission stalled in either case. Two unowned-resource gaps
+outside this change remain: a failed `remove_dir_all` at session end is
+ignored (the directory stays until the startup sweep), and a TMDB artwork
+download abandoned between writing its temporary file and renaming it
+leaves `artwork/poster-<token>`, which nothing sweeps.
 
 **CodeRabbit review of PR 1 (13 November 2026).** All 15 comments were
 verified against the code, and all were valid. They are fixed in one commit on
@@ -479,7 +489,8 @@ Evidence: new browser checks fail when the setup, list, progress or retry
 fix is reverted. The double-submit guard has no test. `make verify-local`
 passed on its second run. The first run hit the known intermittent
 `abandoned_remux_start_cancels_the_session` failure (server code unchanged
-here), which then passed five isolated reruns. An independent review and follow-up found nothing blocking;
+here), which then passed five isolated reruns. Its cause was fixed on 16
+November 2026; see "Intermittent N100 failure". An independent review and follow-up found nothing blocking;
 a client timeout on progress writes was tried and removed, because an
 aborted request cannot cancel a write the server has already queued.
 

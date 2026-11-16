@@ -389,7 +389,12 @@ pub async fn start(
     }
     let id = auth::token()?;
     let dir = app.config.data.join("transcodes").join(&id);
-    tokio::fs::create_dir_all(&dir).await?;
+    // No await between creating the workspace and handing it to the session
+    // task below: a client that disconnected during an await here would drop
+    // this future after the directory existed but before anything owned it,
+    // leaving it until the next startup sweep. The mkdir is synchronous, like
+    // the free-space check above.
+    std::fs::create_dir_all(&dir)?;
     let (done_tx, done) = watch::channel(false);
     let stream = Arc::new(Stream {
         owner: u.id,
