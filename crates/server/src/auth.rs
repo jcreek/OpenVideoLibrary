@@ -278,11 +278,7 @@ pub async fn logout(State(app): State<Arc<App>>, headers: HeaderMap) -> Result<i
             Ok(())
         })
         .await?;
-    Ok((
-        [(
-            header::SET_COOKIE,
-            "ovl_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict",
-        )],
-        Json(json!({"ok":true})),
-    ))
+    // The cookie is not cleared: its session is gone, and a logout response that
+    // arrives after a new sign-in would otherwise delete the new session's cookie.
+    Ok(Json(json!({"ok":true})))
 }

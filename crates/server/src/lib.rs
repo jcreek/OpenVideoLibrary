@@ -170,7 +170,7 @@ impl App {
             maintenance.tick().await; scan.tick().await;
             loop { tokio::select! {
                 _=app.cancel.cancelled()=>break,
-                _=maintenance.tick()=>{ let _=app.db.call(|c| {c.execute("DELETE FROM sessions WHERE expires<=?",[auth::now()])?;Ok(())}).await; },
+                _=maintenance.tick()=>{ let _=app.db.call(|c| {c.execute("DELETE FROM sessions WHERE expires<=?",[auth::now()])?;c.execute("DELETE FROM ovl_progress_order WHERE updated<=?",[auth::now()-86400])?;Ok(())}).await; },
                 _=scan.tick()=>{ let _=scan::start(app.clone()).await; }
             }}
         });

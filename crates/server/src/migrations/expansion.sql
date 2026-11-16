@@ -29,3 +29,12 @@ CREATE TABLE IF NOT EXISTS ovl_music_probe_failures (
  file_id INTEGER PRIMARY KEY REFERENCES media_files(id) ON DELETE CASCADE,
  mtime INTEGER NOT NULL, size INTEGER NOT NULL, retry_at INTEGER NOT NULL
 );
+-- The newest progress write each client sent per title, so an older write from
+-- that client that arrives late is ignored. Rows are pruned after a day.
+CREATE TABLE IF NOT EXISTS ovl_progress_order (
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+ client TEXT NOT NULL, sequence INTEGER NOT NULL, updated INTEGER NOT NULL,
+ PRIMARY KEY(user_id,item_id,client)
+);
+CREATE INDEX IF NOT EXISTS ovl_progress_order_updated ON ovl_progress_order(updated);

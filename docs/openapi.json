@@ -732,10 +732,15 @@
                   "properties": {
                     "ok": {
                       "type": "boolean"
+                    },
+                    "applied": {
+                      "type": "boolean",
+                      "description": "False when the write was ignored as older than one already stored from the same client."
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "applied"
                   ],
                   "additionalProperties": false
                 }
@@ -2355,7 +2360,26 @@
           },
           "Watched": {
             "type": "boolean"
+          },
+          "Client": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9-]{1,64}$",
+            "description": "Identifies one client, such as a browser tab, for write ordering. Send together with Sequence."
+          },
+          "Sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Increases with each write from Client. A write whose Sequence is not above the last one stored for that Client and title is ignored."
           }
+        },
+        "dependentRequired": {
+          "Client": [
+            "Sequence"
+          ],
+          "Sequence": [
+            "Client"
+          ]
         },
         "required": [
           "Position",
