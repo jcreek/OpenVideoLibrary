@@ -25,7 +25,18 @@ $: musicSelected=!!selected&&libraries.some(l=>l.id===selected?.library_id&&l.ki
 let account=0;
 class StaleAccount extends Error {}
 class ApiError extends Error {status:number;constructor(message:string,status:number){super(message);this.status=status;}}
-async function api(url:string,method='GET',body?:unknown){const owner=account;const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});if(owner!==account)throw new StaleAccount();const data=await r.json();if(owner!==account)throw new StaleAccount();if(!r.ok){if(r.status===401){logged=false;loadFailed=false;}throw new ApiError(data.error||'Request failed',r.status);}return data;}
+// A network or parse failure after the account changed is stale too: it must not replace the expiry message.
+function staleFailure(owner:number){return (e:unknown)=>{throw owner!==account?new StaleAccount():e;};}
+async function api(url:string,method='GET',body?:unknown){const owner=account;const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)}).catch(staleFailure(owner));if(owner!==account)throw new StaleAccount();
+ // A signed-in 401 ends the session before its body is read, which can fail; a failed login still reads its message.
+ if(r.status===401&&logged){expire();throw new ApiError(sessionEnded,401);}
+ const data=await r.json().catch(staleFailure(owner));if(owner!==account)throw new StaleAccount();if(!r.ok){if(r.status===401&&expire())throw new ApiError(sessionEnded,401);throw new ApiError(data.error||'Request failed',r.status);}return data;}
+// A 401 means the session has ended: drop the account's state and stop its player and timers.
+// The playback session cannot be deleted without a session, so no DELETE is sent; a late
+// 401 from that request could otherwise reset an account that is signing in again.
+// Returns whether a signed-in session ended (a failed login is not an expiry).
+const sessionEnded='Your session has ended. Sign in again.';
+function expire(){const ended=logged;session='';resetAccount();logged=false;if(ended)error=sessionEnded;return ended;}
 async function guard(fn:()=>Promise<void>){error='';try{await fn()}catch(e){if(!(e instanceof StaleAccount))error=e instanceof Error?e.message:String(e)}}
 let browseGeneration=0;
 async function load(){
@@ -59,12 +70,15 @@ async function startup(){
  // Without the status answer neither the login form nor the library can be shown, so offer a retry.
  try{setup=(await api('status')).setup;}catch(e){statusFailed=true;throw e;}
  statusFailed=false;
- if(!setup){try{await refresh()}catch(e){if(e instanceof ApiError&&e.status===401){logged=false;error='';}else{loadFailed=true;error=e instanceof Error?e.message:String(e);}}}
+ if(!setup){try{await refresh()}catch(e){if(e instanceof ApiError&&e.status===401){
+  // A stale cookie just shows the login form; a session that ended mid-load keeps its message.
+  if(error!==sessionEnded)error='';logged=false;}else if(!(e instanceof StaleAccount)){loadFailed=true;error=e instanceof Error?e.message:String(e);}}}
  ready=true;
 }
 onMount(()=>{guard(startup);const interval=setInterval(()=>{if(selected&&!transition&&progressPending===0)guard(save);if(admin&&scanning)guard(async()=>{scanning=(await api('scan')).running;if(!scanning){notice='Scan finished.';await refresh();}});},15000);return()=>{clearInterval(interval);hls?.destroy();if(captionURL)URL.revokeObjectURL(captionURL);};});
 function resetAccount(){
- account++;browseGeneration++;playerGeneration++;listGeneration++;stopPlayer();loadFailed=false;
+ // The previous account's playback cleanup continues on its own; the next account must not wait for it.
+ account++;browseGeneration++;playerGeneration++;listGeneration++;stopPlayer();playerCleanup=Promise.resolve();pendingPlayback=Promise.resolve();loadFailed=false;
  admin=false;scanning=false;notice='';query='';library='';offset=0;continuing=false;section='library';seriesFilter='';season='';
  items=[];libraries=[];shows=[];users=[];selected=null;info=null;lyrics=null;busy=false;transition=false;
  savedLists=[];activeList=null;playingQueue=null;targetListID='';playbackReason='';
@@ -75,16 +89,22 @@ function resetAccount(){
 }
 async function login(){
  if(signingIn)return;signingIn=true;
- try{await guard(async()=>{if(setup){await api('setup','POST',{Name:name,Password:password});setup=false;}await api('login','POST',{Name:name,Password:password});password='';resetAccount();
+ try{await guard(async()=>{await loggingOut;if(setup){await api('setup','POST',{Name:name,Password:password});setup=false;}await api('login','POST',{Name:name,Password:password});password='';resetAccount();
   // The session is valid now; a failed load keeps it and offers a retry.
   try{await refresh();}catch(e){if(logged&&!(e instanceof StaleAccount))loadFailed=true;throw e;}
  });}
  finally{signingIn=false;}
 }
+// A logout response clears the session cookie, so a login sent before it settles could lose its new cookie.
+let loggingOut:Promise<unknown>=Promise.resolve();
 async function signOut(){
+ const owner=account;
  // Player cleanup must not prevent the logout request.
  await close(false).catch(()=>{});await pendingPlayback.catch(()=>{});
- await api('logout','POST');
+ // The session may have ended meanwhile and another account signed in; leave that account alone.
+ if(owner!==account)return;
+ // A second sign-out must not replace an earlier logout that is still pending.
+ const request=api('logout','POST');loggingOut=Promise.all([loggingOut,request.then(()=>{},()=>{})]).then(()=>{});await request;
  resetAccount();logged=false;name='';password='';
 }
 // Progress writes run one at a time, so a later save cannot undo a newer watched mark.
@@ -141,7 +161,9 @@ async function start(position:number,generation=++playerGeneration){
   if(generation!==playerGeneration)return;
   // Keep the response observable: a cancelled POST may still create a server session.
   const creation=api('items/'+item.id+'/playback','POST',request);
-  pendingPlayback=creation.then(async p=>{if(generation!==playerGeneration&&p.id)await api('playback/'+p.id,'DELETE').catch(()=>{});},()=>{});
+  // Only the account that created the session can delete it; after a change its 401 would expire the new one.
+  const owner=account;
+  pendingPlayback=creation.then(async p=>{if(generation!==playerGeneration&&p.id&&owner===account)await api('playback/'+p.id,'DELETE').catch(()=>{});},()=>{});
   const p=await creation;await pendingPlayback;if(generation!==playerGeneration)return;
   session=p.id||'';actualMode=p.mode;playbackReason=p.reason||'';startOffset=p.mode==='direct'?0:(typeof p.start==='number'&&Number.isFinite(p.start)?p.start:position);seekTo=position;
   await tick();if(generation!==playerGeneration)return;
@@ -149,14 +171,14 @@ async function start(position:number,generation=++playerGeneration){
    const {default:Hls}=await import('hls.js');if(generation!==playerGeneration)return;
    if(Hls.isSupported()){
     const instance=new Hls({startPosition:0});hls=instance;
-    instance.on(Hls.Events.ERROR,(_event,data)=>{if(hls===instance&&data.fatal)error='Playback failed: '+data.details;});
+    instance.on(Hls.Events.ERROR,(_event,data)=>{if(hls!==instance)return;if(data.response?.code===401){expire();return;}if(data.fatal)error='Playback failed: '+data.details;});
     instance.loadSource(p.url);instance.attachMedia(video);
    }else video.src=p.url;
   }else video.src=p.url;
   transition=false;if(subtitle.startsWith('text:')||subtitle==='external')await captions(generation);
  }finally{if(generation===playerGeneration){busy=false;transition=false;}}
 }
-async function captions(generation=playerGeneration){if(!selected)return;const offset=startOffset;const r=await fetch('/api/v1/items/'+selected.id+'/subtitles',{method:'POST',headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:JSON.stringify({Index:subtitle==='external'?0:Number(subtitle.slice(5)),External:subtitle==='external'})});if(!r.ok)throw Error((await r.json()).error);let vtt=await r.text();if(generation!==playerGeneration)return;if(offset){vtt=vtt.replace(/(\d{2,}):(\d{2}):(\d{2})\.(\d{3})/g,(_all,h,m,s,ms)=>{const t=Math.max(0,(Number(h)*3600+Number(m)*60+Number(s))*1000+Number(ms)-offset*1000);return String(Math.floor(t/3600000)).padStart(2,'0')+':'+String(Math.floor(t/60000)%60).padStart(2,'0')+':'+String(Math.floor(t/1000)%60).padStart(2,'0')+'.'+String(Math.floor(t)%1000).padStart(3,'0');});}if(captionURL)URL.revokeObjectURL(captionURL);captionURL=URL.createObjectURL(new Blob([vtt],{type:'text/vtt'}));await tick();if(generation!==playerGeneration)return;const track=video.querySelector('track');if(track){track.src=captionURL;track.track.mode='showing';}}
+async function captions(generation=playerGeneration){if(!selected)return;const offset=startOffset,owner=account;const r=await fetch('/api/v1/items/'+selected.id+'/subtitles',{method:'POST',headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:JSON.stringify({Index:subtitle==='external'?0:Number(subtitle.slice(5)),External:subtitle==='external'})}).catch(staleFailure(owner));if(owner!==account)return;if(r.status===401){if(expire())throw new ApiError(sessionEnded,401);}if(!r.ok){const failure=await r.json().catch(staleFailure(owner));if(owner!==account)throw new StaleAccount();throw Error(failure.error);}let vtt=await r.text().catch(staleFailure(owner));if(generation!==playerGeneration)return;if(offset){vtt=vtt.replace(/(\d{2,}):(\d{2}):(\d{2})\.(\d{3})/g,(_all,h,m,s,ms)=>{const t=Math.max(0,(Number(h)*3600+Number(m)*60+Number(s))*1000+Number(ms)-offset*1000);return String(Math.floor(t/3600000)).padStart(2,'0')+':'+String(Math.floor(t/60000)%60).padStart(2,'0')+':'+String(Math.floor(t/1000)%60).padStart(2,'0')+'.'+String(Math.floor(t)%1000).padStart(3,'0');});}if(captionURL)URL.revokeObjectURL(captionURL);captionURL=URL.createObjectURL(new Blob([vtt],{type:'text/vtt'}));await tick();if(generation!==playerGeneration)return;const track=video.querySelector('track');if(track){track.src=captionURL;track.track.mode='showing';}}
 function reportPlayback(event:'first_frame'|'seek'|'stall',duration:number){if(selected)api('items/'+selected.id+'/telemetry','POST',{Event:event,DurationMs:duration,Mode:actualMode}).catch(()=>{});}
 function playing(){const now=performance.now();if(frameRequestedAt){if(!musicSelected)reportPlayback('first_frame',now-frameRequestedAt);frameRequestedAt=0;}if(waitingAt){reportPlayback('stall',now-waitingAt);waitingAt=0;}if(seekRequestedAt){reportPlayback('seek',now-seekRequestedAt);seekRequestedAt=0;}}
 function clientCapabilities():ClientCapabilities {
@@ -235,7 +257,7 @@ function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(M
 {#if seriesFilter}<div class="toolbar"><button onclick={()=>guard(async()=>{seriesFilter='';season='';offset=0;await load();})}>All titles</button><label>Season<input type="number" min="0" bind:value={season} onchange={()=>{offset=0;guard(load);}} placeholder="All"/></label></div>{/if}
 {#if selected}<section class="player"><div class="heading"><h2>{selected.title}</h2><button onclick={()=>guard(close)}>Close player</button></div>{#if musicSelected}
 {#key selected.id}<img width="160" height="160" alt="" src={'/api/v1/items/'+selected.id+'/artwork?embedded=true'} onerror={e=>{e.currentTarget.setAttribute("hidden","");}}/>{/key}
-<audio aria-label="Music player" bind:this={video} ontimeupdate={()=>{lyricPosition=(video.currentTime+startOffset)*1000;}} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onloadedmetadata={()=>{if(!selected)return;if(actualMode==='direct')video.currentTime=seekTo;else if(seekTo-startOffset>0.05)video.currentTime=seekTo-startOffset;}} onpause={()=>{if(!transition)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This music track could not be played.';}}></audio>
+<audio aria-label="Music player" bind:this={video} ontimeupdate={()=>{lyricPosition=(video.currentTime+startOffset)*1000;}} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onloadedmetadata={()=>{if(!selected)return;if(actualMode==='direct')video.currentTime=seekTo;else if(seekTo-startOffset>0.05)video.currentTime=seekTo-startOffset;}} onpause={()=>{if(!transition&&selected)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This music track could not be played.';}}></audio>
 {#if info?.format.tags}{@const tags=info.format.tags}<p>{[tags.title,tags.artist,tags.album].filter(Boolean).join(' · ')}</p>
 {#if tags.disc||tags.track}<p>{[tags.disc?'Disc '+tags.disc:'',tags.track?'Track '+tags.track:''].filter(Boolean).join(' · ')}</p>{/if}{/if}
 {#if lyrics}
@@ -247,7 +269,7 @@ function formatTime(seconds:number){return Math.floor(seconds/3600)+':'+String(M
 {:else}{line.text}{/if}</li>
 {/each}</ol>{/if}
 {:else}<button onclick={()=>guard(loadLyrics)}>Show lyrics</button>{/if}
-{:else}<video bind:this={video} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onseeked={()=>{if(seekRequestedAt&&actualMode==='direct'){reportPlayback('seek',performance.now()-seekRequestedAt);seekRequestedAt=0;}}} onloadedmetadata={()=>{if(!selected)return;if(actualMode==='direct')video.currentTime=seekTo;else if(seekTo-startOffset>0.05)video.currentTime=seekTo-startOffset;}} onpause={()=>{if(!transition)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This media could not be played. Try transcoding.';}}><track kind="subtitles" label="Selected subtitles" srclang="en"/></video>
+{:else}<video bind:this={video} controls autoplay onplaying={playing} onwaiting={()=>{if(!frameRequestedAt&&!transition&&!video.paused)waitingAt=performance.now();}} onseeked={()=>{if(seekRequestedAt&&actualMode==='direct'){reportPlayback('seek',performance.now()-seekRequestedAt);seekRequestedAt=0;}}} onloadedmetadata={()=>{if(!selected)return;if(actualMode==='direct')video.currentTime=seekTo;else if(seekTo-startOffset>0.05)video.currentTime=seekTo-startOffset;}} onpause={()=>{if(!transition&&selected)guard(save);}} onended={()=>guard(ended)} onerror={()=>{if(!transition)error='This media could not be played. Try transcoding.';}}><track kind="subtitles" label="Selected subtitles" srclang="en"/></video>
 <div class="toolbar"><label>Playback<select aria-label="Playback" bind:value={mode}><option value="auto">Automatic</option><option value="direct">Direct play</option><option value="remux">Remux</option><option value="transcode">Transcode to SDR</option></select></label><label>Audio<select aria-label="Audio" bind:value={audio}>{#each info?.streams.filter(t=>t.codec_type==='audio')||[] as t,i}<option value={i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name}</option>{/each}</select></label><label>Subtitles<select aria-label="Subtitles" bind:value={subtitle}><option value="off">Off</option><option value="external">External sibling SRT</option>{#each info?.streams.filter(t=>t.codec_type==='subtitle')||[] as t,i}<option value={(textSubtitle(t.codec_name)?'text:':'burn:')+i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name}{textSubtitle(t.codec_name)?' (text)':' (burn in)'}</option>{#if textSubtitle(t.codec_name)}<option value={'burn:'+i}>{t.tags?.language||'Track '+(i+1)} · {t.codec_name} (burn in{['ass','ssa'].includes(t.codec_name)?', preserve styling':''})</option>{/if}{/each}</select></label><label class="inline"><input type="checkbox" bind:checked={adaptive}/>Adaptive renditions (transcoding)</label><button disabled={busy} onclick={()=>guard(applyPlayback)}>{busy?'Preparing…':'Apply playback settings'}</button><button onclick={()=>guard(async()=>{if(selected)await mark(selected);})}>{selected.watched?'Mark unwatched':'Mark watched'}</button></div>{/if}
 {#if duration>0}<label>Jump to {formatTime(Number(seekTo))} / {formatTime(duration)}<input type="range" min="0" max={duration} step="1" bind:value={seekTo} onchange={()=>guard(async()=>{seekRequestedAt=performance.now();if(actualMode==='direct')video.currentTime=Number(seekTo);else await start(Number(seekTo));})}/></label>{/if}<p>{selected.overview}</p><p role="status">{playbackReason}</p><div class="toolbar"><label>Add to list<select aria-label="Add to list" bind:value={targetListID}><option value="">Choose a collection, playlist or queue</option>{#each savedLists as l}<option value={l.id}>{l.name} · {l.kind}</option>{/each}</select></label><button disabled={!targetListID} onclick={()=>guard(addToList)}>Add title</button></div>
 {#if admin}<details><summary>Edit title and metadata</summary><form onsubmit={(e)=>{e.preventDefault();guard(async()=>{const item=selected;if(!item)return;const title=editTitle,overview=editOverview;await api('items/'+item.id,'PATCH',{Title:title,Overview:overview});if(selected?.id!==item.id)return;selected.title=title;selected.overview=overview;await load();notice='Metadata saved.';});}}><label>Title<input bind:value={editTitle} required/></label><label>Overview<textarea bind:value={editOverview}></textarea></label><button>Save metadata</button></form>{#if !musicSelected}<form onsubmit={(e)=>{e.preventDefault();guard(async()=>{const item=selected;if(!item)return;const result=await api('items/'+item.id+'/match','POST',{ID:Number(tmdbID),Kind:tmdbKind});if(selected?.id!==item.id)return;selected.title=editTitle=result.title;selected.overview=editOverview=result.overview;await load();notice='TMDB metadata imported.';});}}><label>TMDB ID<input bind:value={tmdbID} type="number" min="1" required/></label><select bind:value={tmdbKind} aria-label="TMDB media type"><option value="movie">Movie</option><option value="tv">TV series</option></select><button>Match TMDB title</button></form>{/if}</details>{/if}

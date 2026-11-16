@@ -40,13 +40,12 @@ Four increments from this session are complete and now on `main`. The current
 Linux images also pass the container smoke. With the user's approval,
 history from the first handoff commit onward was rewritten to remove the
 N100's private address and key filename, then force-pushed. PR #1's
-commit IDs changed, but no file content did. Two local-only refs keep the
-old history on the development machine:
-`local-backup-before-history-scrub` and filter-branch's
-`refs/original/refs/heads/rust-migration`. The first is a branch, so never
-use `git push --all` or `--mirror`, and delete both once the user agrees.
-The local `rust-migration` branch is also unredacted and local-only now. It
-has no upstream; never push it.
+commit IDs changed, but no file content did. With the user's agreement, the
+two local refs that kept the old history, `local-backup-before-history-scrub`
+and filter-branch's `refs/original/refs/heads/rust-migration`, were deleted
+on 15 November 2026. The local `rust-migration` branch is unredacted and
+local-only. It has no upstream, so never push it, and never use
+`git push --all` or `--mirror`.
 
 Old commits may stay reachable on GitHub by commit ID, including from PR #1's
 force-push event and `refs/pull/1/head`. The user decided not to ask GitHub
@@ -203,8 +202,7 @@ pins the plain script, and the other five pin it with their committed patch appl
 - `n100-native-100k-rust-before-after.json`
 
 The original scripts are kept locally in the `rust-migration` branch at
-`48753e7`, and the backup refs hold the same files. Deleting the backup refs
-is fine while that branch stays. Because PR #1 was not purged, the hashes can
+`48753e7`. Because PR #1 was not purged, the hashes can
 still be verified against PR #1's head commit (`48753e7`). The prepared 10k stage on the N100 was
 created with the old device name. Regenerate it before rerunning the
 redacted 10k script, or the token lookup returns nothing.
@@ -326,8 +324,83 @@ Evidence:
 - The server is unchanged, so the N100 was not rerun.
 - An independent review and its follow-up found nothing blocking.
 
-Still open: a session that expires (401) keeps the previous account's
-state in memory until the next login resets it.
+A session that expires (401) used to keep the previous account's state in
+memory until the next login. Fixed on 15 November 2026: a 401 from any API
+request, the HLS loader or the subtitle request now resets the account state,
+stops the player and its timers, and shows "Your session has ended. Sign in
+again." Browser tests fail on the old client in all three engines, and the
+HLS and subtitle cases fail on the first version of the fix. The client
+cannot delete the server playback session without a valid session, so that
+session holds its admission slot until the idle reaper removes it after 300 s.
+The username stays filled in after an expiry, as it does after a failed
+login; signing out clears it. A 401 on a direct-play or music media source,
+or on native HLS where hls.js is unsupported, is not detected. Once the
+element has loaded metadata, the 15 s progress save notices the expiry while
+the title is open. If the first load fails, the player shows its playback
+error and the save sends no request, so the expiry is noticed only when a
+later API request returns 401. As defence in depth, the pause handlers skip
+the save once the player has been reset, so a pause event cannot clear the
+session-ended message. No pause event reaches them anyway: `stopPlayer()`
+calls `load()` straight after `pause()`, and the HTML load algorithm drops the
+queued event (no event arrived in Chromium, Firefox or WebKit). The guard
+therefore has no browser test.
+
+A second CodeRabbit pass (16 November 2026) raised three more expiry gaps.
+Two were fixed with browser tests that fail on the earlier client in all
+three engines; the third is still open (below):
+- A request that started before the expiry and then failed with a network
+  error replaced the session-ended message. Network and parse failures after
+  an account change are now treated as stale, and `startup()` ignores them
+  too.
+- After signing in again, the next account's player waited on the previous
+  account's playback cleanup. The independent review found a second case of
+  this: the late cleanup of a playback request that returned after the player
+  closed. The player now waits for neither, and a test covers each case. If
+  the old DELETE is hung, or the session has already expired, the old session
+  keeps its stream slot until that DELETE completes or the idle reaper removes
+  it (up to 300 s). Until then a new remux or transcode can hit the stream
+  limit (`OVL_MAX_STREAMS`, default 2).
+
+A third pass found two smaller gaps, both fixed:
+- A signed-in 401 now ends the session before its body is read, so an
+  unreadable body (tested with a non-JSON 401) cannot leave the account
+  signed in. A failed login still reads its error message.
+- `captions()` now rechecks the account after reading a subtitle error body.
+  No browser test covers this: `route.fulfill` cannot delay a response body
+  after its headers, so a test would need a separate slow HTTP server.
+
+A fourth pass found that an interrupted sign-out could sign out the next
+account. Both cases are fixed, with browser tests that fail on the earlier
+client in all three engines:
+- If the session ended while sign-out waited for player cleanup, and the user
+  signed in again, the old sign-out later sent logout with the new cookie and
+  reset the new account. It now stops if the account has changed.
+- A logout response clears the session cookie, so a login sent while that
+  logout was in flight could lose its new cookie. A login now waits for every
+  logout request still pending, including an earlier one from a second click
+  on Sign out (a fifth CodeRabbit pass found that case; it has its own test).
+  A double click still sends two logouts. If the server answered the second
+  (a 401) before the client handled the first, the user would see the
+  session-ended message instead of a clean sign-out. That is cosmetic, and
+  making a second click reuse the pending sign-out would fix it.
+
+If a sign-out stops this way, it never sends its logout. With this server
+that is harmless, because a signed-in 401 only means the session is already
+gone. Behind a proxy that returns its own 401s, the old session could stay
+valid and a reload would sign the user back in.
+
+The browser tests now reuse a still-valid session for their setup, because
+the server allows 20 sign-ins a minute from one address (`auth.rs`) and the
+suite exceeded that.
+
+Still open, all pre-existing and part of the hung-write work below:
+- A hung progress write from the previous account still delays the next
+  account's saves.
+- Signing out waits for a hung playback DELETE or playback request.
+- New in this PR: a hung logout request blocks the next sign-in, with the
+  Sign in button disabled, until the page is reloaded. A bounded wait would
+  need care: if it gave up first, the late logout could still clear the new
+  cookie.
 
 **Third CodeRabbit review of PR 2 (14 November 2026).** A full review
 raised seven comments. Six were valid and fixed in one commit on
