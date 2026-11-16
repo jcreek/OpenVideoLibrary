@@ -325,12 +325,15 @@ Evidence:
 - An independent review and its follow-up found nothing blocking.
 
 A session that expires (401) used to keep the previous account's state in
-memory until the next login. Fixed on 15 November 2026: any 401 now resets
-the account state and stops the player, so HLS playlist reloads and progress
-saves stop. A browser test fails on the old client in all three engines. The
-client cannot delete the server playback session without a valid session,
-so that session holds its admission slot until the idle reaper removes it
-(300 s by default).
+memory until the next login. Fixed on 15 November 2026: a 401 from any API
+request, the HLS loader or the subtitle request now resets the account state,
+stops the player and its timers, and shows "Your session has ended. Sign in
+again." Browser tests fail on the old client in all three engines, and the
+HLS and subtitle cases fail on the first version of the fix. The client
+cannot delete the server playback session without a valid session, so that
+session holds its admission slot until the idle reaper removes it after 300 s.
+The username stays filled in after an expiry, as it does after a failed
+login; signing out clears it.
 
 **Third CodeRabbit review of PR 2 (14 November 2026).** A full review
 raised seven comments. Six were valid and fixed in one commit on

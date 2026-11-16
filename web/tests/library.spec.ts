@@ -278,7 +278,7 @@ test('HLS timeline follows the server-reported stream start',async({page})=>{
  expect(position).toBeGreaterThanOrEqual(5.9);
  await page.getByRole('button',{name:'Close player',exact:true}).click();
 });
-test('an expired session drops the previous account state and stops playback',async({page})=>{
+test('an expired session stops playback and every timer for the previous account',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
  expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
@@ -300,6 +300,7 @@ test('an expired session drops the previous account state and stops playback',as
  // Any request can receive the 401 first; the click only makes sure one is sent.
  await page.getByRole('button',{name:'All media',exact:true}).click({timeout:2000}).catch(()=>{});
  await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+ await expect(page.getByRole('alert')).toHaveText('Your session has ended. Sign in again.');
  // Nothing from the previous account keeps running: no progress saves, playlist or segment loads.
  const after:string[]=[];
  page.on('request',r=>{const u=new URL(r.url());if(u.pathname.startsWith('/api/v1/'))after.push(r.method()+' '+u.pathname);});
@@ -308,8 +309,46 @@ test('an expired session drops the previous account state and stops playback',as
  expect(after).toEqual([]);
  expect(sessions.size).toBeGreaterThan(0);
  } finally {
-  expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
-  for(const id of sessions)await page.request.delete('/api/v1/playback/'+id,{headers});
+  // Cleanup must not replace the test's own failure, so it never throws.
+  try{await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}});
+   for(const id of sessions)await page.request.delete('/api/v1/playback/'+id,{headers});}catch{}
+ }
+});
+
+test('a 401 to an HLS playlist or a subtitle request also ends the session',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Expiry TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+ await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
+ const sessions=new Set<string>();
+ page.on('response',async r=>{if(r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/items/'+item.id+'/playback'&&r.ok())sessions.add((await r.json()).id);});
+ const unauthorized={status:401,contentType:'application/json',body:JSON.stringify({error:'authentication required'})};
+ const open=async()=>{
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  await page.getByRole('button',{name:'All media',exact:true}).click();await page.getByRole('button',{name:new RegExp('TV ▶ '+item.title)}).click();
+ };
+ try {
+  // Only the HLS loader sees this 401; no api() request does.
+  await page.route('**/api/v1/playback/*/**',route=>route.request().method()==='GET'?route.fulfill(unauthorized):route.fallback());
+  await open();
+  await page.getByLabel('Playback',{exact:true}).selectOption('remux');
+  // The 401 can end the session before Apply is clicked; the click only makes sure playback starts.
+  await page.getByRole('button',{name:'Apply playback settings',exact:true}).click({timeout:2000}).catch(()=>{});
+  await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText('Your session has ended. Sign in again.');
+  await page.unroute('**/api/v1/playback/*/**');
+  // The subtitle request uses its own fetch.
+  await page.route('**/api/v1/items/*/subtitles',route=>route.fulfill(unauthorized));
+  await open();
+  await page.getByLabel('Subtitles',{exact:true}).selectOption('external');
+  await page.getByRole('button',{name:'Apply playback settings',exact:true}).click({timeout:2000}).catch(()=>{});
+  await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText('Your session has ended. Sign in again.');
+ } finally {
+  await page.unrouteAll({behavior:'ignoreErrors'});
+  try{for(const id of sessions)await page.request.delete('/api/v1/playback/'+id,{headers});}catch{}
  }
 });
 

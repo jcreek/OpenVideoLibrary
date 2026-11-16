@@ -25,11 +25,13 @@ $: musicSelected=!!selected&&libraries.some(l=>l.id===selected?.library_id&&l.ki
 let account=0;
 class StaleAccount extends Error {}
 class ApiError extends Error {status:number;constructor(message:string,status:number){super(message);this.status=status;}}
-async function api(url:string,method='GET',body?:unknown){const owner=account;const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});if(owner!==account)throw new StaleAccount();const data=await r.json();if(owner!==account)throw new StaleAccount();if(!r.ok){if(r.status===401)expire();throw new ApiError(data.error||'Request failed',r.status);}return data;}
+async function api(url:string,method='GET',body?:unknown){const owner=account;const r=await fetch('/api/v1/'+url,{method,headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:body===undefined?undefined:JSON.stringify(body)});if(owner!==account)throw new StaleAccount();const data=await r.json();if(owner!==account)throw new StaleAccount();if(!r.ok){if(r.status===401&&expire())throw new ApiError(sessionEnded,401);throw new ApiError(data.error||'Request failed',r.status);}return data;}
 // A 401 means the session has ended: drop the account's state and stop its player and timers.
 // The playback session cannot be deleted without a session, so no DELETE is sent; a late
 // 401 from that request could otherwise reset an account that is signing in again.
-function expire(){session='';resetAccount();logged=false;}
+// Returns whether a signed-in session ended (a failed login is not an expiry).
+const sessionEnded='Your session has ended. Sign in again.';
+function expire(){const ended=logged;session='';resetAccount();logged=false;if(ended)error=sessionEnded;return ended;}
 async function guard(fn:()=>Promise<void>){error='';try{await fn()}catch(e){if(!(e instanceof StaleAccount))error=e instanceof Error?e.message:String(e)}}
 let browseGeneration=0;
 async function load(){
@@ -145,7 +147,9 @@ async function start(position:number,generation=++playerGeneration){
   if(generation!==playerGeneration)return;
   // Keep the response observable: a cancelled POST may still create a server session.
   const creation=api('items/'+item.id+'/playback','POST',request);
-  pendingPlayback=creation.then(async p=>{if(generation!==playerGeneration&&p.id)await api('playback/'+p.id,'DELETE').catch(()=>{});},()=>{});
+  // Only the account that created the session can delete it; after a change its 401 would expire the new one.
+  const owner=account;
+  pendingPlayback=creation.then(async p=>{if(generation!==playerGeneration&&p.id&&owner===account)await api('playback/'+p.id,'DELETE').catch(()=>{});},()=>{});
   const p=await creation;await pendingPlayback;if(generation!==playerGeneration)return;
   session=p.id||'';actualMode=p.mode;playbackReason=p.reason||'';startOffset=p.mode==='direct'?0:(typeof p.start==='number'&&Number.isFinite(p.start)?p.start:position);seekTo=position;
   await tick();if(generation!==playerGeneration)return;
@@ -153,14 +157,14 @@ async function start(position:number,generation=++playerGeneration){
    const {default:Hls}=await import('hls.js');if(generation!==playerGeneration)return;
    if(Hls.isSupported()){
     const instance=new Hls({startPosition:0});hls=instance;
-    instance.on(Hls.Events.ERROR,(_event,data)=>{if(hls===instance&&data.fatal)error='Playback failed: '+data.details;});
+    instance.on(Hls.Events.ERROR,(_event,data)=>{if(hls!==instance)return;if(data.response?.code===401){expire();return;}if(data.fatal)error='Playback failed: '+data.details;});
     instance.loadSource(p.url);instance.attachMedia(video);
    }else video.src=p.url;
   }else video.src=p.url;
   transition=false;if(subtitle.startsWith('text:')||subtitle==='external')await captions(generation);
  }finally{if(generation===playerGeneration){busy=false;transition=false;}}
 }
-async function captions(generation=playerGeneration){if(!selected)return;const offset=startOffset;const r=await fetch('/api/v1/items/'+selected.id+'/subtitles',{method:'POST',headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:JSON.stringify({Index:subtitle==='external'?0:Number(subtitle.slice(5)),External:subtitle==='external'})});if(!r.ok)throw Error((await r.json()).error);let vtt=await r.text();if(generation!==playerGeneration)return;if(offset){vtt=vtt.replace(/(\d{2,}):(\d{2}):(\d{2})\.(\d{3})/g,(_all,h,m,s,ms)=>{const t=Math.max(0,(Number(h)*3600+Number(m)*60+Number(s))*1000+Number(ms)-offset*1000);return String(Math.floor(t/3600000)).padStart(2,'0')+':'+String(Math.floor(t/60000)%60).padStart(2,'0')+':'+String(Math.floor(t/1000)%60).padStart(2,'0')+'.'+String(Math.floor(t)%1000).padStart(3,'0');});}if(captionURL)URL.revokeObjectURL(captionURL);captionURL=URL.createObjectURL(new Blob([vtt],{type:'text/vtt'}));await tick();if(generation!==playerGeneration)return;const track=video.querySelector('track');if(track){track.src=captionURL;track.track.mode='showing';}}
+async function captions(generation=playerGeneration){if(!selected)return;const offset=startOffset,owner=account;const r=await fetch('/api/v1/items/'+selected.id+'/subtitles',{method:'POST',headers:{'Content-Type':'application/json','X-OVL-Request':'1'},body:JSON.stringify({Index:subtitle==='external'?0:Number(subtitle.slice(5)),External:subtitle==='external'})});if(owner!==account)return;if(r.status===401){if(expire())throw new ApiError(sessionEnded,401);}if(!r.ok)throw Error((await r.json()).error);let vtt=await r.text();if(generation!==playerGeneration)return;if(offset){vtt=vtt.replace(/(\d{2,}):(\d{2}):(\d{2})\.(\d{3})/g,(_all,h,m,s,ms)=>{const t=Math.max(0,(Number(h)*3600+Number(m)*60+Number(s))*1000+Number(ms)-offset*1000);return String(Math.floor(t/3600000)).padStart(2,'0')+':'+String(Math.floor(t/60000)%60).padStart(2,'0')+':'+String(Math.floor(t/1000)%60).padStart(2,'0')+'.'+String(Math.floor(t)%1000).padStart(3,'0');});}if(captionURL)URL.revokeObjectURL(captionURL);captionURL=URL.createObjectURL(new Blob([vtt],{type:'text/vtt'}));await tick();if(generation!==playerGeneration)return;const track=video.querySelector('track');if(track){track.src=captionURL;track.track.mode='showing';}}
 function reportPlayback(event:'first_frame'|'seek'|'stall',duration:number){if(selected)api('items/'+selected.id+'/telemetry','POST',{Event:event,DurationMs:duration,Mode:actualMode}).catch(()=>{});}
 function playing(){const now=performance.now();if(frameRequestedAt){if(!musicSelected)reportPlayback('first_frame',now-frameRequestedAt);frameRequestedAt=0;}if(waitingAt){reportPlayback('stall',now-waitingAt);waitingAt=0;}if(seekRequestedAt){reportPlayback('seek',now-seekRequestedAt);seekRequestedAt=0;}}
 function clientCapabilities():ClientCapabilities {
