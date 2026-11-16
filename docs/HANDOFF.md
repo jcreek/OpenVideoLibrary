@@ -393,14 +393,65 @@ The browser tests now reuse a still-valid session for their setup, because
 the server allows 20 sign-ins a minute from one address (`auth.rs`) and the
 suite exceeded that.
 
-Still open, all pre-existing and part of the hung-write work below:
-- A hung progress write from the previous account still delays the next
-  account's saves.
-- Signing out waits for a hung playback DELETE or playback request.
-- New in this PR: a hung logout request blocks the next sign-in, with the
-  Sign in button disabled, until the page is reloaded. A bounded wait would
-  need care: if it gave up first, the late logout could still clear the new
-  cookie.
+Still open at merge: a hung progress write delayed later saves, sign-out
+waited for hung player cleanup, and a hung logout blocked the next sign-in.
+All three were fixed on 16 November 2026 (below).
+
+**Hung and failed requests (16 November 2026).**
+- **Progress ordering (server and contract).** A progress write may carry
+  `Client` and `Sequence`. The server keeps the newest sequence per user,
+  title and client in a new additive table, `ovl_progress_order`, and ignores
+  an older or repeated write from that client (`applied: false`). Writes
+  without these fields, or from other clients, behave as before
+  (last arrival wins). A reload gets a new client ID, so it counts as
+  another client. `progress` itself is unchanged, so the legacy server
+  can still read the database. Because callers choose the client ID, only
+  the 8 most recent clients per user and title are kept, always including
+  the one writing (tested), and rows older than a day are pruned by the
+  minute maintenance task (not tested). Once a client's row is evicted or
+  pruned, a late write from it is applied again (last arrival wins).
+  The check and the write share one immediate transaction.
+- **Rollback.** A tab loaded from this server sends the new fields, which
+  the legacy server rejects, so after a rollback every open tab must be
+  reloaded before its progress saves work again (ROLLOUT step 7).
+- **Progress timeout (client).** Each tab sends a random client ID and an
+  increasing sequence number. A save that has not answered after 10 s is
+  abandoned with "Progress may not have been saved: the server did not
+  answer in time.", and the next save goes ahead. If the abandoned save
+  reaches the server after a newer one from the same tab, the server ignores
+  it. Saves still go one at a time. Whether 10 s is enough while a long scan
+  keeps the database busy on the N100 has not been measured.
+- **Failed saves.** Opening or closing a title, applying settings and
+  advancing a queue no longer stop when the save fails; the error is shown
+  and the player moves on. Pausing and the 15 s save no longer clear an
+  unrelated error message first.
+- **Player cleanup.** Each playback DELETE, including the late cleanup of a
+  playback request that returned after the player closed, is waited for at
+  most 10 s and then aborted, so it does not keep one of the browser's few
+  connections to the server. A late playback request is also waited for at
+  most 10 s before the next start and before sign-out. Still open: a
+  playback request that never answers leaves its player on "Preparing…"
+  until another title is opened. It has no time limit, because starting a
+  stream can legitimately take a while. If a DELETE never answers, its
+  session keeps a stream slot until the idle reaper removes it (up to
+  300 s), so a new remux or transcode can hit the stream limit meanwhile.
+- **Logout.** The server no longer clears the session cookie on logout. The
+  session is revoked, so the leftover cookie is useless, and a late logout
+  response can no longer delete a newer sign-in's cookie. The client
+  therefore no longer makes a sign-in wait for pending logouts, so a hung
+  logout no longer blocks signing in again. This relies on the browser
+  attaching the old cookie when the logout is sent, not when a connection
+  becomes free. The Fetch standard appends cookies before it obtains a
+  connection, and this assumes the engines follow it (checked for
+  Chromium's code path only). The reworked browser tests, which pass in all
+  three engines, model this: the server handles the logout at once and only
+  its response is delayed.
+- Tests: two Rust API tests (ordering, validation, per-account ordering,
+  and logout without `Set-Cookie`), three new browser tests (a hung save, a
+  failed save, hung cleanup on opening and signing out), and the two logout
+  browser tests reworked so the server handles the logout at once and only
+  its response is delayed. On `main`, every new or reworked browser case
+  fails in all three engines; the cleanup-held sign-out case already passed.
 
 **Third CodeRabbit review of PR 2 (14 November 2026).** A full review
 raised seven comments. Six were valid and fixed in one commit on
@@ -427,9 +478,10 @@ here), which then passed five isolated reruns. An independent review and follow-
 a client timeout on progress writes was tried and removed, because an
 aborted request cannot cancel a write the server has already queued.
 
-Still open: a progress write that never completes delays later writes, and
-the player switch that waits for it, until the browser gives up on the
-request. A failed save still stops `open()` from starting the next title.
+Still open at the time: a progress write that never completed delayed later
+writes and the player switch that waited for it, and a failed save stopped
+`open()` from starting the next title. Both were fixed on 16 November 2026;
+see "Hung and failed requests".
 
 **Fourth CodeRabbit review of PR 2 (15 November 2026).** An incremental
 review raised two comments; both were valid and fixed:

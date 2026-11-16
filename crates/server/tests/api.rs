@@ -250,6 +250,159 @@ async fn authorization_ranges_lists_revocation_and_csrf() {
     app.shutdown().await;
 }
 #[tokio::test]
+async fn progress_ignores_an_older_write_from_the_same_client() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let id = add_media(&app, root.path()).await;
+    let url = format!("/api/v1/items/{id}/progress");
+    let put = |body: Value| {
+        let (router, url, token) = (router.clone(), url.clone(), token.clone());
+        async move { request(&router, "PUT", &url, Some(&token), Some(body)).await }
+    };
+    let position = || {
+        let (router, token) = (router.clone(), token.clone());
+        async move {
+            let (_, items) = request(
+                &router,
+                "GET",
+                "/api/v1/items?q=Example",
+                Some(&token),
+                None,
+            )
+            .await;
+            items[0]["position"].as_f64().unwrap()
+        }
+    };
+    let applied = |(status, v): (StatusCode, Value)| {
+        assert_eq!(status, 200, "{v}");
+        v["applied"].as_bool().unwrap()
+    };
+    assert!(applied(
+        put(json!({"Position":10,"Watched":false,"Client":"tab-a","Sequence":2})).await
+    ));
+    // A late, older write from the same client is ignored, as is a repeat.
+    assert!(!applied(
+        put(json!({"Position":5,"Watched":false,"Client":"tab-a","Sequence":1})).await
+    ));
+    assert!(!applied(
+        put(json!({"Position":6,"Watched":true,"Client":"tab-a","Sequence":2})).await
+    ));
+    assert_eq!(position().await, 10.0);
+    // Another client's writes are ordered separately and still apply.
+    assert!(applied(
+        put(json!({"Position":7,"Watched":false,"Client":"tab-b","Sequence":1})).await
+    ));
+    assert_eq!(position().await, 7.0);
+    assert!(applied(
+        put(json!({"Position":20,"Watched":false,"Client":"tab-a","Sequence":3})).await
+    ));
+    assert_eq!(position().await, 20.0);
+    // Writes without ordering behave as before.
+    assert!(applied(put(json!({"Position":3,"Watched":false})).await));
+    assert_eq!(position().await, 3.0);
+    // Ordering is per account: another user's client with the same name is separate.
+    let (_, res) = request(
+        &router,
+        "POST",
+        "/api/v1/users",
+        Some(&token),
+        Some(json!({"Name":"viewer","Password":"test-password-123","Libraries":[1]})),
+    )
+    .await;
+    assert!(res["id"].is_i64(), "{res}");
+    let viewer = account(&router, "viewer").await;
+    let (status, v) = request(
+        &router,
+        "PUT",
+        &url,
+        Some(&viewer),
+        Some(json!({"Position":1,"Watched":false,"Client":"tab-a","Sequence":1})),
+    )
+    .await;
+    assert_eq!(
+        (status, v["applied"].as_bool()),
+        (StatusCode::OK, Some(true))
+    );
+    // Malformed ordering is rejected without writing anything.
+    for body in [
+        json!({"Position":9,"Watched":false,"Client":"tab-a"}),
+        json!({"Position":9,"Watched":false,"Sequence":9}),
+        json!({"Position":9,"Watched":false,"Client":"","Sequence":9}),
+        json!({"Position":9,"Watched":false,"Client":"tab a","Sequence":9}),
+        json!({"Position":9,"Watched":false,"Client":"x".repeat(65),"Sequence":9}),
+        json!({"Position":9,"Watched":false,"Client":"tab-a","Sequence":9007199254740992u64}),
+        json!({"Position":9,"Watched":false,"Client":"tab-a","Sequence":-1}),
+        json!({"Position":9,"Watched":false,"Client":"tab-a","Sequence":1.5}),
+    ] {
+        assert_eq!(put(body.clone()).await.0, 400, "{body}");
+    }
+    assert_eq!(position().await, 3.0);
+    // The largest exact JavaScript integer is accepted.
+    assert!(applied(
+        put(json!({"Position":4,"Watched":false,"Client":"tab-c","Sequence":9007199254740991u64}))
+            .await
+    ));
+    let rows: i64 = app
+        .db
+        .call(|c| Ok(c.query_row("SELECT count(*) FROM ovl_progress_order", [], |r| r.get(0))?))
+        .await
+        .unwrap();
+    assert_eq!(rows, 4);
+    // Only the eight most recent clients per user and title are kept.
+    for n in 0..10 {
+        assert!(applied(
+            put(json!({"Position":5,"Watched":false,"Client":format!("spray-{n}"),"Sequence":1}))
+                .await
+        ));
+    }
+    let clients: Vec<String> = app
+        .db
+        .call(move |c| {
+            let mut s = c.prepare(
+                "SELECT client FROM ovl_progress_order WHERE item_id=? AND user_id=(SELECT id FROM users WHERE name='admin') ORDER BY client",
+            )?;
+            let rows = s
+                .query_map([id], |r| r.get(0))?
+                .collect::<rusqlite::Result<Vec<String>>>()?;
+            Ok(rows)
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        clients,
+        (2..10).map(|n| format!("spray-{n}")).collect::<Vec<_>>()
+    );
+    app.shutdown().await;
+}
+#[tokio::test]
+async fn logout_revokes_the_session_without_clearing_the_cookie() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup(&root).await;
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/v1/logout")
+                .header("X-OVL-Request", "1")
+                .header("Cookie", format!("ovl_session={token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    // A late logout response must not delete a cookie set by a newer sign-in.
+    assert!(response.headers().get("set-cookie").is_none());
+    assert_eq!(
+        request(&router, "GET", "/api/v1/me", Some(&token), None)
+            .await
+            .0,
+        401
+    );
+    app.shutdown().await;
+}
+#[tokio::test]
 async fn v1_migration_preserves_accounts_files_progress_and_sessions() {
     let root = TempDir::new().unwrap();
     let cfg = config(root.path());

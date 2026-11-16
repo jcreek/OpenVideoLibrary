@@ -537,7 +537,15 @@ async fn edit_item(
 struct Progress {
     position: f64,
     watched: bool,
+    // Optional write ordering: a client numbers its writes, and an older write
+    // from the same client that arrives late is ignored instead of applied.
+    client: Option<String>,
+    sequence: Option<u64>,
 }
+// The largest integer a JavaScript client can count to exactly.
+const MAX_PROGRESS_SEQUENCE: u64 = (1 << 53) - 1;
+// How many clients' orderings are kept per user and title.
+const PROGRESS_ORDER_CLIENTS: i64 = 8;
 async fn progress(
     State(app): State<Arc<App>>,
     Extension(u): Extension<User>,
@@ -549,8 +557,51 @@ async fn progress(
     if !b.position.is_finite() || b.position < 0.0 {
         return Err(Error::new(400, "invalid position"));
     }
-    app.db.call(move|c|{c.execute("INSERT INTO progress VALUES(?,?,?,?,?) ON CONFLICT(user_id,item_id) DO UPDATE SET position=excluded.position,watched=excluded.watched,updated=excluded.updated",params![u.id,id,b.position,b.watched,auth::now()])?;Ok(())}).await?;
-    Ok(Json(json!({"ok":true})))
+    let order = match (b.client, b.sequence) {
+        (None, None) => None,
+        (Some(client), Some(sequence))
+            if (1..=64).contains(&client.len())
+                && client
+                    .bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || c == b'-')
+                && sequence <= MAX_PROGRESS_SEQUENCE =>
+        {
+            Some((client, sequence as i64))
+        }
+        _ => return Err(Error::new(400, "invalid progress order")),
+    };
+    let applied = app
+        .db
+        .call(move |c| {
+            let now = auth::now();
+            // Immediate: the ordering check and the write must not interleave with another writer.
+            let tx = c.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            if let Some((client, sequence)) = order {
+                let stale: bool = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM ovl_progress_order WHERE user_id=? AND item_id=? AND client=? AND sequence>=?)",
+                    params![u.id, id, client, sequence],
+                    |r| r.get(0),
+                )?;
+                if stale {
+                    return Ok(false);
+                }
+                tx.execute(
+                    "INSERT INTO ovl_progress_order VALUES(?,?,?,?,?) ON CONFLICT(user_id,item_id,client) DO UPDATE SET sequence=excluded.sequence,updated=excluded.updated",
+                    params![u.id, id, client, sequence, now],
+                )?;
+                // Clients are chosen by the caller, so keep only the most recent few per title.
+                tx.execute(
+                    // The client that just wrote is always kept; the others compete for the rest.
+                    "DELETE FROM ovl_progress_order WHERE user_id=?1 AND item_id=?2 AND client<>?3 AND rowid NOT IN (SELECT rowid FROM ovl_progress_order WHERE user_id=?1 AND item_id=?2 AND client<>?3 ORDER BY updated DESC, rowid DESC LIMIT ?4)",
+                    params![u.id, id, client, PROGRESS_ORDER_CLIENTS - 1],
+                )?;
+            }
+            tx.execute("INSERT INTO progress VALUES(?,?,?,?,?) ON CONFLICT(user_id,item_id) DO UPDATE SET position=excluded.position,watched=excluded.watched,updated=excluded.updated",params![u.id,id,b.position,b.watched,now])?;
+            tx.commit()?;
+            Ok(true)
+        })
+        .await?;
+    Ok(Json(json!({"ok":true,"applied":applied})))
 }
 
 #[derive(Deserialize)]

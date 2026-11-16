@@ -415,7 +415,9 @@ for(const held of ['cleanup','logout'] as const)test('an interrupted sign-out do
  await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
  const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
  const unauthorized={status:401,contentType:'application/json',body:JSON.stringify({error:'authentication required'})};
- const routes:Route[]=[];let holding=true;
+ const routes:Route[]=[];let holding=true;const responses=new Map<Route,ReturnType<Route['fetch']>>();
+ // A delayed logout is answered with the server's real response; a held DELETE is sent on.
+ const release=async(route:Route)=>{const response=responses.get(route);if(response)await route.fulfill({response:await response});else await route.continue();};
  const deleteURL=(u:URL)=>/^\/api\/v1\/playback\/[^/]+$/.test(u.pathname),logoutURL=(u:URL)=>u.pathname==='/api/v1/logout',albumsURL=(u:URL)=>u.pathname==='/api/v1/music/albums';
  const logouts:string[]=[];page.on('request',r=>{if(logoutURL(new URL(r.url())))logouts.push(r.method());});
  try {
@@ -430,7 +432,8 @@ for(const held of ['cleanup','logout'] as const)test('an interrupted sign-out do
    await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();await created;
    await page.route(deleteURL,route=>{if(!holding||route.request().method()!=='DELETE')return route.fallback();routes.push(route);});
   }else{
-   await page.route(logoutURL,route=>{if(!holding)return route.fallback();routes.push(route);});
+   // The server handles the logout at once; only its response is delayed.
+   await page.route(logoutURL,route=>{if(!holding)return route.fallback();responses.set(route,route.fetch());routes.push(route);});
   }
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await expect.poll(()=>routes.length).toBe(1);
@@ -439,11 +442,11 @@ for(const held of ['cleanup','logout'] as const)test('an interrupted sign-out do
   await page.getByRole('button',{name:'Music albums',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
   await page.unroute(albumsURL);
-  // The old sign-out finishes only after a login that is not held back has returned.
-  const signedIn=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/login',{timeout:3000}).catch(()=>{});
+  // The old sign-out finishes after the new sign-in has returned.
+  const signedIn=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/login');
   await page.getByLabel('Username').fill(username);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await signedIn;
-  holding=false;for(const route of routes)await route.continue().catch(()=>{});
+  holding=false;for(const route of routes)await release(route).catch(()=>{});
   await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
   await page.waitForTimeout(1000);
   // The new account is still signed in, and its cookie still works.
@@ -454,32 +457,34 @@ for(const held of ['cleanup','logout'] as const)test('an interrupted sign-out do
   await expect(page.getByRole('alert')).toHaveCount(0);
   expect(logouts.length).toBe(held==='logout'?1:0);
  } finally {
-  holding=false;for(const route of routes)await route.continue().catch(()=>{});
+  holding=false;for(const route of routes)await release(route).catch(()=>{});
   await page.unrouteAll({behavior:'ignoreErrors'});
  }
 });
 
-test('a sign-in waits for every pending logout, not only the latest',async({page})=>{
+test('a late logout response does not sign out the next account',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
  await signIn(page);
  const logoutURL=(u:URL)=>u.pathname==='/api/v1/logout';
- const routes:Route[]=[];let holding=true;
+ const routes:Route[]=[];let holding=true;const responses=new Map<Route,ReturnType<Route['fetch']>>();
+ const release=async(route:Route)=>{await route.fulfill({response:await responses.get(route)!});};
  try {
   await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
-  // Two clicks send two logout requests; the second one finishes first.
-  await page.route(logoutURL,route=>{if(!holding)return route.fallback();routes.push(route);});
+  // Two clicks send two logout requests. The server handles both at once, and the second
+  // response arrives first.
+  await page.route(logoutURL,route=>{if(!holding)return route.fallback();responses.set(route,route.fetch());routes.push(route);});
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await expect.poll(()=>routes.length).toBe(1);
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await expect.poll(()=>routes.length).toBe(2);
-  await routes[1].continue();
+  await release(routes[1]);
   await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
-  // The first logout is still pending when the user signs in again.
-  const signedIn=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/login',{timeout:3000}).catch(()=>{});
+  // The first logout response is still pending when the user signs in again.
+  const signedIn=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/login');
   await page.getByLabel('Username').fill(username);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await signedIn;
-  holding=false;await routes[0].continue();
+  holding=false;await release(routes[0]);
   await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
   // The new account's cookie survived the late logout response.
   const items=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/items');
@@ -487,8 +492,118 @@ test('a sign-in waits for every pending logout, not only the latest',async({page
   expect((await items).status()).toBe(200);
   await expect(page.getByRole('alert')).toHaveCount(0);
  } finally {
-  holding=false;for(const route of routes)await route.continue().catch(()=>{});
+  holding=false;for(const route of routes)await release(route).catch(()=>{});
   await page.unrouteAll({behavior:'ignoreErrors'});
+ }
+});
+
+test('a progress save that never answers does not hold up later saves',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ await signIn(page);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Progress TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+ await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
+ const progressURL=(u:URL)=>u.pathname==='/api/v1/items/'+item.id+'/progress';
+ const held:Route[]=[];const bodies:{Client:string;Sequence:number;Watched:boolean;Position:number}[]=[];
+ page.on('request',r=>{if(r.method()==='PUT'&&progressURL(new URL(r.url())))bodies.push(r.postDataJSON());});
+ await page.clock.install();
+ try {
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  const automatic=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/items/'+item.id+'/playback');
+  await page.getByRole('button',{name:'All media',exact:true}).click();await page.getByRole('button',{name:new RegExp('TV ▶ '+item.title)}).click();await automatic;
+  // The first save never gets an answer.
+  await page.route(progressURL,route=>{if(held.length===0){held.push(route);return;}return route.fallback();});
+  const mark=page.getByRole('button',{name:/^Mark (un)?watched$/});
+  await mark.click();
+  await expect.poll(()=>held.length).toBe(1);
+  await page.clock.runFor(10000);
+  await expect(page.getByRole('alert')).toHaveText('Progress may not have been saved: the server did not answer in time.');
+  // The next save is sent and stored even though the first never answered.
+  const saved=page.waitForResponse(r=>r.request().method()==='PUT'&&progressURL(new URL(r.url())));
+  await mark.click();
+  const response=await saved;expect(response.status()).toBe(200);expect((await response.json()).applied).toBe(true);
+  const first=bodies[0],last=bodies.at(-1)!;
+  expect(last.Client).toBe(first.Client);expect(last.Sequence).toBeGreaterThan(first.Sequence);
+  // If the abandoned save reaches the server late, it is ignored.
+  const late=await page.request.put('/api/v1/items/'+item.id+'/progress',{headers,data:first});
+  expect(late.status()).toBe(200);expect((await late.json()).applied).toBe(false);
+ } finally {
+  for(const route of held)await route.abort().catch(()=>{});
+  await page.unrouteAll({behavior:'ignoreErrors'});
+  // Later tests find this title by its card label, which changes once it is watched.
+  try{await page.request.put('/api/v1/items/'+item.id+'/progress',{headers,data:{Position:item.position,Watched:item.watched}});}catch{}
+ }
+});
+
+test('a failed progress save does not stop the next title from opening',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ await signIn(page);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Progress TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+ await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ const items=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).slice(0,2);
+ const card=(title:string)=>page.locator('.card').filter({has:page.getByRole('heading',{name:title,exact:true})});
+ const progressURL=(u:URL)=>/^\/api\/v1\/items\/\d+\/progress$/.test(u.pathname);
+ try {
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  await card(items[0].title).click();
+  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(1);
+  // Saving the first title's progress fails, but the second title still opens.
+  await page.route(progressURL,route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'progress store unavailable'})}));
+  await card(items[1].title).click();
+  await expect(page.getByRole('alert')).toHaveText('progress store unavailable');
+  await expect(page.locator('.player h2')).toHaveText(items[1].title);
+  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(1);
+  await page.unroute(progressURL);
+  await page.getByRole('button',{name:'Close player',exact:true}).click();
+ } finally {
+  await page.unrouteAll({behavior:'ignoreErrors'});
+ }
+});
+
+test('player cleanup that never answers does not block the next title or signing out',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ await signIn(page);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Cleanup TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+ await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ const items=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).slice(0,2);
+ const card=(title:string)=>page.locator('.card').filter({has:page.getByRole('heading',{name:title,exact:true})});
+ const deleteURL=(u:URL)=>/^\/api\/v1\/playback\/[^/]+$/.test(u.pathname);
+ const held:Route[]=[];const sessions:string[]=[];
+ const remux=async(id:number)=>{
+  await expect(page.getByRole('button',{name:'Apply playback settings',exact:true})).toBeEnabled();
+  await page.getByLabel('Playback',{exact:true}).selectOption('remux');
+  const created=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/items/'+id+'/playback'&&r.ok());
+  await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();
+  sessions.push((await (await created).json()).id);
+ };
+ const opened=(id:number)=>page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/items/'+id+'/playback');
+ await page.clock.install();
+ try {
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  let automatic=opened(items[0].id);await card(items[0].title).click();await automatic;
+  await remux(items[0].id);
+  await page.route(deleteURL,route=>{if(route.request().method()!=='DELETE')return route.fallback();held.push(route);});
+  // Opening another title sends a DELETE that never answers; the new title starts anyway,
+  // in remux mode like the first, so it also has a session for sign-out to delete.
+  automatic=opened(items[1].id);await card(items[1].title).click();
+  await expect.poll(()=>held.length).toBe(1);
+  await page.clock.runFor(10000);
+  const second=await automatic;expect(second.status()).toBe(201);sessions.push((await second.json()).id);
+  await expect(page.locator('.player h2')).toHaveText(items[1].title);
+  // Signing out also sends a DELETE that never answers; the sign-out finishes anyway.
+  await page.getByRole('button',{name:'Sign out',exact:true}).click();
+  await expect.poll(()=>held.length).toBe(2);
+  await page.clock.runFor(10000);
+  await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+ } finally {
+  for(const route of held)await route.abort().catch(()=>{});
+  await page.unrouteAll({behavior:'ignoreErrors'});
+  // The held DELETEs never reached the server, so remove their sessions to free the stream slots.
+  try{await signIn(page);for(const id of sessions)await page.request.delete('/api/v1/playback/'+id,{headers});}catch{}
  }
 });
 

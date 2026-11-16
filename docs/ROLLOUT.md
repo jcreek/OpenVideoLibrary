@@ -20,6 +20,9 @@
    folder and start the retained previous server against that folder. Changes
    after the snapshot will not appear. Additive list tables remain compatible with
    v2 backups, but older apps do not provide list UI or queue behavior.
+   Reload every open browser tab afterwards: a page loaded from the Rust server
+   sends progress-ordering fields that the previous server rejects, so its
+   progress saves fail until it is reloaded.
 
 Rust preview is not the stable release. A stable release requires broader media
 and subtitle/HDR quality validation, real mobile browsers, physical GPU tests,
