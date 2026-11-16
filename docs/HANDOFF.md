@@ -361,6 +361,14 @@ three engines; the third is still open (below):
   it (up to 300 s). Until then a new remux or transcode can hit the stream
   limit (`OVL_MAX_STREAMS`, default 2).
 
+A third pass found two smaller gaps, both fixed:
+- A signed-in 401 now ends the session before its body is read, so an
+  unreadable body (tested with a non-JSON 401) cannot leave the account
+  signed in. A failed login still reads its error message.
+- `captions()` now rechecks the account after reading a subtitle error body.
+  No browser test covers this: `route.fulfill` cannot delay a response body
+  after its headers, so a test would need a separate slow HTTP server.
+
 Still open, all pre-existing and part of the hung-write work below:
 - A hung progress write from the previous account still delays the next
   account's saves.

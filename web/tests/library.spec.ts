@@ -380,6 +380,23 @@ test('a request that fails after the session ends keeps the session-ended messag
  }
 });
 
+test('a signed-in 401 ends the session even when its body cannot be read',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ const albumsURL=(u:URL)=>u.pathname==='/api/v1/music/albums';
+ try {
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  // A proxy or truncated transfer can leave a 401 without a JSON body.
+  await page.route(albumsURL,route=>route.fulfill({status:401,contentType:'application/json',body:'<html>'}));
+  await page.getByRole('button',{name:'Music albums',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText('Your session has ended. Sign in again.');
+ } finally {
+  await page.unrouteAll({behavior:'ignoreErrors'});
+ }
+});
+
 // The old DELETE comes either from close() itself or, when the player closes while the
 // playback request is in flight, from the late cleanup once that request returns.
 for(const whileCreating of [false,true])test('the next account does not wait for the previous account\'s playback cleanup'+(whileCreating?' (closed while starting)':''),async({page})=>{
