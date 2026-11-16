@@ -65,7 +65,9 @@ async function startup(){
  // Without the status answer neither the login form nor the library can be shown, so offer a retry.
  try{setup=(await api('status')).setup;}catch(e){statusFailed=true;throw e;}
  statusFailed=false;
- if(!setup){try{await refresh()}catch(e){if(e instanceof ApiError&&e.status===401){logged=false;error='';}else{loadFailed=true;error=e instanceof Error?e.message:String(e);}}}
+ if(!setup){try{await refresh()}catch(e){if(e instanceof ApiError&&e.status===401){
+  // A stale cookie just shows the login form; a session that ended mid-load keeps its message.
+  if(error!==sessionEnded)error='';logged=false;}else{loadFailed=true;error=e instanceof Error?e.message:String(e);}}}
  ready=true;
 }
 onMount(()=>{guard(startup);const interval=setInterval(()=>{if(selected&&!transition&&progressPending===0)guard(save);if(admin&&scanning)guard(async()=>{scanning=(await api('scan')).running;if(!scanning){notice='Scan finished.';await refresh();}});},15000);return()=>{clearInterval(interval);hls?.destroy();if(captionURL)URL.revokeObjectURL(captionURL);};});

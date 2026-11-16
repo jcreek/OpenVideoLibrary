@@ -324,6 +324,8 @@ test('a 401 to an HLS playlist or a subtitle request also ends the session',asyn
  const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
  const sessions=new Set<string>();
  page.on('response',async r=>{if(r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/items/'+item.id+'/playback'&&r.ok())sessions.add((await r.json()).id);});
+ // Destroying hls.js from inside its own error handler must not throw.
+ const pageErrors:string[]=[];page.on('pageerror',e=>pageErrors.push(e.message));
  const unauthorized={status:401,contentType:'application/json',body:JSON.stringify({error:'authentication required'})};
  const open=async()=>{
   await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
@@ -346,6 +348,7 @@ test('a 401 to an HLS playlist or a subtitle request also ends the session',asyn
   await page.getByRole('button',{name:'Apply playback settings',exact:true}).click({timeout:2000}).catch(()=>{});
   await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
   await expect(page.getByRole('alert')).toHaveText('Your session has ended. Sign in again.');
+  expect(pageErrors).toEqual([]);
  } finally {
   await page.unrouteAll({behavior:'ignoreErrors'});
   try{for(const id of sessions)await page.request.delete('/api/v1/playback/'+id,{headers});}catch{}

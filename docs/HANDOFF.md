@@ -333,7 +333,9 @@ HLS and subtitle cases fail on the first version of the fix. The client
 cannot delete the server playback session without a valid session, so that
 session holds its admission slot until the idle reaper removes it after 300 s.
 The username stays filled in after an expiry, as it does after a failed
-login; signing out clears it.
+login; signing out clears it. A 401 on a direct-play or music media source,
+or on native HLS where hls.js is unsupported, is not detected; the 15 s
+progress save notices the expiry while a title is open.
 
 **Third CodeRabbit review of PR 2 (14 November 2026).** A full review
 raised seven comments. Six were valid and fixed in one commit on
