@@ -1,4 +1,4 @@
-import {test,expect,type Route} from '@playwright/test';
+import {test,expect,type Route,type Page,type Cookie} from '@playwright/test';
 import {spawn,execFileSync,type ChildProcess} from 'node:child_process';
 import {mkdtempSync,mkdirSync,rmSync,writeFileSync,copyFileSync,renameSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -7,6 +7,14 @@ let server:ChildProcess,root:string,media:string,music:string,serverLog='';
 test.afterEach(async({},testInfo)=>{if(testInfo.status!==testInfo.expectedStatus)await testInfo.attach('server-log',{body:serverLog,contentType:'text/plain'});});
 test.beforeEach(async({browser},testInfo)=>{testInfo.annotations.push({type:'browser-version',description:browser.version()});});
 const username='browser-admin',password='browser-test-password-123';
+// The server allows 20 sign-ins a minute from one address, so tests reuse a session that is still valid.
+let sessionCookie:Cookie|undefined;
+async function signIn(page:Page){
+ const headers={'X-OVL-Request':'1'};
+ if(sessionCookie){await page.context().addCookies([sessionCookie]);if((await page.request.get('/api/v1/me',{headers})).ok())return;await page.context().clearCookies();}
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ sessionCookie=(await page.context().cookies()).find(c=>c.name==='ovl_session');
+}
 test.beforeAll(async()=>{
  root=mkdtempSync(join(process.env.OVL_TEST_TMP||tmpdir(),'ovl-browser-'));media=join(root,'media');mkdirSync(media);
  writeFileSync(join(media,'Example.S01E01.srt'),'1\n00:00:00,000 --> 00:00:04,000\nA local subtitle\n');
@@ -81,7 +89,7 @@ test('household workflow and viewer authorization',async({page,browserName})=>{
 test('browse filters reset and account switches drop the previous account state',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  if(!(await (await page.request.get('/api/v1/libraries')).json()).length){
   expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Filter TV',Path:media,Kind:'tv'}})).status()).toBe(201);await page.request.post('/api/v1/scan',{headers});
   await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
@@ -157,7 +165,7 @@ test('browse filters reset and account switches drop the previous account state'
 test('persistent queue ordering and automatic next episode',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  if(!(await (await page.request.get('/api/v1/libraries')).json()).length){
   expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Queue TV',Path:media,Kind:'tv'}})).status()).toBe(201);await page.request.post('/api/v1/scan',{headers});
   await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
@@ -222,7 +230,7 @@ test('persistent queue ordering and automatic next episode',async({page})=>{
 test('queue preserves offline entries and saved positions',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  if(!(await (await page.request.get('/api/v1/libraries')).json()).length){
   expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Queue TV',Path:media,Kind:'tv'}})).status()).toBe(201);await page.request.post('/api/v1/scan',{headers});
   await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
@@ -244,7 +252,7 @@ test('queue preserves offline entries and saved positions',async({page})=>{
 test('HLS timeline follows the server-reported stream start',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Timeline TV',Path:media,Kind:'tv'}})).status()).toBe(201);
  // Earlier scenarios can leave titles offline until the next scan.
  await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
@@ -281,7 +289,7 @@ test('HLS timeline follows the server-reported stream start',async({page})=>{
 test('an expired session stops playback and every timer for the previous account',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Expiry TV',Path:media,Kind:'tv'}})).status()).toBe(201);
  await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
  // Earlier scenarios rename the first title; the last one keeps its TV label.
@@ -318,7 +326,7 @@ test('an expired session stops playback and every timer for the previous account
 test('a 401 to an HLS playlist or a subtitle request also ends the session',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Expiry TV',Path:media,Kind:'tv'}})).status()).toBe(201);
  await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
  const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
@@ -359,7 +367,7 @@ test('a 401 to an HLS playlist or a subtitle request also ends the session',asyn
 test('a request that fails after the session ends keeps the session-ended message',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  const unauthorized={status:401,contentType:'application/json',body:JSON.stringify({error:'authentication required'})};
  try {
   await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
@@ -383,7 +391,7 @@ test('a request that fails after the session ends keeps the session-ended messag
 test('a signed-in 401 ends the session even when its body cannot be read',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  const albumsURL=(u:URL)=>u.pathname==='/api/v1/music/albums';
  try {
   await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
@@ -397,12 +405,66 @@ test('a signed-in 401 ends the session even when its body cannot be read',async(
  }
 });
 
+// Signing out can be held up by player cleanup or by the logout request itself. If the
+// session ends meanwhile and the user signs in again, the old sign-out must not touch them.
+for(const held of ['cleanup','logout'] as const)test('an interrupted sign-out does not sign out the next account ('+held+' held)',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ await signIn(page);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Sign-out TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+ await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
+ const unauthorized={status:401,contentType:'application/json',body:JSON.stringify({error:'authentication required'})};
+ const routes:Route[]=[];let holding=true;
+ const deleteURL=(u:URL)=>/^\/api\/v1\/playback\/[^/]+$/.test(u.pathname),logoutURL=(u:URL)=>u.pathname==='/api/v1/logout',albumsURL=(u:URL)=>u.pathname==='/api/v1/music/albums';
+ const logouts:string[]=[];page.on('request',r=>{if(logoutURL(new URL(r.url())))logouts.push(r.method());});
+ try {
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  if(held==='cleanup'){
+   // A remux session makes closing the player send a DELETE, which is held.
+   const automatic=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/items/'+item.id+'/playback');
+   await page.getByRole('button',{name:'All media',exact:true}).click();await page.getByRole('button',{name:new RegExp('TV ▶ '+item.title)}).click();await automatic;
+   await expect(page.getByRole('button',{name:'Apply playback settings',exact:true})).toBeEnabled();
+   await page.getByLabel('Playback',{exact:true}).selectOption('remux');
+   const created=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/v1/items/'+item.id+'/playback'&&r.ok());
+   await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();await created;
+   await page.route(deleteURL,route=>{if(!holding||route.request().method()!=='DELETE')return route.fallback();routes.push(route);});
+  }else{
+   await page.route(logoutURL,route=>{if(!holding)return route.fallback();routes.push(route);});
+  }
+  await page.getByRole('button',{name:'Sign out',exact:true}).click();
+  await expect.poll(()=>routes.length).toBe(1);
+  // Another request finds the session has ended, and the user signs in again.
+  await page.route(albumsURL,route=>route.fulfill(unauthorized));
+  await page.getByRole('button',{name:'Music albums',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+  await page.unroute(albumsURL);
+  // The old sign-out finishes only after a login that is not held back has returned.
+  const signedIn=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/login',{timeout:3000}).catch(()=>{});
+  await page.getByLabel('Username').fill(username);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await signedIn;
+  holding=false;for(const route of routes)await route.continue().catch(()=>{});
+  await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  await page.waitForTimeout(1000);
+  // The new account is still signed in, and its cookie still works.
+  const items=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/items');
+  await page.getByRole('button',{name:'All media',exact:true}).click();
+  expect((await items).status()).toBe(200);
+  await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(logouts.length).toBe(held==='logout'?1:0);
+ } finally {
+  holding=false;for(const route of routes)await route.continue().catch(()=>{});
+  await page.unrouteAll({behavior:'ignoreErrors'});
+ }
+});
+
 // The old DELETE comes either from close() itself or, when the player closes while the
 // playback request is in flight, from the late cleanup once that request returns.
 for(const whileCreating of [false,true])test('the next account does not wait for the previous account\'s playback cleanup'+(whileCreating?' (closed while starting)':''),async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Cleanup TV',Path:media,Kind:'tv'}})).status()).toBe(201);
  await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
  const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
@@ -468,7 +530,7 @@ for(const whileCreating of [false,true])test('the next account does not wait for
 test('player lifecycle ignores delayed opening and closing',async({page})=>{
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  if(!(await (await page.request.get('/api/v1/libraries')).json()).length){
   expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Lifecycle TV',Path:media,Kind:'tv'}})).status()).toBe(201);
   await page.request.post('/api/v1/scan',{headers});
@@ -567,7 +629,7 @@ test('music library tags and decoded audio queue playback',async({page,browserNa
  const headers={'X-OVL-Request':'1'};
  if((await (await page.request.get('/api/v1/status')).json()).setup)
   expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
- expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ await signIn(page);
  await page.goto('/');
  await page.getByText('Manage libraries',{exact:true}).click();
  await page.getByLabel('Name',{exact:true}).fill('Music fixture');

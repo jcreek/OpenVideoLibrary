@@ -369,10 +369,33 @@ A third pass found two smaller gaps, both fixed:
   No browser test covers this: `route.fulfill` cannot delay a response body
   after its headers, so a test would need a separate slow HTTP server.
 
+A fourth pass found that an interrupted sign-out could sign out the next
+account. Both cases are fixed, with browser tests that fail on the earlier
+client in all three engines:
+- If the session ended while sign-out waited for player cleanup, and the user
+  signed in again, the old sign-out later sent logout with the new cookie and
+  reset the new account. It now stops if the account has changed.
+- A logout response clears the session cookie, so a login sent while that
+  logout was in flight could lose its new cookie. A login now waits for any
+  logout request to settle.
+
+If a sign-out stops this way, it never sends its logout. With this server
+that is harmless, because a signed-in 401 only means the session is already
+gone. Behind a proxy that returns its own 401s, the old session could stay
+valid and a reload would sign the user back in.
+
+The browser tests now reuse a still-valid session for their setup, because
+the server allows 20 sign-ins a minute from one address (`auth.rs`) and the
+suite exceeded that.
+
 Still open, all pre-existing and part of the hung-write work below:
 - A hung progress write from the previous account still delays the next
   account's saves.
 - Signing out waits for a hung playback DELETE or playback request.
+- New in this PR: a hung logout request blocks the next sign-in, with the
+  Sign in button disabled, until the page is reloaded. A bounded wait would
+  need care: if it gave up first, the late logout could still clear the new
+  cookie.
 
 **Third CodeRabbit review of PR 2 (14 November 2026).** A full review
 raised seven comments. Six were valid and fixed in one commit on

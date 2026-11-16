@@ -89,16 +89,21 @@ function resetAccount(){
 }
 async function login(){
  if(signingIn)return;signingIn=true;
- try{await guard(async()=>{if(setup){await api('setup','POST',{Name:name,Password:password});setup=false;}await api('login','POST',{Name:name,Password:password});password='';resetAccount();
+ try{await guard(async()=>{await loggingOut;if(setup){await api('setup','POST',{Name:name,Password:password});setup=false;}await api('login','POST',{Name:name,Password:password});password='';resetAccount();
   // The session is valid now; a failed load keeps it and offers a retry.
   try{await refresh();}catch(e){if(logged&&!(e instanceof StaleAccount))loadFailed=true;throw e;}
  });}
  finally{signingIn=false;}
 }
+// A logout response clears the session cookie, so a login sent before it settles could lose its new cookie.
+let loggingOut:Promise<unknown>=Promise.resolve();
 async function signOut(){
+ const owner=account;
  // Player cleanup must not prevent the logout request.
  await close(false).catch(()=>{});await pendingPlayback.catch(()=>{});
- await api('logout','POST');
+ // The session may have ended meanwhile and another account signed in; leave that account alone.
+ if(owner!==account)return;
+ const request=api('logout','POST');loggingOut=request.catch(()=>{});await request;
  resetAccount();logged=false;name='';password='';
 }
 // Progress writes run one at a time, so a later save cannot undo a newer watched mark.
