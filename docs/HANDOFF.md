@@ -345,6 +345,27 @@ calls `load()` straight after `pause()`, and the HTML load algorithm drops the
 queued event (no event arrived in Chromium, Firefox or WebKit). The guard
 therefore has no browser test.
 
+A second CodeRabbit pass (16 November 2026) raised three more expiry gaps.
+Two were fixed with browser tests that fail on the earlier client in all
+three engines; the third is still open (below):
+- A request that started before the expiry and then failed with a network
+  error replaced the session-ended message. Network and parse failures after
+  an account change are now treated as stale, and `startup()` ignores them
+  too.
+- After signing in again, the next account's player waited on the previous
+  account's playback cleanup. The independent review found a second case of
+  this: the late cleanup of a playback request that returned after the player
+  closed. The player now waits for neither, and a test covers each case. If
+  the old DELETE is hung, or the session has already expired, the old session
+  keeps its stream slot until that DELETE completes or the idle reaper removes
+  it (up to 300 s). Until then a new remux or transcode can hit the stream
+  limit (`OVL_MAX_STREAMS`, default 2).
+
+Still open, all pre-existing and part of the hung-write work below:
+- A hung progress write from the previous account still delays the next
+  account's saves.
+- Signing out waits for a hung playback DELETE or playback request.
+
 **Third CodeRabbit review of PR 2 (14 November 2026).** A full review
 raised seven comments. Six were valid and fixed in one commit on
 `split/2-web`:

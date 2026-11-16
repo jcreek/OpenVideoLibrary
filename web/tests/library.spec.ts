@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect,type Route} from '@playwright/test';
 import {spawn,execFileSync,type ChildProcess} from 'node:child_process';
 import {mkdtempSync,mkdirSync,rmSync,writeFileSync,copyFileSync,renameSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -353,6 +353,98 @@ test('a 401 to an HLS playlist or a subtitle request also ends the session',asyn
  } finally {
   await page.unrouteAll({behavior:'ignoreErrors'});
   try{for(const id of sessions)await page.request.delete('/api/v1/playback/'+id,{headers});}catch{}
+ }
+});
+
+test('a request that fails after the session ends keeps the session-ended message',async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ const unauthorized={status:401,contentType:'application/json',body:JSON.stringify({error:'authentication required'})};
+ try {
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  // A library load is still in flight when another request finds the session has ended.
+  const held:Route[]=[];
+  await page.route(u=>u.pathname==='/api/v1/items',route=>{held.push(route);});
+  await page.getByRole('button',{name:'All media',exact:true}).click();
+  await expect.poll(()=>held.length).toBeGreaterThan(0);
+  await page.route(u=>u.pathname==='/api/v1/music/albums',route=>route.fulfill(unauthorized));
+  await page.getByRole('button',{name:'Music albums',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+  // The earlier request then fails with a network error.
+  for(const route of held)await route.abort('failed');
+  await page.waitForTimeout(1000);
+  await expect(page.getByRole('alert')).toHaveText('Your session has ended. Sign in again.');
+ } finally {
+  await page.unrouteAll({behavior:'ignoreErrors'});
+ }
+});
+
+// The old DELETE comes either from close() itself or, when the player closes while the
+// playback request is in flight, from the late cleanup once that request returns.
+for(const whileCreating of [false,true])test('the next account does not wait for the previous account\'s playback cleanup'+(whileCreating?' (closed while starting)':''),async({page})=>{
+ const headers={'X-OVL-Request':'1'};
+ if((await (await page.request.get('/api/v1/status')).json()).setup)expect((await page.request.post('/api/v1/setup',{headers,data:{Name:username,Password:password}})).status()).toBe(201);
+ expect((await page.request.post('/api/v1/login',{headers,data:{Name:username,Password:password}})).status()).toBe(200);
+ if(!(await (await page.request.get('/api/v1/libraries')).json()).length)expect((await page.request.post('/api/v1/libraries',{headers,data:{Name:'Cleanup TV',Path:media,Kind:'tv'}})).status()).toBe(201);
+ await page.request.post('/api/v1/scan',{headers});await expect.poll(async()=>(await (await page.request.get('/api/v1/scan')).json()).running).toBe(false);
+ const item=(await (await page.request.get('/api/v1/items')).json()).sort((a:{id:number},b:{id:number})=>a.id-b.id).at(-1);
+ const unauthorized={status:401,contentType:'application/json',body:JSON.stringify({error:'authentication required'})};
+ // DELETEs are held only until the new account's player is checked, so later cleanup is not leaked.
+ const held:Route[]=[];let holding=true;
+ const openItem=async()=>{await page.getByRole('button',{name:'All media',exact:true}).click();await page.getByRole('button',{name:new RegExp('TV ▶ '+item.title)}).click();};
+ const isCreation=(u:URL,method:string)=>method==='POST'&&u.pathname==='/api/v1/items/'+item.id+'/playback';
+ try {
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  // Opening a title starts automatic playback first; wait for it so later steps see only the remux request.
+  const automatic=page.waitForResponse(r=>isCreation(new URL(r.url()),r.request().method()));
+  await openItem();await automatic;
+  await expect(page.getByRole('button',{name:'Apply playback settings',exact:true})).toBeEnabled();
+  await page.getByLabel('Playback',{exact:true}).selectOption('remux');
+  await page.route(u=>/^\/api\/v1\/playback\/[^/]+$/.test(u.pathname),route=>{if(!holding||route.request().method()!=='DELETE')return route.fallback();held.push(route);});
+  let target='';
+  if(whileCreating){
+   const creations:Route[]=[];
+   // unroute() matches the same predicate object, so keep it.
+   const creationURL=(u:URL)=>u.pathname==='/api/v1/items/'+item.id+'/playback';
+   await page.route(creationURL,route=>{if(route.request().method()!=='POST')return route.fallback();creations.push(route);});
+   await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();
+   await expect.poll(()=>creations.length).toBe(1);
+   await page.getByRole('button',{name:'Close player',exact:true}).click();
+   await expect(page.getByRole('button',{name:'Close player',exact:true})).toHaveCount(0);
+   // The request returns after the player closed, so the client deletes the new session itself.
+   const response=await creations[0].fetch();const body=await response.json();target=body.id;
+   await creations[0].fulfill({response,json:body});
+   await page.unroute(creationURL);
+  }else{
+   const created=page.waitForResponse(r=>isCreation(new URL(r.url()),r.request().method())&&r.ok());
+   await page.getByRole('button',{name:'Apply playback settings',exact:true}).click();
+   target=(await (await created).json()).id;
+   await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+   await page.getByRole('button',{name:'Close player',exact:true}).click();
+  }
+  // That DELETE never gets an answer.
+  expect(target).toBeTruthy();
+  await expect.poll(()=>held.some(r=>r.request().url().endsWith('/playback/'+target))).toBe(true);
+  // The session then ends, and the user signs in again.
+  const albumsURL=(u:URL)=>u.pathname==='/api/v1/music/albums';
+  await page.route(albumsURL,route=>route.fulfill(unauthorized));
+  await page.getByRole('button',{name:'Music albums',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
+  await page.unroute(albumsURL);
+  await page.getByLabel('Username').fill(username);await page.getByLabel('Password').fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Your library'})).toBeVisible();
+  // The new account's player starts while the old DELETE is still unanswered.
+  await openItem();
+  await expect.poll(()=>page.locator('video').evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(1);
+  expect(held.some(r=>r.request().url().endsWith('/playback/'+target))).toBe(true);
+  holding=false;
+  await page.getByRole('button',{name:'Close player',exact:true}).click();
+ } finally {
+  holding=false;
+  // Let the held DELETEs reach the server so their sessions are removed.
+  for(const route of held)await route.continue().catch(()=>{});
+  await page.unrouteAll({behavior:'ignoreErrors'});
  }
 });
 
