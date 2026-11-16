@@ -335,8 +335,9 @@ test('a 401 to an HLS playlist or a subtitle request also ends the session',asyn
   // Only the HLS loader sees this 401; no api() request does.
   await page.route('**/api/v1/playback/*/**',route=>route.request().method()==='GET'?route.fulfill(unauthorized):route.fallback());
   await open();
-  await page.getByLabel('Playback',{exact:true}).selectOption('remux');
-  // The 401 can end the session before Apply is clicked; the click only makes sure playback starts.
+  // If automatic playback already uses HLS, the 401 can end the session before these steps.
+  await page.getByLabel('Playback',{exact:true}).selectOption('remux',{timeout:2000}).catch(()=>{});
+  // The click only makes sure playback starts.
   await page.getByRole('button',{name:'Apply playback settings',exact:true}).click({timeout:2000}).catch(()=>{});
   await expect(page.getByRole('heading',{name:'Welcome back.'})).toBeVisible();
   await expect(page.getByRole('alert')).toHaveText('Your session has ended. Sign in again.');

@@ -334,8 +334,16 @@ cannot delete the server playback session without a valid session, so that
 session holds its admission slot until the idle reaper removes it after 300 s.
 The username stays filled in after an expiry, as it does after a failed
 login; signing out clears it. A 401 on a direct-play or music media source,
-or on native HLS where hls.js is unsupported, is not detected; the 15 s
-progress save notices the expiry while a title is open.
+or on native HLS where hls.js is unsupported, is not detected. Once the
+element has loaded metadata, the 15 s progress save notices the expiry while
+the title is open. If the first load fails, the player shows its playback
+error and the save sends no request, so the expiry is noticed only when a
+later API request returns 401. As defence in depth, the pause handlers skip
+the save once the player has been reset, so a pause event cannot clear the
+session-ended message. No pause event reaches them anyway: `stopPlayer()`
+calls `load()` straight after `pause()`, and the HTML load algorithm drops the
+queued event (no event arrived in Chromium, Firefox or WebKit). The guard
+therefore has no browser test.
 
 **Third CodeRabbit review of PR 2 (14 November 2026).** A full review
 raised seven comments. Six were valid and fixed in one commit on
