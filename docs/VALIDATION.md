@@ -1637,10 +1637,10 @@ file, through an anchored, symlink-refusing handle.
   and creating the FIFO with `libc::mkfifo`.
 - CodeRabbit's review of the PR raised one valid point: opening the extracted
   file had no time bound. It is now bounded like `media::open_media`: tracked,
-  5 s, 504. A stalled data directory therefore cannot hold a stop waiting on
-  the session. As with `open_media`, there is no test for that bound, because
-  it needs a stalled filesystem. An independent review of the fix found
-  nothing blocking.
+  5 s, 504. That open can no longer hold the session indefinitely. A stop is
+  still not bounded overall: the session removes its workspace before
+  reporting that it is done, and that removal can also stall on the data
+  filesystem. An independent review of the fix found nothing blocking.
 - CodeRabbit then noted that a call stuck in the kernel keeps its tracked
   thread, so shutdown still waits for it. The same is true of `open_media`, and
   no user-space code can cancel such a call. Both opens now share
@@ -1653,7 +1653,12 @@ file, through an anchored, symlink-refusing handle.
   - a panic becomes a 500.
 
   With the bound removed, the test fails in 5 s instead of hanging. A review
-  found nothing blocking. The results above are from this code.
+  found nothing blocking.
+- Shutdown and workspace cleanup still wait on a filesystem call stuck in the
+  kernel. Only mount timeouts bound them.
+- The results above are for source `d303898f…`. The final commit after them
+  changes only code comments and these notes; Rust format, Clippy and the unit
+  tests were rerun on it.
 
 ### Time to the first published segment
 Each figure is the median and range of five alternating rounds, measured from

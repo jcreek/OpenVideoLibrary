@@ -1169,8 +1169,8 @@ async fn bind_media_inputs(
 }
 /// Opens a server-written session file through anchored, symlink-refusing,
 /// non-blocking component lookups and checks it is a regular file. Bounded
-/// like [`media::open_media`], so a stalled data directory cannot hold a
-/// stop or shutdown waiting on this session.
+/// like [`media::open_media`], so this open cannot hold the session
+/// indefinitely; see [`media::bounded_blocking`] for what stays unbounded.
 async fn open_extracted(app: &App, path: &std::path::Path) -> Result<std::fs::File> {
     let path = path.to_owned();
     media::bounded_blocking(

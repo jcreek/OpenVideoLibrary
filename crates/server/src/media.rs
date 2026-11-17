@@ -122,10 +122,12 @@ pub(crate) const OPEN_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Runs blocking filesystem work on the tracked pool and stops waiting after
 /// `limit`, answering 504 with `messages.0` (or 500 with `messages.1` if the
-/// work panicked), so a stalled mount cannot hold the caller. The caller's
-/// request, stop or session ends; a thread stuck inside a kernel call keeps
-/// running until that call returns, and shutdown waits for it. No user-space
-/// code can cancel such a call; mount timeouts bound it.
+/// worker failed or panicked), so a stalled mount cannot hold the caller's
+/// wait for this work. It bounds only that wait: a thread stuck inside a
+/// kernel call keeps running until the call returns, and shutdown waits for
+/// it, while other filesystem work, such as session cleanup, can stall on the
+/// same mount. No user-space code can cancel such a call; mount timeouts
+/// bound it.
 pub(crate) async fn bounded_blocking<T: Send + 'static>(
     tasks: &tokio_util::task::TaskTracker,
     limit: Duration,
