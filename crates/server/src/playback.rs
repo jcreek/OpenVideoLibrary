@@ -1173,18 +1173,23 @@ async fn bind_media_inputs(
 /// stop or shutdown waiting on this session.
 async fn open_extracted(app: &App, path: &std::path::Path) -> Result<std::fs::File> {
     let path = path.to_owned();
-    let work = app.tasks.spawn_blocking(move || {
-        let file = media::open_registered_file(&path)?;
-        if !file.metadata()?.is_file() {
-            return Err(std::io::Error::other("not a regular file"));
-        }
-        Ok(file)
-    });
-    tokio::time::timeout(Duration::from_secs(5), work)
-        .await
-        .map_err(|_| Error::new(504, "extracted subtitle open timed out"))?
-        .map_err(|_| Error::new(500, "subtitle worker failed"))?
-        .map_err(|_| Error::new(500, "extracted subtitle unavailable"))
+    media::bounded_blocking(
+        &app.tasks,
+        media::OPEN_TIMEOUT,
+        (
+            "extracted subtitle open timed out",
+            "subtitle worker failed",
+        ),
+        move || {
+            let file = media::open_registered_file(&path)?;
+            if !file.metadata()?.is_file() {
+                return Err(std::io::Error::other("not a regular file"));
+            }
+            Ok(file)
+        },
+    )
+    .await?
+    .map_err(|_| Error::new(500, "extracted subtitle unavailable"))
 }
 async fn check_conversion_quota(app: &App, stream: &Stream) -> Result<()> {
     let mut size = 0u64;

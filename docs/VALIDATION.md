@@ -1604,6 +1604,7 @@ file, through an anchored, symlink-refusing handle.
 
 ### Verification on the final code
 - `make verify-local` passed on macOS arm64 with FFmpeg 6.0:
+  - 6 unit tests;
   - 43 API tests;
   - 19 of 19 ignored CPU tests: 17 in `api.rs`, the HDR fallback test and the
     FFmpeg-boundary test;
@@ -1612,7 +1613,7 @@ file, through an anchored, symlink-refusing handle.
   - the Nginx/TLS drill.
 - All eight N100 SSH checks passed with Ubuntu FFmpeg 6.1.1. The
   `software-media` check ran the same 19 ignored tests. See
-  `validation-n100-confined-subtitles.json`, source `663d405a…`.
+  `validation-n100-confined-subtitles.json`, source `d303898f…`.
 - An independent adversarial review found nothing blocking. Its findings were
   fixed:
   - a vacuous test branch;
@@ -1639,7 +1640,20 @@ file, through an anchored, symlink-refusing handle.
   5 s, 504. A stalled data directory therefore cannot hold a stop waiting on
   the session. As with `open_media`, there is no test for that bound, because
   it needs a stalled filesystem. An independent review of the fix found
-  nothing blocking. The results above are from the fixed code.
+  nothing blocking.
+- CodeRabbit then noted that a call stuck in the kernel keeps its tracked
+  thread, so shutdown still waits for it. The same is true of `open_media`, and
+  no user-space code can cancel such a call. Both opens now share
+  `media::bounded_blocking`. Its unit tests use a closure blocked on a channel
+  and check four things:
+  - the wait ends with a 504 within the bound;
+  - the abandoned thread is still tracked, so `wait()` does not finish until
+    it is released;
+  - results and I/O errors pass through;
+  - a panic becomes a 500.
+
+  With the bound removed, the test fails in 5 s instead of hanging. A review
+  found nothing blocking. The results above are from this code.
 
 ### Time to the first published segment
 Each figure is the median and range of five alternating rounds, measured from
