@@ -24,12 +24,23 @@ use std::{
 };
 use tokio::sync::{Mutex, watch};
 use tokio_util::sync::CancellationToken;
-/// Placeholder for the text-subtitle filter's source, bound to an anchored
-/// handle by [`bind_input_args`]. Residual risk: libass's `subtitles` filter
-/// opens that handle without FFmpeg's input whitelists. It reads the same
-/// inode as the confined, already probed input, so escaping needs library
-/// write access and a content swap between probe and filter start.
+/// Placeholder for the text-subtitle filter's source, bound by
+/// [`bind_input_args`] to a handle on the session's extracted subtitle file.
+/// libass's `subtitles` filter opens its file without FFmpeg's input
+/// whitelists, so it must never read library media: a confined FFmpeg first
+/// copies the selected track and its font attachments into the session
+/// directory ([`subtitle_extraction_args`]), and the filter reads only that.
 const SUBTITLE_SOURCE: &str = "subtitles=filename=source:";
+/// Server-written Matroska file holding one extracted text track and the
+/// source's attachments (fonts). Not servable: segment names exclude it.
+const EXTRACTED_SUBTITLE: &str = "subtitle.mkv";
+/// Text codecs Matroska stores as they are; others are converted to ASS.
+const MATROSKA_TEXT_SUBTITLES: [&str; 2] = ["ass", "subrip"];
+/// Upper bound for one conversion process, extraction included. Extraction
+/// demuxes the whole source, as the filter itself did at start. In practice
+/// the idle, workspace and cancellation checks stop an abandoned session
+/// long before this.
+const CONVERSION_TIMEOUT: Duration = Duration::from_secs(6 * 3600);
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClientCapabilities {
@@ -496,6 +507,54 @@ fn bitmap_subtitle(b: &Playback, info: &Info) -> Option<usize> {
 fn sequential_bitmap(b: &Playback, info: &Info) -> bool {
     bitmap_subtitle(b, info).is_some() && unindexed_seek(&info.format.format_name)
 }
+/// Index of a text track that libass burns in, as opposed to a bitmap track
+/// composed by overlay.
+fn text_burn_in(b: &Playback, info: &Info) -> Option<usize> {
+    b.subtitle.filter(|_| {
+        b.mode == "transcode" && info.video().is_some() && bitmap_subtitle(b, info).is_none()
+    })
+}
+/// Arguments for the confined FFmpeg that copies text track `index` (among
+/// subtitle tracks) and the attachments of the media on inherited handle 0
+/// into [`EXTRACTED_SUBTITLE`], run in the session directory. Cue times stay
+/// on the source timeline, which the burn-in filter's offsets assume. Output
+/// stops at `limit` bytes. Without `attachments`, fonts are left behind.
+pub fn subtitle_extraction_args(
+    info: &Info,
+    index: usize,
+    limit: u64,
+    attachments: bool,
+) -> Vec<String> {
+    let codec = info
+        .tracks("subtitle")
+        .get(index)
+        .map(|t| t.codec_name.as_str())
+        .filter(|codec| MATROSKA_TEXT_SUBTITLES.contains(codec))
+        .map_or("ass", |_| "copy");
+    let mut a: Vec<String> = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    a.extend(media::confined_input(media::MEDIA_DEMUXERS));
+    a.extend(["-i".into(), media::inherited(0)]);
+    a.extend(["-map".into(), format!("0:s:{index}")]);
+    if attachments {
+        a.extend(["-map".into(), "0:t?".into(), "-c:t".into(), "copy".into()]);
+    }
+    a.extend([
+        "-c:s".into(),
+        codec.into(),
+        "-copyts".into(),
+        "-avoid_negative_ts".into(),
+        "disabled".into(),
+        "-fs".into(),
+        limit.to_string(),
+        "-f".into(),
+        "matroska".into(),
+        EXTRACTED_SUBTITLE.into(),
+    ]);
+    a
+}
 /// Chooses the remux start reported to the client. Copied video begins on a
 /// keyframe at or before the input seek, so a measured start is accepted only
 /// between 0 and `requested` + 0.1 s; anything else (for example timestamps
@@ -615,7 +674,7 @@ pub fn encoding_args(
             if info.hdr() {
                 filters.push("zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p".into());
             }
-            if let Some(s) = b.subtitle.filter(|_| bitmap.is_none()) {
+            if b.subtitle.is_some() && bitmap.is_none() {
                 let origin = info
                     .format
                     .start_time
@@ -627,7 +686,8 @@ pub fn encoding_args(
                 // Input seeking rebases video PTS, while libass reads original cue times.
                 // Restore that timeline only around subtitle rendering, then preserve AV sync.
                 filters.push(format!("setpts=PTS+({subtitle_offset:.6})/TB"));
-                filters.push(format!("{SUBTITLE_SOURCE}si={s}"));
+                // The extracted file holds only the selected track.
+                filters.push(format!("{SUBTITLE_SOURCE}si=0"));
                 filters.push(format!("setpts=PTS-({subtitle_offset:.6})/TB"));
             }
             filters.push(format!("scale={}:{}", v.width, v.height));
@@ -914,13 +974,17 @@ async fn encode_attempt(
             hardware_args(args, name, &variants)
         };
     }
-    let (args, files) = bind_media_inputs(app, args, &path).await?;
+    let subtitle = match text_burn_in(&b, &info) {
+        Some(index) => Some(extract_text_subtitle(app, st, &path, &info, index).await?),
+        None => None,
+    };
+    let (args, files) = bind_media_inputs(app, args, &path, subtitle.as_deref()).await?;
     let conversion = media::process_media(
         app,
         "ffmpeg",
         args,
         Some(st.dir.clone()),
-        Duration::from_secs(6 * 3600),
+        CONVERSION_TIMEOUT,
         1024,
         st.cancel.clone(),
         files,
@@ -944,15 +1008,110 @@ async fn encode_attempt(
         }
     }
 }
-/// Rewrites every library input of an encode, and the subtitle filter's read
-/// of the same source, onto inherited handles with confined demuxing; returns
-/// the rewritten arguments and how many handles they name. Each consumer gets
-/// its own handle, so no two readers share a file offset. Fails closed: any
-/// input left on a path rather than an inherited handle is an error.
-pub fn bind_input_args(args: Vec<String>, path: &std::path::Path) -> Result<(Vec<String>, usize)> {
+/// Copies the burned-in text track out of the library media with a confined
+/// FFmpeg, so libass never opens library media itself. Runs under the same
+/// cancellation, idle and workspace limits as the conversion. A source whose
+/// attachments Matroska rejects (the old filter skipped them) is retried once
+/// without them.
+async fn extract_text_subtitle(
+    app: &Arc<App>,
+    st: &Arc<Stream>,
+    path: &std::path::Path,
+    info: &Info,
+    index: usize,
+) -> Result<PathBuf> {
+    let started = Instant::now();
+    let limit = app.config.transcode_bytes;
+    let output = st.dir.join(EXTRACTED_SUBTITLE);
+    let mut attachments = true;
+    loop {
+        let file = media::open_media(app, path).await?.0;
+        let extraction = media::process_media(
+            app,
+            "ffmpeg",
+            subtitle_extraction_args(info, index, limit, attachments),
+            Some(st.dir.clone()),
+            CONVERSION_TIMEOUT,
+            1024,
+            st.cancel.clone(),
+            vec![file],
+        );
+        tokio::pin!(extraction);
+        let mut quota = tokio::time::interval(Duration::from_secs(1));
+        let result = loop {
+            tokio::select! {
+                result = &mut extraction => break result,
+                _ = quota.tick() => {
+                    if let Err(error) = check_conversion_quota(app, st).await {
+                        // Recorded here: the cancelled session task records nothing.
+                        *st.error.lock().await = Some(error.1.clone());
+                        st.cancel.cancel();
+                        let _ = extraction.await;
+                        return Err(error);
+                    }
+                }
+            }
+        };
+        let size = tokio::fs::symlink_metadata(&output)
+            .await
+            .ok()
+            .filter(|m| m.is_file())
+            .map(|m| m.len());
+        // FFmpeg may fail or exit cleanly once `-fs` is reached; both are checked.
+        if size.is_some_and(|len| len >= limit) {
+            return Err(Error::new(
+                507,
+                "extracted subtitle exceeds the workspace quota",
+            ));
+        }
+        match result {
+            Ok(_) => {
+                let Some(bytes) = size else {
+                    return Err(Error::new(502, "subtitle extraction produced no file"));
+                };
+                tracing::info!(
+                    extract_ms = started.elapsed().as_millis() as u64,
+                    bytes,
+                    attachments,
+                    "text subtitle extracted"
+                );
+                return Ok(output);
+            }
+            Err(error) if st.cancel.is_cancelled() => return Err(error),
+            // A timeout is not an attachment problem; retrying would double the bound.
+            Err(error) if attachments && error.0 != 504 => {
+                tracing::warn!(reason=%error.1,"text subtitle extraction failed; retrying without attachments");
+                attachments = false;
+            }
+            Err(error) => {
+                tracing::warn!(reason=%error.1,"text subtitle extraction failed");
+                return Err(Error::new(502, "subtitle extraction failed"));
+            }
+        }
+    }
+}
+/// What a handle named by [`bind_input_args`] must be opened on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Handle {
+    /// The authorized library media, read by a confined `-i`.
+    Media,
+    /// The session's extracted subtitle file, read by libass.
+    Subtitle,
+}
+/// Rewrites every library input of an encode onto inherited handles with
+/// confined demuxing, and the text-subtitle filter onto a handle for the
+/// extracted subtitle file; returns the rewritten arguments and, in order,
+/// what each named handle must be. Each consumer gets its own handle, so no
+/// two readers share a file offset. Fails closed: any input left on a path
+/// rather than an inherited handle is an error, and library media is only
+/// ever named by a confined `-i`.
+pub fn bind_input_args(
+    args: Vec<String>,
+    path: &std::path::Path,
+) -> Result<(Vec<String>, Vec<Handle>)> {
     let source = path.to_string_lossy().into_owned();
     let mut bound = Vec::with_capacity(args.len() + 8);
-    let mut handles = 0;
+    let mut handles = Vec::new();
     let mut args = args.into_iter().peekable();
     while let Some(arg) = args.next() {
         if arg == "-i" {
@@ -961,8 +1120,8 @@ pub fn bind_input_args(args: Vec<String>, path: &std::path::Path) -> Result<(Vec
             }
             bound.extend(media::confined_input(media::MEDIA_DEMUXERS));
             bound.push(arg);
-            bound.push(media::inherited(handles));
-            handles += 1;
+            bound.push(media::inherited(handles.len()));
+            handles.push(Handle::Media);
         } else if arg.contains(SUBTITLE_SOURCE) {
             let mut rewritten = String::with_capacity(arg.len());
             let mut rest = arg.as_str();
@@ -970,9 +1129,9 @@ pub fn bind_input_args(args: Vec<String>, path: &std::path::Path) -> Result<(Vec
                 rewritten.push_str(&rest[..at]);
                 rewritten.push_str(&format!(
                     "subtitles=filename={}:",
-                    media::inherited(handles)
+                    media::inherited(handles.len())
                 ));
-                handles += 1;
+                handles.push(Handle::Subtitle);
                 rest = &rest[at + SUBTITLE_SOURCE.len()..];
             }
             rewritten.push_str(rest);
@@ -981,23 +1140,56 @@ pub fn bind_input_args(args: Vec<String>, path: &std::path::Path) -> Result<(Vec
             bound.push(arg);
         }
     }
-    if handles > media::MAX_INHERITED {
+    if handles.len() > media::MAX_INHERITED {
         return Err(Error::new(500, "too many media handles"));
     }
     Ok((bound, handles))
 }
-/// Opens one anchored handle per input named by [`bind_input_args`].
+/// Opens one handle per input named by [`bind_input_args`]: an anchored one
+/// on the library media, or a symlink-refusing one on the extracted subtitle.
 async fn bind_media_inputs(
     app: &App,
     args: Vec<String>,
     path: &std::path::Path,
+    subtitle: Option<&std::path::Path>,
 ) -> Result<(Vec<String>, Vec<std::fs::File>)> {
     let (bound, handles) = bind_input_args(args, path)?;
-    let mut files = Vec::with_capacity(handles);
-    for _ in 0..handles {
-        files.push(media::open_media(app, path).await?.0);
+    let mut files = Vec::with_capacity(handles.len());
+    for handle in handles {
+        files.push(match handle {
+            Handle::Media => media::open_media(app, path).await?.0,
+            Handle::Subtitle => {
+                let subtitle =
+                    subtitle.ok_or_else(|| Error::new(500, "text subtitle was not extracted"))?;
+                open_extracted(app, subtitle).await?
+            }
+        });
     }
     Ok((bound, files))
+}
+/// Opens a server-written session file through anchored, symlink-refusing,
+/// non-blocking component lookups and checks it is a regular file. Bounded
+/// like [`media::open_media`], so this open cannot hold the session
+/// indefinitely; see [`media::bounded_blocking`] for what stays unbounded.
+async fn open_extracted(app: &App, path: &std::path::Path) -> Result<std::fs::File> {
+    let path = path.to_owned();
+    media::bounded_blocking(
+        &app.tasks,
+        media::OPEN_TIMEOUT,
+        (
+            "extracted subtitle open timed out",
+            "subtitle worker failed",
+        ),
+        move || {
+            let file = media::open_registered_file(&path)?;
+            if !file.metadata()?.is_file() {
+                return Err(std::io::Error::other("not a regular file"));
+            }
+            Ok(file)
+        },
+    )
+    .await?
+    .map_err(|_| Error::new(500, "extracted subtitle unavailable"))
 }
 async fn check_conversion_quota(app: &App, stream: &Stream) -> Result<()> {
     let mut size = 0u64;

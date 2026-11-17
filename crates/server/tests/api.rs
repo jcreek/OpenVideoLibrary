@@ -6055,7 +6055,9 @@ fn every_encode_input_is_rebound_to_its_own_inherited_handle() {
             .filter(|p| p.starts_with("/dev/fd/"))
             .map(str::to_owned)
             .collect();
-        let expected: Vec<String> = (3..3 + handles).map(|fd| format!("/dev/fd/{fd}")).collect();
+        let expected: Vec<String> = (3..3 + handles.len())
+            .map(|fd| format!("/dev/fd/{fd}"))
+            .collect();
         let mut seen = named.clone();
         seen.sort();
         seen.dedup();
@@ -6065,9 +6067,32 @@ fn every_encode_input_is_rebound_to_its_own_inherited_handle() {
         if inputs > 0 {
             assert_eq!(rebound_inputs, inputs, "{bound:?}");
         } else {
-            // One input plus one text-subtitle filter per rendition.
+            // One input plus one text-subtitle filter per rendition, each on
+            // the extracted subtitle file rather than library media.
             assert_eq!(rebound_inputs, 1);
-            assert_eq!(handles, 1 + variants.len(), "{bound:?}");
+            let mut kinds = vec![playback::Handle::Media];
+            kinds.extend(std::iter::repeat_n(
+                playback::Handle::Subtitle,
+                variants.len(),
+            ));
+            assert_eq!(handles, kinds, "{bound:?}");
+        }
+        // Library media is only ever named by a confined `-i`; libass's
+        // unconfined `subtitles` filter names only extracted subtitle files.
+        for (slot, kind) in handles.iter().enumerate() {
+            let fd = format!("/dev/fd/{}", 3 + slot);
+            let by_input = bound.windows(2).any(|w| w[0] == "-i" && w[1] == fd);
+            let by_filter = bound
+                .iter()
+                .any(|a| a.contains(&format!("subtitles=filename={fd}:")));
+            assert_eq!(
+                (by_input, by_filter),
+                (
+                    *kind == playback::Handle::Media,
+                    *kind == playback::Handle::Subtitle
+                ),
+                "{fd} {kind:?}: {bound:?}"
+            );
         }
         for w in bound.windows(2).filter(|w| w[0] == "-i") {
             assert!(w[1].starts_with("/dev/fd/"), "{w:?}");
@@ -6088,6 +6113,298 @@ fn every_encode_input_is_rebound_to_its_own_inherited_handle() {
     // Fails closed on any input other than the authorized media.
     let foreign = vec!["-i".into(), "/elsewhere.mkv".into()];
     assert!(playback::bind_input_args(foreign, source).is_err());
+}
+
+/// Writes a 6 s 640x360 black MP4 with a 440 Hz tone and one text cue
+/// ("HELLO", 1–3 s) in the given subtitle codec, plus optional extra inputs.
+fn write_captioned_mp4(root: &Path, codec: &str, extra: &[&str]) -> std::path::PathBuf {
+    let srt = root.join("cue.srt");
+    std::fs::write(&srt, "1\n00:00:01,000 --> 00:00:03,000\nHELLO\n").unwrap();
+    let path = std::fs::canonicalize(root.join("media/Example.S01E01.mp4")).unwrap();
+    let mut command = std::process::Command::new("ffmpeg");
+    command.args([
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=black:size=640x360:rate=12",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440",
+    ]);
+    command.arg("-i").arg(&srt).args(extra).args([
+        "-t", "6", "-map", "0:v", "-map", "1:a", "-map", "2:s", "-c:v", "libx264", "-c:a", "aac",
+        "-c:s", codec,
+    ]);
+    assert!(command.arg(&path).status().unwrap().success());
+    path
+}
+/// Bright pixels in the lower third of the decoded frame at `at` seconds.
+async fn caption_pixels(app: &Arc<App>, output: &Path, at: f64) -> usize {
+    let rgb = media::process(
+        app,
+        "ffmpeg",
+        [
+            "-v",
+            "error",
+            "-i",
+            output.to_str().unwrap(),
+            "-ss",
+            &at.to_string(),
+            "-frames:v",
+            "1",
+            "-pix_fmt",
+            "rgb24",
+            "-f",
+            "rawvideo",
+            "pipe:1",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect(),
+        None,
+        Duration::from_secs(15),
+        1 << 20,
+        app.cancel.child_token(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(rgb.len(), 640 * 360 * 3);
+    rgb[240 * 640 * 3..]
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .filter(|p| p.iter().all(|v| *v > 200))
+        .count()
+}
+
+#[tokio::test]
+#[ignore = "requires FFmpeg with libx264, libass, AAC and mov_text, and a system sans font (MP4 carries no font attachment); software acceptance"]
+async fn mp4_text_burn_in_converts_through_confined_extraction() {
+    let root = TempDir::new().unwrap();
+    let (app, router, token) = setup_retained(&root).await;
+    let item = add_media(&app, root.path()).await;
+    write_captioned_mp4(root.path(), "mov_text", &[]);
+    for start in [0.0, 1.5] {
+        let (status, session) = request(
+            &router,
+            "POST",
+            &format!("/api/v1/items/{item}/playback"),
+            Some(&token),
+            Some(json!({"Mode":"transcode","Subtitle":0,"Start":start})),
+        )
+        .await;
+        assert_eq!(status, 201, "{session}");
+        let id = session["id"].as_str().unwrap();
+        let stream = app.streams.lock().await.get(id).unwrap().clone();
+        tokio::time::timeout(Duration::from_secs(60), async {
+            while !stream.finished.load(std::sync::atomic::Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let failure = stream.error.lock().await.clone();
+        assert!(failure.is_none(), "{failure:?}");
+        // MP4 text cannot be stored in Matroska as is; it was converted to ASS.
+        let extracted = media::inspect(&app, &stream.dir.join("subtitle.mkv"))
+            .await
+            .unwrap();
+        assert_eq!(extracted.tracks("subtitle").len(), 1);
+        assert_eq!(extracted.tracks("subtitle")[0].codec_name, "ass");
+        assert!(extracted.video().is_none());
+        let output = stream.dir.join("v0.m3u8");
+        let (shown, hidden) = if start == 0.0 { (1.5, 4.0) } else { (0.5, 2.5) };
+        let lit = caption_pixels(&app, &output, shown).await;
+        assert!(lit > 100, "start {start}: caption missing ({lit} px)");
+        let dark = caption_pixels(&app, &output, hidden).await;
+        assert!(
+            dark < 10,
+            "start {start}: caption outside its cue ({dark} px)"
+        );
+        assert_eq!(
+            request(
+                &router,
+                "DELETE",
+                &format!("/api/v1/playback/{id}"),
+                Some(&token),
+                None
+            )
+            .await
+            .0,
+            200
+        );
+    }
+    app.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "requires FFmpeg with libx264 and SubRip; software acceptance"]
+async fn text_burn_in_fails_closed_when_extraction_exceeds_the_quota() {
+    let root = TempDir::new().unwrap();
+    // Smaller than the font attachment, so the extraction cannot fit.
+    let (app, router, token) = setup_with(
+        &root,
+        Config {
+            transcode_bytes: 600,
+            stream_idle: Duration::from_secs(600),
+            ..config(root.path())
+        },
+    )
+    .await;
+    let item = add_media(&app, root.path()).await;
+    std::fs::rename(
+        root.path().join("media/Example.S01E01.mp4"),
+        root.path().join("media/Example.S01E01.mkv.tmp"),
+    )
+    .unwrap();
+    let font = root.path().join("font.ttf");
+    std::fs::write(&font, include_bytes!("fixtures/OVLFixtureBars.ttf")).unwrap();
+    // A Matroska source carrying the font; keep the registered .mp4 name.
+    let mkv = root.path().join("captioned.mkv");
+    let srt = root.path().join("cue.srt");
+    std::fs::write(&srt, "1\n00:00:01,000 --> 00:00:03,000\nHELLO\n").unwrap();
+    let status = std::process::Command::new("ffmpeg")
+        .args([
+            "-nostdin",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=black:size=640x360:rate=12",
+        ])
+        .arg("-i")
+        .arg(&srt)
+        .args([
+            "-t", "6", "-map", "0:v", "-map", "1:s", "-c:v", "libx264", "-c:s", "srt",
+        ])
+        .arg("-attach")
+        .arg(&font)
+        .args(["-metadata:s:t", "mimetype=font/ttf"])
+        .arg(&mkv)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    std::fs::remove_file(root.path().join("media/Example.S01E01.mkv.tmp")).unwrap();
+    std::fs::rename(&mkv, root.path().join("media/Example.S01E01.mp4")).unwrap();
+    let (status, session) = request(
+        &router,
+        "POST",
+        &format!("/api/v1/items/{item}/playback"),
+        Some(&token),
+        Some(json!({"Mode":"transcode","Subtitle":0})),
+    )
+    .await;
+    assert_eq!(status, 201, "{session}");
+    let id = session["id"].as_str().unwrap();
+    let stream = app.streams.lock().await.get(id).unwrap().clone();
+    tokio::time::timeout(Duration::from_secs(30), async {
+        while !stream.finished.load(std::sync::atomic::Ordering::Acquire) {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    // FFmpeg's `-fs` stop or the 1 s workspace sampler, whichever sees the
+    // oversized output first, records the failure. The extraction precedes
+    // the conversion, so no playlist or segment is ever written.
+    let failure = stream.error.lock().await.clone();
+    assert!(
+        failure.as_deref().is_some_and(|e| [
+            "extracted subtitle exceeds the workspace quota",
+            "transcoding stopped: storage or idle limit reached"
+        ]
+        .contains(&e)),
+        "{failure:?}"
+    );
+    if !stream.cancel.is_cancelled() {
+        let (status, body) = request(
+            &router,
+            "GET",
+            session["url"].as_str().unwrap(),
+            Some(&token),
+            None,
+        )
+        .await;
+        assert_eq!(status, 502, "{body}");
+        assert_eq!(
+            request(
+                &router,
+                "DELETE",
+                &format!("/api/v1/playback/{id}"),
+                Some(&token),
+                None
+            )
+            .await
+            .0,
+            200
+        );
+    }
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while !app.streams.lock().await.is_empty() {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(!stream.dir.exists());
+    app.shutdown().await
+}
+
+#[test]
+fn text_subtitle_extraction_reads_only_a_confined_input() {
+    let info: media::Info = serde_json::from_value(json!({"streams":[
+        {"index":0,"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p","width":640,"height":360},
+        {"index":1,"codec_type":"subtitle","codec_name":"subrip"},
+        {"index":2,"codec_type":"subtitle","codec_name":"mov_text"},
+        {"index":3,"codec_type":"subtitle","codec_name":"ass"}],
+        "format":{"format_name":"matroska","duration":"60","start_time":"0"}}))
+    .unwrap();
+    for (index, codec) in [(0, "copy"), (1, "ass"), (2, "copy"), (9, "ass")] {
+        let args = playback::subtitle_extraction_args(&info, index, 4096, true);
+        let inputs: Vec<usize> = args
+            .iter()
+            .enumerate()
+            .filter(|(_, a)| *a == "-i")
+            .map(|(i, _)| i)
+            .collect();
+        assert_eq!(inputs.len(), 1, "{args:?}");
+        let i = inputs[0];
+        assert_eq!(args[i + 1], "/dev/fd/3");
+        assert_eq!(
+            args[i - 4..i],
+            [
+                "-protocol_whitelist".to_string(),
+                "file".into(),
+                "-format_whitelist".into(),
+                "mov,matroska,avi,mpegts,mpeg,mpegvideo,flv,asf,ogg,mp3,flac,wav,aac".into()
+            ]
+        );
+        let after = |flag: &str| {
+            args.windows(2)
+                .filter(|w| w[0] == flag)
+                .map(|w| w[1].clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(after("-map"), [format!("0:s:{index}"), "0:t?".into()]);
+        assert_eq!(after("-c:s"), [codec]);
+        assert_eq!(after("-c:t"), ["copy"]);
+        assert_eq!(after("-fs"), ["4096"]);
+        assert_eq!(after("-f"), ["matroska"]);
+        assert!(args.contains(&"-copyts".into()));
+        // Written relative to the session directory, never to a library path.
+        assert_eq!(args.last().unwrap(), "subtitle.mkv");
+        // The retry without attachments maps and copies only the track.
+        let bare = playback::subtitle_extraction_args(&info, index, 4096, false);
+        assert!(!bare.iter().any(|a| a.starts_with("0:t") || a == "-c:t"));
+        assert!(bare.contains(&format!("0:s:{index}")));
+    }
 }
 
 async fn scan_and_wait(app: &Arc<App>) {

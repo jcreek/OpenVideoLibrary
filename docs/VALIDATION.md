@@ -1533,3 +1533,160 @@ Remaining gaps:
   a worker rather than a blocking-pool thread.
 - A failed workspace removal at session end is still ignored.
 - An abandoned TMDB artwork download can leave `artwork/poster-<token>`.
+
+## Confined text-subtitle extraction — 2026-11-17
+
+Text burn-in no longer gives libass a handle to library media. libass's
+`subtitles` filter opens its file without FFmpeg's input whitelists. Someone
+with library write access could have rewritten the file in place after the
+confined probe, so that the filter would open other paths or URLs.
+
+A confined FFmpeg now copies the selected track and the source's attachments
+into the session's `subtitle.mkv`. It reads the library only through a local
+file and the single-file demuxers. libass reads only that server-written
+file, through an anchored, symlink-refusing handle.
+
+### Tests
+- **Unit tests:**
+  - every library handle in a text-burn-in encode follows a confined `-i`;
+  - no `subtitles=` filename names library media;
+  - the extraction arguments are confined: copy versus ASS conversion,
+    attachments, `-fs`, and the relative output name.
+
+  On the old code the new unit test does not compile, and the extended
+  binding test fails.
+- **New ignored media tests:**
+  - MP4 `mov_text` is converted to ASS and burned in at starts of 0 and 1.5 s,
+    checking caption pixels inside and outside the cue. It needs a system sans
+    font, because MP4 carries no font attachment.
+  - Fail-closed quota stop: no conversion starts. Either stopping path, FFmpeg's
+    `-fs` or the 1 s workspace sampler, records the reason. On macOS arm64 it
+    passed 3 of 3 runs idle and 3 of 3 with every core busy.
+- **Existing styled-ASS test:** it covers embedded-font discrimination, two
+  tracks, 0 and 5 s source origins, seeks and timed audio. It caught a track
+  index bug during development: the extracted file holds one track, so the
+  filter uses `si=0`.
+- **FFmpeg-boundary test (`tests/subtitle_confinement.rs`):** an FFmpeg
+  wrapper placed first on `PATH` records what each call receives. It can also
+  fail or stall a chosen call, or rewrite the library file in place. Because it
+  replaces `PATH`, this binary holds a single test. It needs `python3` and
+  `mkfifo`. It runs five scenarios in order:
+  1. **Inode check:** the inode behind every `subtitles=filename=/dev/fd/N`
+     handle is the session's `subtitle.mkv`, never the library media. This is
+     the regression guard for the former residual. On `main`'s `playback.rs`
+     it fails with "libass was handed library media".
+  2. **Attachment retry:** when the wrapper refuses extractions that map
+     attachments, one retry without them succeeds, and burn-in runs from a
+     font-less `subtitle.mkv`. With the retry disabled, the test fails.
+  3. **Persistent failure:** when every extraction fails, the session tries
+     exactly twice, then fails closed with "subtitle extraction failed".
+     No conversion runs.
+  4. **In-place rewrite:** just before FFmpeg reads the library file, after
+     the server's checks, the wrapper rewrites it in place (same inode) into
+     an HLS playlist naming a local FIFO, `secret.ts`. Any process opening the
+     FIFO to read would block, and the session would never finish. The confined
+     extraction refuses the playlist, nothing opens the FIFO, and the session
+     fails closed after one retry, with no conversion. With the extraction's
+     input restrictions removed, the test fails: the session stalls on the
+     FIFO. This shows the confined extraction refusing such a file. It does not
+     reproduce the old timing window inside a single FFmpeg process.
+  5. **Cancellation:** stopping a session while its extraction is stalled kills
+     and reaps that process (`kill(pid, 0)` returns ESRCH), starts no retry, and
+     removes the session and its directory.
+
+  Two cases stay uncovered:
+  - The order of the cancellation and retry branches cannot be observed. A
+    retry against an already cancelled token does start FFmpeg, but the process
+    is killed before the wrapper can log it. That order is defensive only.
+  - A 504 at the 6 h process deadline is not exercised. Neither is a real
+    source whose attachments the muxer rejects, because FFmpeg will not write
+    one; the wrapper stands in for it.
+
+### Verification on the final code
+- `make verify-local` passed on macOS arm64 with FFmpeg 6.0:
+  - 6 unit tests;
+  - 43 API tests;
+  - 19 of 19 ignored CPU tests: 17 in `api.rs`, the HDR fallback test and the
+    FFmpeg-boundary test;
+  - 39 Python tests;
+  - 60 of 60 browser cases;
+  - the Nginx/TLS drill.
+- All eight N100 SSH checks passed with Ubuntu FFmpeg 6.1.1. The
+  `software-media` check ran the same 19 ignored tests. See
+  `validation-n100-confined-subtitles.json`, source `d303898f…`.
+- An independent adversarial review found nothing blocking. Its findings were
+  fixed:
+  - a vacuous test branch;
+  - the unanchored open;
+  - `-fs` exit handling;
+  - SSA copying;
+  - attachment failures;
+  - the deadline;
+  - test labels.
+
+  Two follow-up reviews found nothing remaining. One optional nit was left: the
+  retry could be narrowed to FFmpeg's non-zero exit only.
+- A separate review of the FFmpeg-boundary test led to four changes:
+  - scenario 4 now uses a FIFO;
+  - its doc text no longer claimed to reproduce the old race;
+  - scenario 5 (cancellation) was added;
+  - result claims were made only after the runs above.
+
+  A follow-up review found nothing blocking. Its wording correction is
+  included. Left unchanged: reading `errno` in the same expression as `kill`,
+  and creating the FIFO with `libc::mkfifo`.
+- CodeRabbit's review of the PR raised one valid point: opening the extracted
+  file had no time bound. It is now bounded like `media::open_media`: tracked,
+  5 s, 504. That open can no longer hold the session indefinitely. A stop is
+  still not bounded overall: the session removes its workspace before
+  reporting that it is done, and that removal can also stall on the data
+  filesystem. An independent review of the fix found nothing blocking.
+- CodeRabbit then noted that a call stuck in the kernel keeps its tracked
+  thread, so shutdown still waits for it. The same is true of `open_media`, and
+  no user-space code can cancel such a call. Both opens now share
+  `media::bounded_blocking`. Its unit tests use a closure blocked on a channel
+  and check four things:
+  - the wait ends with a 504 within the bound;
+  - the abandoned thread is still tracked, so `wait()` does not finish until
+    it is released;
+  - results and I/O errors pass through;
+  - a panic becomes a 500.
+
+  With the bound removed, the test fails in 5 s instead of hanging. A review
+  found nothing blocking.
+- Shutdown and workspace cleanup still wait on a filesystem call stuck in the
+  kernel. Only mount timeouts bound them.
+- The results above are for source `d303898f…`. The final commit after them
+  changes only code comments and these notes; Rust format, Clippy and the unit
+  tests were rerun on it.
+
+### Time to the first published segment
+Each figure is the median and range of five alternating rounds, measured from
+the playback request until the first segment is published. The runs used text
+burn-in on generated 720p 8 Mbit/s Matroska files with an ASS cue every 10 s
+and an embedded font, so both versions read the whole file. All runs used a
+warm cache.
+
+| Host | File | Start | Before | After |
+| --- | --- | --- | --- | --- |
+| macOS arm64 | 2 min, 130 MB | 0 s | 425 (419–441) ms | 427 (425–428) ms |
+| macOS arm64 | 2 min | 60 s | 418 (404–427) ms | 411 (410–417) ms |
+| macOS arm64 | 30 min, 1.95 GB | 0 s | 589 (575–594) ms | 559 (556–562) ms |
+| macOS arm64 | 30 min | 900 s | 575 (569–717) ms | 538 (536–550) ms |
+| N100 | 2 min | 0 s | 1406 (1389–1455) ms | 1364 (1340–1415) ms |
+| N100 | 2 min | 60 s | 1408 (1403–1438) ms | 1381 (1363–1470) ms |
+| N100 | 30 min | 0 s | 2374 (2362–2385) ms | 1681 (1654–1805) ms |
+| N100 | 30 min | 900 s | 2334 (2318–2354) ms | 1648 (1629–1790) ms |
+
+How to read these results:
+- The 2-minute ranges overlap, so those differences are inconclusive.
+- On the 30-minute file the new code was faster on both hosts, and the ranges
+  do not overlap. The cause was not profiled.
+- **Load:** the N100 load average was 3.5 at the start and 2.8 at the end, so its
+  figures may be noisy.
+- **Code version:** the timings predate the review fixes. Those fixes change
+  only failure paths and the extracted-file open.
+- **Not measured:** cold cache, SMB/NAS, adaptive ladders (the old code had
+  each rendition's filter read the whole file), CPU time and Jellyfin.
+
+No speed claim beyond these measurements is made.

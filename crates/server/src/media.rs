@@ -100,19 +100,44 @@ pub(crate) fn inherited(slot: usize) -> String {
 /// so a component swapped after authorization cannot redirect the read.
 pub(crate) async fn open_media(app: &App, path: &FsPath) -> Result<(std::fs::File, u64)> {
     let path = path.to_owned();
-    let work = app.tasks.spawn_blocking(move || {
-        let file = open_registered_file(&path)?;
-        let metadata = file.metadata()?;
-        if !metadata.is_file() {
-            return Err(std::io::Error::other("not a regular file"));
-        }
-        Ok((file, metadata.len()))
-    });
-    tokio::time::timeout(Duration::from_secs(5), work)
+    bounded_blocking(
+        &app.tasks,
+        OPEN_TIMEOUT,
+        ("media open timed out", "media worker failed"),
+        move || {
+            let file = open_registered_file(&path)?;
+            let metadata = file.metadata()?;
+            if !metadata.is_file() {
+                return Err(std::io::Error::other("not a regular file"));
+            }
+            Ok((file, metadata.len()))
+        },
+    )
+    .await?
+    .map_err(|_| Error::new(404, "media unavailable"))
+}
+
+/// Bound for a blocking open of library or session files.
+pub(crate) const OPEN_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Runs blocking filesystem work on the tracked pool and stops waiting after
+/// `limit`, answering 504 with `messages.0` (or 500 with `messages.1` if the
+/// worker failed or panicked), so a stalled mount cannot hold the caller's
+/// wait for this work. It bounds only that wait: a thread stuck inside a
+/// kernel call keeps running until the call returns, and shutdown waits for
+/// it, while other filesystem work, such as session cleanup, can stall on the
+/// same mount. No user-space code can cancel such a call; mount timeouts
+/// bound it.
+pub(crate) async fn bounded_blocking<T: Send + 'static>(
+    tasks: &tokio_util::task::TaskTracker,
+    limit: Duration,
+    messages: (&'static str, &'static str),
+    work: impl FnOnce() -> std::io::Result<T> + Send + 'static,
+) -> Result<std::io::Result<T>> {
+    tokio::time::timeout(limit, tasks.spawn_blocking(work))
         .await
-        .map_err(|_| Error::new(504, "media open timed out"))?
-        .map_err(|_| Error::new(500, "media worker failed"))?
-        .map_err(|_| Error::new(404, "media unavailable"))
+        .map_err(|_| Error::new(504, messages.0))?
+        .map_err(|_| Error::new(500, messages.1))
 }
 
 /// Serves authorized library media from an anchored handle. Content type comes
@@ -1148,4 +1173,67 @@ pub async fn capabilities(
     Ok(Json(
         json!({"accelerators":accelerators,"validated_hardware":[],"note":"Runtime encoder smoke tests are not GPU certification. HDR uses bounded software conversion by default. OVL_HDR_ACCELERATOR=vaapi opts eligible HDR10 into VAAPI with pre-publication CPU fallback; runtime smoke tests do not certify HDR quality or capacity."}),
     ))
+}
+
+#[cfg(test)]
+mod bounded_blocking_tests {
+    use super::bounded_blocking;
+    use std::time::{Duration, Instant};
+    use tokio_util::task::TaskTracker;
+
+    const MESSAGES: (&str, &str) = ("timed out", "worker failed");
+
+    #[tokio::test]
+    async fn a_stalled_call_stops_the_wait_but_not_the_tracked_thread() {
+        let tasks = TaskTracker::new();
+        let (release, stalled) = std::sync::mpsc::channel::<()>();
+        let started = Instant::now();
+        // The outer bound turns a missing inner bound into a failure, not a hang.
+        let error = tokio::time::timeout(
+            Duration::from_secs(5),
+            bounded_blocking(&tasks, Duration::from_millis(50), MESSAGES, move || {
+                stalled.recv().map_err(std::io::Error::other)
+            }),
+        )
+        .await
+        .expect("the stalled call was not bounded")
+        .unwrap_err();
+        assert_eq!((error.0.as_u16(), error.1.as_str()), (504, "timed out"));
+        assert!(started.elapsed() < Duration::from_secs(2));
+        // The abandoned thread is still tracked: shutdown would wait for it.
+        tasks.close();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), tasks.wait())
+                .await
+                .is_err()
+        );
+        release.send(()).unwrap();
+        tokio::time::timeout(Duration::from_secs(5), tasks.wait())
+            .await
+            .expect("thread finishes once its call returns");
+    }
+
+    #[tokio::test]
+    async fn results_and_failures_pass_through() {
+        let tasks = TaskTracker::new();
+        let ok = bounded_blocking(&tasks, Duration::from_secs(5), MESSAGES, || Ok(7))
+            .await
+            .unwrap();
+        assert_eq!(ok.unwrap(), 7);
+        let io = bounded_blocking::<()>(&tasks, Duration::from_secs(5), MESSAGES, || {
+            Err(std::io::Error::other("refused"))
+        })
+        .await
+        .unwrap();
+        assert!(io.is_err());
+        let panicked = bounded_blocking::<()>(&tasks, Duration::from_secs(5), MESSAGES, || {
+            panic!("worker panic")
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(
+            (panicked.0.as_u16(), panicked.1.as_str()),
+            (500, "worker failed")
+        );
+    }
 }
