@@ -1531,8 +1531,9 @@ Remaining gaps:
 - The synchronous mkdir runs on a runtime worker under the lock, as the
   free-space check already did. A hung remote data directory therefore stalls
   a worker rather than a blocking-pool thread.
-- A failed workspace removal at session end is still ignored.
-- An abandoned TMDB artwork download can leave `artwork/poster-<token>`.
+- A failed workspace removal at session end was ignored, and an abandoned
+  TMDB artwork download could leave `artwork/poster-<token>`. Both were fixed
+  on 17 November 2026; see "Unowned workspaces and artwork downloads".
 
 ## Confined text-subtitle extraction — 2026-11-17
 
@@ -1690,3 +1691,94 @@ How to read these results:
   each rendition's filter read the whole file), CPU time and Jellyfin.
 
 No speed claim beyond these measurements is made.
+
+## Unowned workspaces and artwork downloads — 2026-11-17
+
+Two leaks left server-owned files that nothing removed.
+
+- **Failed session cleanup:** a failed workspace removal at session end was
+  ignored, and the session was already unregistered. The workspace stayed
+  until the next restart. That restart's sweep then failed on it too, and its
+  `?` stopped the server from starting.
+- **Interrupted artwork save:** a TMDB artwork save cut off between writing
+  `artwork/poster-<token>` and renaming it left the temporary file behind.
+  Nothing swept `artwork/`.
+
+### Changes
+- **Failed removals are logged:** a session-end removal failure is now logged.
+- **`App::sweep_orphans` runs every minute,** as its own tracked task that
+  ends at shutdown. It removes:
+  - workspaces with server-generated names that no live session registers;
+  - `poster-<token>` downloads at least 10 minutes old.
+
+  Safety:
+  - A session creates and registers its workspace under the streams lock with
+    no await in between, and removes it before unregistering. So the sweep
+    cannot take a live session's workspace.
+  - Only 64-hex names are touched, whatever the listing supplies.
+  - Symlinks are not followed. A `transcodes/` or `artwork/` replaced by a
+    symlink is skipped. That is a check before use, not race-free, but
+    changing it needs write access to the 0700 data directory.
+- **Startup runs the same removal and logs failures instead of refusing to
+  start.** It removes every abandoned download, whatever its timestamp.
+  Maintenance leaves a download with a future timestamp (the clock stepped
+  back) for the next startup.
+- **One sweep at a time:** a busy flag stays set until every blocking job of
+  a sweep has ended, including one abandoned at the 60 s bound. While a data
+  directory stays stalled, later sweeps are skipped with a warning each minute
+  instead of stranding another thread. If the directory never recovers,
+  sweeping stops until it does.
+- **Uninterruptible artwork saves:** `media::save_artwork` writes and renames
+  in a tracked task, so a disconnecting client cannot stop it. It removes its
+  temporary file and logs the I/O error on any failure.
+
+### Tests
+Six new API tests:
+- the sweep's scope: a live session's workspace, foreign names, symlinks and
+  their targets, fresh downloads and saved artwork all survive;
+- an unremovable workspace is retried, does not block startup, and is removed
+  once it becomes removable. A future-dated download survives maintenance and
+  is removed at startup;
+- artwork saves finish or leave nothing behind: a failed rename onto a
+  directory, and a save whose caller is dropped after its first poll;
+- a sweep is skipped while the flag is set;
+- a listing stalled past the bound keeps the flag set until it returns;
+- a listing naming paths outside `transcodes/` removes nothing.
+
+Each of these mutations is caught:
+- ignoring live sessions;
+- removing the download-age check;
+- keeping failed temporary files;
+- an inline untracked save;
+- startup aborting on a failed removal;
+- removing the busy check;
+- applying the age check at startup;
+- dropping the flag held by stalled work (two variants);
+- removing the name filter.
+
+During development, one mutation run used a fixture that named `..` and `/`.
+It aborted at the first, root-owned entry of `/` and removed nothing outside
+the test's temporary directory. The fixture now names only a decoy inside that
+directory.
+
+### Verification
+- `make verify-local` passed on macOS arm64:
+  - 6 unit tests;
+  - 49 API tests;
+  - 19 of 19 ignored CPU tests;
+  - 39 Python tests;
+  - 60 of 60 browser cases;
+  - the Nginx/TLS drill.
+- All eight N100 SSH checks passed: 6 unit tests, 49 API tests and 19 of 19
+  ignored CPU tests. The new tests ran on Linux as a non-root user. See
+  `validation-n100-unowned-files.json`, source `0e9e6d91…`.
+- An independent adversarial review raised these findings, all fixed:
+  - stranded threads and a held maintenance loop on a stalled directory;
+  - an unlogged artwork error;
+  - future timestamps;
+  - an undocumented ordering contract;
+  - symlinked parent directories;
+  - test hygiene.
+
+  Two follow-up reviews found nothing blocking. They led to the stalled-work
+  test and the name filter.

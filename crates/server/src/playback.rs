@@ -400,11 +400,12 @@ pub async fn start(
     }
     let id = auth::token()?;
     let dir = app.config.data.join("transcodes").join(&id);
-    // No await between creating the workspace and handing it to the session
-    // task below: a client that disconnected during an await here would drop
-    // this future after the directory existed but before anything owned it,
-    // leaving it until the next startup sweep. The mkdir is synchronous, like
-    // the free-space check above.
+    // No await between creating the workspace and registering it below, all
+    // under the streams lock. A client that disconnected during an await here
+    // would drop this future after the directory existed but before anything
+    // owned it. The leftover sweep (`App::sweep_orphans`) also relies on this:
+    // it treats a listed workspace that is unregistered under this lock as
+    // abandoned. The mkdir is synchronous, like the free-space check above.
     std::fs::create_dir_all(&dir)?;
     let (done_tx, done) = watch::channel(false);
     let stream = Arc::new(Stream {
@@ -439,7 +440,11 @@ pub async fn start(
         stream.finished.store(true,Ordering::Release);
         loop{tokio::select!{_=stream.cancel.cancelled()=>break,_=tokio::time::sleep(Duration::from_secs(1))=>{if auth::now()-stream.touched.load(Ordering::Relaxed)>app.config.stream_idle.as_secs() as i64{break;}}}}
         stream.cancel.cancel();
-        let _=tokio::fs::remove_dir_all(&stream.dir).await;
+        // Remove the workspace before unregistering: the leftover sweep skips
+        // registered sessions. One that cannot be removed now is retried there.
+        if let Err(error)=tokio::fs::remove_dir_all(&stream.dir).await && error.kind()!=std::io::ErrorKind::NotFound {
+            tracing::warn!(%error,"session workspace not removed; maintenance will retry");
+        }
         app.streams.lock().await.remove(&id);
         let _=done_tx.send(true);
     });

@@ -1,6 +1,6 @@
 # OpenVideoLibrary migration handoff
 
-Updated 17 November 2026 (confined text-subtitle extraction). This file records the handoff
+Updated 17 November 2026 (unowned workspace and artwork cleanup). This file records the handoff
 for agents resuming work. Read AGENTS.md, STATUS.md, PARITY.md,
 VALIDATION.md, BENCHMARKS.md, ROLLOUT.md, ADR-001-rust.md and openapi.json
 before changing code or making acceptance claims.
@@ -246,11 +246,12 @@ VALIDATION.md for evidence. All eight N100 checks passed afterwards
 an intermittent failure is gone, so watch later runs. The synchronous mkdir runs on a runtime worker
 under the admission lock, as the free-space check already did, so a hung
 remote data directory now stalls a worker rather than a blocking-pool
-thread; admission stalled in either case. Two unowned-resource gaps
-outside this change remain: a failed `remove_dir_all` at session end is
-ignored (the directory stays until the startup sweep), and a TMDB artwork
-download abandoned between writing its temporary file and renaming it
-leaves `artwork/poster-<token>`, which nothing sweeps.
+thread; admission stalled in either case. The two unowned-file gaps found
+here were fixed on 17 November 2026. A failed workspace removal is now
+logged, and a one-minute maintenance sweep removes unowned workspaces and
+abandoned artwork downloads. A TMDB artwork save can no longer be cut off
+between its write and its rename. See "Unowned workspaces and artwork
+downloads" in VALIDATION.md.
 
 **CodeRabbit review of PR 1 (13 November 2026).** All 15 comments were
 verified against the code, and all were valid. They are fixed in one commit on
