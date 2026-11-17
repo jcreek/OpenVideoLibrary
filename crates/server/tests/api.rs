@@ -6720,9 +6720,21 @@ async fn artwork_saves_finish_or_leave_nothing_behind() {
     // temporary file and reports the failure.
     std::fs::create_dir_all(artwork.join("5.jpg")).unwrap();
     std::fs::write(artwork.join("5.jpg").join("x"), b"x").unwrap();
-    let error = media::save_artwork(&app, 5, b"jpeg".to_vec())
-        .await
-        .unwrap_err();
+    // The save holds the caller's metadata permit until it ends.
+    let slots = Arc::new(tokio::sync::Semaphore::new(1));
+    let error = media::save_artwork(
+        &app,
+        5,
+        b"jpeg".to_vec(),
+        slots.clone().try_acquire_owned().unwrap(),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(
+        slots.available_permits(),
+        1,
+        "permit kept after a failed save"
+    );
     assert_eq!(error.0, 500);
     assert_eq!(leftovers(), 0);
     assert_eq!(
@@ -6730,17 +6742,31 @@ async fn artwork_saves_finish_or_leave_nothing_behind() {
         b"x"
     );
     // A save whose caller goes away right after starting it still completes.
-    let mut save = Box::pin(media::save_artwork(&app, 6, b"poster".to_vec()));
+    // Its permit stays taken until the save ends, so abandoned requests cannot
+    // pile up unfinished saves beyond the metadata limit.
+    let mut save = Box::pin(media::save_artwork(
+        &app,
+        6,
+        b"poster".to_vec(),
+        slots.clone().try_acquire_owned().unwrap(),
+    ));
     let _ = save.as_mut().poll(&mut Context::from_waker(Waker::noop()));
     drop(save);
+    assert_eq!(
+        slots.available_permits(),
+        0,
+        "permit released when the caller went away"
+    );
     let saved = artwork.join("6.jpg");
     tokio::time::timeout(Duration::from_secs(5), async {
-        while std::fs::read(&saved).ok().as_deref() != Some(b"poster".as_slice()) {
+        while std::fs::read(&saved).ok().as_deref() != Some(b"poster".as_slice())
+            || slots.available_permits() == 0
+        {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
     .await
-    .expect("abandoned save did not finish");
+    .expect("abandoned save did not finish and release its permit");
     assert_eq!(leftovers(), 0);
     app.shutdown().await;
 }

@@ -1771,7 +1771,8 @@ directory.
   - the Nginx/TLS drill.
 - All eight N100 SSH checks passed: 6 unit tests, 49 API tests and 19 of 19
   ignored CPU tests. The new tests ran on Linux as a non-root user. See
-  `validation-n100-unowned-files.json`, source `0e9e6d91…`.
+  `validation-n100-unowned-files.json`, source `3121f0af…`. The results
+  above are from the code with the CodeRabbit fixes below.
 - An independent adversarial review raised these findings, all fixed:
   - stranded threads and a held maintenance loop on a stalled directory;
   - an unlogged artwork error;
@@ -1782,3 +1783,20 @@ directory.
 
   Two follow-up reviews found nothing blocking. They led to the stalled-work
   test and the name filter.
+- CodeRabbit's review of the PR raised three minor points, all fixed:
+  - **Inspection errors are logged:** `read_dir`, entry and metadata errors for
+    `transcodes/` and `artwork/` are now logged instead of silently skipping
+    leftovers. A missing directory stays silent.
+  - **The metadata slot lasts as long as the save:** the request's metadata
+    permit moves into the tracked save, so an abandoned request still counts
+    against the limit of two until its save ends. New matches meanwhile get
+    "metadata queue full". The artwork test checks the permit is held after
+    the caller goes and released when the save ends. Releasing it early makes
+    the test fail.
+  - **Save failures are logged in the save:** the failure is logged inside the
+    tracked save, so it is not lost when the caller has gone.
+
+  A review of these fixes found nothing blocking. Two cosmetic points are left:
+  - an unreadable `transcodes/` can log twice per minute;
+  - `Swept.failed` counts failed removals, not failed inspections, which are
+    only logged.

@@ -295,7 +295,24 @@ fn generated(name: &str) -> bool {
 /// symlinked `transcodes` and `artwork`; this keeps a later swap from
 /// redirecting a sweep.
 fn real_dir(path: &Path) -> bool {
-    std::fs::symlink_metadata(path).is_ok_and(|m| m.is_dir())
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.is_dir() => true,
+        Ok(_) => {
+            tracing::warn!(path = %path.display(), "leftover cleanup skipped: not a real directory");
+            false
+        }
+        Err(error) => {
+            inspection_failed(path, &error);
+            false
+        }
+    }
+}
+
+/// Logs a failure to inspect a cleanup location. A missing one is normal.
+fn inspection_failed(path: &Path, error: &std::io::Error) {
+    if error.kind() != std::io::ErrorKind::NotFound {
+        tracing::warn!(%error, path = %path.display(), "leftover cleanup could not inspect; leftovers there are not removed");
+    }
 }
 
 /// Server-named session workspaces: real directories, never symlinks.
@@ -305,12 +322,26 @@ pub fn workspace_names(data: &Path) -> Vec<String> {
     if !real_dir(&transcodes) {
         return Vec::new();
     }
-    let Ok(entries) = std::fs::read_dir(transcodes) else {
-        return Vec::new();
+    let entries = match std::fs::read_dir(&transcodes) {
+        Ok(entries) => entries,
+        Err(error) => {
+            inspection_failed(&transcodes, &error);
+            return Vec::new();
+        }
     };
     entries
-        .flatten()
-        .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+        .filter_map(|entry| {
+            entry
+                .inspect_err(|error| inspection_failed(&transcodes, error))
+                .ok()
+        })
+        .filter(|e| match e.file_type() {
+            Ok(kind) => kind.is_dir(),
+            Err(error) => {
+                inspection_failed(&e.path(), &error);
+                false
+            }
+        })
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .filter(|name| generated(name))
         .collect()
@@ -340,19 +371,29 @@ fn remove_orphans(data: &Path, workspaces: &[String], download_age: Option<Durat
     }
     let artwork = data.join("artwork");
     let entries = if real_dir(&artwork) {
-        std::fs::read_dir(artwork).ok()
+        std::fs::read_dir(&artwork)
+            .inspect_err(|error| inspection_failed(&artwork, error))
+            .ok()
     } else {
         None
     };
     if let Some(entries) = entries {
-        for entry in entries.flatten() {
+        for entry in entries.filter_map(|entry| {
+            entry
+                .inspect_err(|error| inspection_failed(&artwork, error))
+                .ok()
+        }) {
             let name = entry.file_name().to_string_lossy().into_owned();
             if !name.strip_prefix("poster-").is_some_and(generated) {
                 continue;
             }
             // DirEntry metadata does not follow a symlink.
-            let Ok(metadata) = entry.metadata() else {
-                continue;
+            let metadata = match entry.metadata() {
+                Ok(metadata) => metadata,
+                Err(error) => {
+                    inspection_failed(&entry.path(), &error);
+                    continue;
+                }
             };
             let stale = match download_age {
                 None => true,
