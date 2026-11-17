@@ -95,6 +95,23 @@ ASS/SSA, burn-in is the choice intended to preserve source styling. Browser text
 conversion does not preserve embedded font geometry or every source effect.
 External sibling SRT remains browser text in this preview.
 
+Text burn-in never lets libass read library media. The `subtitles` filter
+opens its file without FFmpeg's input whitelists, so a confined FFmpeg first
+copies the selected track and the source's attachments into the session's
+`subtitle.mkv`. It reads library media only through local-file, single-file
+demuxers, and the filter then reads only that file.
+- ASS and SubRip are copied as they are. Other text codecs, such as MP4
+  `mov_text` and WebVTT, are converted to ASS.
+- Cue times stay on the source timeline (`-copyts`).
+- The file counts toward the session's `transcode_bytes` quota, and embedded
+  fonts count too.
+- An oversized extraction stops the session with a workspace-quota error. Any
+  other failure except a timeout is retried once without attachments, then
+  reported as "subtitle extraction failed". Extraction shares the
+  conversion's 6 h process deadline.
+- Cancellation, idle and free-space checks apply during extraction as they do
+  during conversion.
+
 Burn-in restores the source cue timeline around text rendering, accounting for
 both the requested seek and `MediaInfo.format.start_time`, then restores the
 playback timeline before encoding. The additive probe field is a raw source

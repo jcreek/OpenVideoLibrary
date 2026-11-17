@@ -1,6 +1,6 @@
 # OpenVideoLibrary migration handoff
 
-Updated 16 November 2026 (unowned remux workspace fix). This file records the handoff
+Updated 17 November 2026 (confined text-subtitle extraction). This file records the handoff
 for agents resuming work. Read AGENTS.md, STATUS.md, PARITY.md,
 VALIDATION.md, BENCHMARKS.md, ROLLOUT.md, ADR-001-rust.md and openapi.json
 before changing code or making acceptance claims.
@@ -284,7 +284,9 @@ Evidence:
 - An independent review and its follow-up found nothing blocking.
 
 Still open:
-- The subtitles-filter residual (see STATUS.md).
+- The subtitles-filter residual (see STATUS.md). Closed on 17 November
+  2026 by confined extraction; see "Confined text-subtitle extraction"
+  in VALIDATION.md.
 - There is no deterministic test for the login/reset race or for
   cancelling cold detection.
 - Existing overlapping library roots in older databases are not flagged.

@@ -60,12 +60,12 @@ pending; these smoke checks do not certify full deployment or GPU behavior.
 
 Library media reach FFmpeg, ffprobe and the file server only through anchored,
 symlink-free handles. Library inputs are also confined to local files and
-single-file demuxers. **Open security residual:** libass's `subtitles` filter,
-used for text-subtitle burn-in, opens its handle without FFmpeg's input
-whitelists. Exploiting it needs write access to the library and a content swap
-between the confined probe and the start of the filter. A possible fix, not yet
-measured, is to extract the subtitle once into the session directory with a
-confined FFmpeg and burn in from that trusted file.
+single-file demuxers. The former text-subtitle residual is closed. libass's
+`subtitles` filter opens its file without FFmpeg's input whitelists, so it no
+longer reads library media. A confined FFmpeg first copies the selected track
+and its font attachments into the session directory. The filter reads only
+that server-written file. See "Confined text-subtitle extraction" in
+VALIDATION.md.
 
 ## Remaining acceptance and parity
 
