@@ -1161,24 +1161,30 @@ async fn bind_media_inputs(
             Handle::Subtitle => {
                 let subtitle =
                     subtitle.ok_or_else(|| Error::new(500, "text subtitle was not extracted"))?;
-                open_extracted(subtitle).await?
+                open_extracted(app, subtitle).await?
             }
         });
     }
     Ok((bound, files))
 }
 /// Opens a server-written session file through anchored, symlink-refusing,
-/// non-blocking component lookups and checks it is a regular file.
-async fn open_extracted(path: &std::path::Path) -> Result<std::fs::File> {
+/// non-blocking component lookups and checks it is a regular file. Bounded
+/// like [`media::open_media`], so a stalled data directory cannot hold a
+/// stop or shutdown waiting on this session.
+async fn open_extracted(app: &App, path: &std::path::Path) -> Result<std::fs::File> {
     let path = path.to_owned();
-    let file = tokio::task::spawn_blocking(move || media::open_registered_file(&path))
+    let work = app.tasks.spawn_blocking(move || {
+        let file = media::open_registered_file(&path)?;
+        if !file.metadata()?.is_file() {
+            return Err(std::io::Error::other("not a regular file"));
+        }
+        Ok(file)
+    });
+    tokio::time::timeout(Duration::from_secs(5), work)
         .await
-        .map_err(|_| Error::new(500, "subtitle open failed"))?
-        .map_err(|_| Error::new(500, "extracted subtitle unavailable"))?;
-    if !file.metadata()?.is_file() {
-        return Err(Error::new(500, "extracted subtitle is not a file"));
-    }
-    Ok(file)
+        .map_err(|_| Error::new(504, "extracted subtitle open timed out"))?
+        .map_err(|_| Error::new(500, "subtitle worker failed"))?
+        .map_err(|_| Error::new(500, "extracted subtitle unavailable"))
 }
 async fn check_conversion_quota(app: &App, stream: &Stream) -> Result<()> {
     let mut size = 0u64;

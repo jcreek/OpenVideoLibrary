@@ -1612,7 +1612,7 @@ file, through an anchored, symlink-refusing handle.
   - the Nginx/TLS drill.
 - All eight N100 SSH checks passed with Ubuntu FFmpeg 6.1.1. The
   `software-media` check ran the same 19 ignored tests. See
-  `validation-n100-confined-subtitles.json`, source `a2e0018b…`.
+  `validation-n100-confined-subtitles.json`, source `663d405a…`.
 - An independent adversarial review found nothing blocking. Its findings were
   fixed:
   - a vacuous test branch;
@@ -1634,6 +1634,12 @@ file, through an anchored, symlink-refusing handle.
   A follow-up review found nothing blocking. Its wording correction is
   included. Left unchanged: reading `errno` in the same expression as `kill`,
   and creating the FIFO with `libc::mkfifo`.
+- CodeRabbit's review of the PR raised one valid point: opening the extracted
+  file had no time bound. It is now bounded like `media::open_media`: tracked,
+  5 s, 504. A stalled data directory therefore cannot hold a stop waiting on
+  the session. As with `open_media`, there is no test for that bound, because
+  it needs a stalled filesystem. An independent review of the fix found
+  nothing blocking. The results above are from the fixed code.
 
 ### Time to the first published segment
 Each figure is the median and range of five alternating rounds, measured from
