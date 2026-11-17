@@ -6547,3 +6547,334 @@ async fn failed_music_probes_do_not_starve_later_tracks() {
     }
     app.shutdown().await;
 }
+
+/// Registers a session that owns `transcodes/<id>` without running FFmpeg.
+async fn register_session(app: &Arc<App>, id: &str) -> std::path::PathBuf {
+    let dir = app.config.data.join("transcodes").join(id);
+    std::fs::create_dir_all(&dir).unwrap();
+    let (_, done) = tokio::sync::watch::channel(false);
+    let stream = Arc::new(playback::Stream {
+        owner: 1,
+        library: 1,
+        item: 1,
+        dir: dir.clone(),
+        cancel: app.cancel.child_token(),
+        done,
+        touched: std::sync::atomic::AtomicI64::new(auth::now()),
+        finished: std::sync::atomic::AtomicBool::new(false),
+        error: tokio::sync::Mutex::new(None),
+        accelerator: tokio::sync::Mutex::new(None),
+    });
+    app.streams.lock().await.insert(id.to_owned(), stream);
+    dir
+}
+
+fn age(path: &Path, by: Duration) {
+    std::fs::File::options()
+        .write(true)
+        .open(path)
+        .unwrap()
+        .set_modified(std::time::SystemTime::now() - by)
+        .unwrap();
+}
+
+#[tokio::test]
+async fn sweep_removes_only_unowned_workspaces_and_stale_downloads() {
+    let root = TempDir::new().unwrap();
+    let (app, _router, _token) = setup(&root).await;
+    let transcodes = app.config.data.join("transcodes");
+    let artwork = app.config.data.join("artwork");
+    std::fs::create_dir_all(&transcodes).unwrap();
+    std::fs::create_dir_all(&artwork).unwrap();
+    let hex = |c: char| c.to_string().repeat(64);
+    // An unowned workspace, a live session's workspace and a foreign name.
+    let orphan = transcodes.join(hex('a'));
+    std::fs::create_dir(&orphan).unwrap();
+    std::fs::write(orphan.join("v0-0.ts"), b"segment").unwrap();
+    let live = register_session(&app, &hex('b')).await;
+    std::fs::write(live.join("v0-0.ts"), b"segment").unwrap();
+    std::fs::create_dir(transcodes.join("keep-me")).unwrap();
+    // A server-named symlink must not be followed into its target.
+    let outside = root.path().join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    std::fs::write(outside.join("precious"), b"data").unwrap();
+    std::os::unix::fs::symlink(&outside, transcodes.join(hex('c'))).unwrap();
+    // Artwork: a stale and a fresh download, a foreign name and a saved poster.
+    let stale = artwork.join(format!("poster-{}", hex('d')));
+    let fresh = artwork.join(format!("poster-{}", hex('e')));
+    let foreign = artwork.join("poster-notatoken");
+    let saved = artwork.join("7.jpg");
+    for path in [&stale, &fresh, &foreign, &saved] {
+        std::fs::write(path, b"jpeg").unwrap();
+    }
+    for path in [&stale, &foreign, &saved] {
+        age(path, Duration::from_secs(3600));
+    }
+    let swept = app.sweep_orphans(Duration::from_secs(600)).await.unwrap();
+    assert_eq!(
+        swept,
+        ovl_server::Swept {
+            removed: 2,
+            failed: 0
+        }
+    );
+    assert!(!orphan.exists());
+    assert!(!stale.exists());
+    assert!(live.join("v0-0.ts").exists(), "live workspace removed");
+    assert!(transcodes.join("keep-me").exists());
+    assert!(transcodes.join(hex('c')).symlink_metadata().is_ok());
+    assert!(outside.join("precious").exists(), "symlink followed");
+    for path in [&fresh, &foreign, &saved] {
+        assert!(path.exists(), "{}", path.display());
+    }
+    // Once its session is gone, the workspace is the next sweep's to remove.
+    app.streams.lock().await.clear();
+    let swept = app.sweep_orphans(Duration::from_secs(600)).await.unwrap();
+    assert_eq!(swept.removed, 1);
+    assert!(!live.exists());
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn an_unremovable_workspace_is_retried_and_does_not_block_startup() {
+    use std::os::unix::fs::PermissionsExt;
+    // SAFETY: geteuid has no preconditions.
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("skipped: permission bits do not stop root");
+        return;
+    }
+    /// Restores write permission even if an assertion fails first.
+    struct Writable(std::path::PathBuf);
+    impl Drop for Writable {
+        fn drop(&mut self) {
+            let _ = std::fs::set_permissions(&self.0, std::fs::Permissions::from_mode(0o700));
+        }
+    }
+    let root = TempDir::new().unwrap();
+    let (app, router, _token) = setup(&root).await;
+    let orphan = app.config.data.join("transcodes").join("f".repeat(64));
+    std::fs::create_dir_all(&orphan).unwrap();
+    std::fs::write(orphan.join("v0-0.ts"), b"segment").unwrap();
+    let _restore = Writable(orphan.clone());
+    std::fs::set_permissions(&orphan, std::fs::Permissions::from_mode(0o500)).unwrap();
+    let swept = app.sweep_orphans(Duration::from_secs(600)).await.unwrap();
+    assert_eq!(
+        swept,
+        ovl_server::Swept {
+            removed: 0,
+            failed: 1
+        }
+    );
+    assert!(orphan.join("v0-0.ts").exists());
+    // A download dated in the future (the clock stepped back) is not stale to
+    // maintenance, but a restart removes every abandoned download whatever its
+    // time. The restart logs the unremovable leftover instead of refusing to
+    // start.
+    let download = app
+        .config
+        .data
+        .join("artwork")
+        .join(format!("poster-{}", "1".repeat(64)));
+    std::fs::create_dir_all(download.parent().unwrap()).unwrap();
+    std::fs::write(&download, b"jpeg").unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&download)
+        .unwrap()
+        .set_modified(std::time::SystemTime::now() + Duration::from_secs(3600))
+        .unwrap();
+    let swept = app.sweep_orphans(Duration::from_secs(600)).await.unwrap();
+    assert_eq!(swept.removed, 0);
+    assert!(download.exists());
+    app.shutdown().await;
+    drop((app, router));
+    let app = App::open(config(root.path())).unwrap();
+    assert!(orphan.exists());
+    assert!(!download.exists());
+    std::fs::set_permissions(&orphan, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let swept = app.sweep_orphans(Duration::from_secs(600)).await.unwrap();
+    assert_eq!(swept.removed, 1);
+    assert!(!orphan.exists());
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn artwork_saves_finish_or_leave_nothing_behind() {
+    use std::{
+        future::Future,
+        task::{Context, Waker},
+    };
+    let root = TempDir::new().unwrap();
+    let (app, _router, _token) = setup(&root).await;
+    let artwork = app.config.data.join("artwork");
+    let leftovers = || {
+        std::fs::read_dir(&artwork)
+            .map(|d| {
+                d.flatten()
+                    .filter(|e| e.file_name().to_string_lossy().starts_with("poster-"))
+                    .count()
+            })
+            .unwrap_or(0)
+    };
+    // A failed rename (the destination is a non-empty directory) removes the
+    // temporary file and reports the failure.
+    std::fs::create_dir_all(artwork.join("5.jpg")).unwrap();
+    std::fs::write(artwork.join("5.jpg").join("x"), b"x").unwrap();
+    // The save holds the caller's metadata permit until it ends.
+    let slots = Arc::new(tokio::sync::Semaphore::new(1));
+    let error = media::save_artwork(
+        &app,
+        5,
+        b"jpeg".to_vec(),
+        slots.clone().try_acquire_owned().unwrap(),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(
+        slots.available_permits(),
+        1,
+        "permit kept after a failed save"
+    );
+    assert_eq!(error.0, 500);
+    assert_eq!(leftovers(), 0);
+    assert_eq!(
+        std::fs::read(artwork.join("5.jpg").join("x")).unwrap(),
+        b"x"
+    );
+    // A save whose caller goes away right after starting it still completes.
+    // Its permit stays taken until the save ends, so abandoned requests cannot
+    // pile up unfinished saves beyond the metadata limit.
+    let mut save = Box::pin(media::save_artwork(
+        &app,
+        6,
+        b"poster".to_vec(),
+        slots.clone().try_acquire_owned().unwrap(),
+    ));
+    let _ = save.as_mut().poll(&mut Context::from_waker(Waker::noop()));
+    drop(save);
+    assert_eq!(
+        slots.available_permits(),
+        0,
+        "permit released when the caller went away"
+    );
+    let saved = artwork.join("6.jpg");
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while std::fs::read(&saved).ok().as_deref() != Some(b"poster".as_slice())
+            || slots.available_permits() == 0
+        {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("abandoned save did not finish and release its permit");
+    assert_eq!(leftovers(), 0);
+    app.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_sweep_is_skipped_while_earlier_sweep_work_is_still_running() {
+    use std::sync::atomic::Ordering;
+    let root = TempDir::new().unwrap();
+    let (app, _router, _token) = setup(&root).await;
+    let orphan = app.config.data.join("transcodes").join("9".repeat(64));
+    std::fs::create_dir_all(&orphan).unwrap();
+    // Stands in for blocking work an earlier sweep abandoned at its bound.
+    app.sweeping.store(true, Ordering::Release);
+    let swept = app.sweep_orphans(Duration::from_secs(600)).await.unwrap();
+    assert_eq!(swept, ovl_server::Swept::default());
+    assert!(orphan.exists(), "a second sweep ran alongside the first");
+    app.sweeping.store(false, Ordering::Release);
+    let swept = app.sweep_orphans(Duration::from_secs(600)).await.unwrap();
+    assert_eq!(swept.removed, 1);
+    assert!(!orphan.exists());
+    // A completed sweep releases the flag.
+    assert!(!app.sweeping.load(Ordering::Acquire));
+    app.shutdown().await;
+}
+
+/// Holds the stalled listing in the test below until released.
+static LISTING_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+fn stalled_listing(data: &Path) -> Vec<String> {
+    drop(LISTING_GATE.lock());
+    ovl_server::workspace_names(data)
+}
+
+#[tokio::test]
+// The held guard is the gate that keeps the blocking listing stalled.
+#[allow(clippy::await_holding_lock)]
+async fn sweep_work_stuck_past_its_bound_keeps_later_sweeps_out() {
+    use std::sync::atomic::Ordering;
+    let root = TempDir::new().unwrap();
+    let (app, _router, _token) = setup(&root).await;
+    let orphan = app.config.data.join("transcodes").join("8".repeat(64));
+    std::fs::create_dir_all(&orphan).unwrap();
+    let gate = LISTING_GATE.lock().unwrap();
+    let error = app
+        .sweep_with(
+            Duration::from_secs(600),
+            Duration::from_millis(50),
+            stalled_listing,
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(
+        (error.0.as_u16(), error.1.as_str()),
+        (504, "leftover listing timed out")
+    );
+    // The stalled listing still runs, so the flag stays set and the next sweep
+    // skips instead of stranding another blocking thread.
+    assert!(
+        app.sweeping.load(Ordering::Acquire),
+        "flag cleared at the bound"
+    );
+    let swept = app.sweep_orphans(Duration::from_secs(600)).await.unwrap();
+    assert_eq!(swept, ovl_server::Swept::default());
+    assert!(orphan.exists());
+    // Once the stalled call returns, the flag clears and sweeping resumes.
+    drop(gate);
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while app.sweeping.load(Ordering::Acquire) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("flag not released after the stalled listing returned");
+    let swept = app.sweep_orphans(Duration::from_secs(600)).await.unwrap();
+    assert_eq!(swept.removed, 1);
+    assert!(!orphan.exists());
+    app.shutdown().await;
+}
+
+/// A listing that names a path outside the workspace directory. Its target
+/// lies inside the test's temporary data directory, so if the name filter
+/// regresses this deletes only a test file. Never list "..", "/", absolute
+/// paths or anything else that could reach outside the temporary directory.
+fn hostile_listing(_: &Path) -> Vec<String> {
+    vec!["../decoy".into(), "a".repeat(63)]
+}
+
+#[tokio::test]
+async fn a_sweep_removes_only_server_generated_workspace_names() {
+    let root = TempDir::new().unwrap();
+    let (app, _router, _token) = setup(&root).await;
+    let transcodes = app.config.data.join("transcodes");
+    std::fs::create_dir_all(&transcodes).unwrap();
+    // Both inside the temporary data directory.
+    let decoy = app.config.data.join("decoy");
+    std::fs::create_dir_all(&decoy).unwrap();
+    std::fs::write(decoy.join("keep"), b"keep").unwrap();
+    let short = transcodes.join("a".repeat(63));
+    std::fs::create_dir_all(&short).unwrap();
+    let swept = app
+        .sweep_with(
+            Duration::from_secs(600),
+            Duration::from_secs(5),
+            hostile_listing,
+        )
+        .await
+        .unwrap();
+    assert_eq!(swept, ovl_server::Swept::default());
+    assert!(decoy.join("keep").exists(), "swept outside transcodes/");
+    assert!(short.exists(), "swept a name that is not server-generated");
+    app.shutdown().await;
+}

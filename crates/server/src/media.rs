@@ -1109,7 +1109,7 @@ pub async fn metadata_match(
     }
     let key = std::env::var("OVL_TMDB_KEY")
         .map_err(|_| Error::new(503, "OVL_TMDB_KEY is not configured"))?;
-    let _slot = app
+    let slot = app
         .metadata
         .clone()
         .try_acquire_owned()
@@ -1155,14 +1155,44 @@ pub async fn metadata_match(
     {
         let image = tokio::select! {_=app.cancel.cancelled()=>None,data=download(&client,url,10<<20)=>data.ok()};
         if let Some(bytes) = image {
-            let dir = app.config.data.join("artwork");
-            tokio::fs::create_dir_all(&dir).await?;
-            let tmp = dir.join(format!("poster-{}", auth::token()?));
-            tokio::fs::write(&tmp, bytes).await?;
-            tokio::fs::rename(tmp, dir.join(format!("{id}.jpg"))).await?;
+            save_artwork(&app, id, bytes, slot).await?;
         }
     }
     Ok(Json(json!({"title":title,"overview":overview})))
+}
+/// Stores downloaded artwork as `artwork/<id>.jpg` by writing a temporary
+/// `poster-<token>` and renaming it. The save runs as a tracked task, so a
+/// client that disconnects cannot stop it between the write and the rename;
+/// on any failure the temporary file is removed and the error logged there.
+/// `slot` is the caller's metadata permit: the save holds it until it ends, so
+/// abandoned requests cannot pile up unfinished saves beyond that limit.
+pub async fn save_artwork(
+    app: &Arc<App>,
+    id: i64,
+    bytes: Vec<u8>,
+    slot: tokio::sync::OwnedSemaphorePermit,
+) -> Result<()> {
+    let dir = app.config.data.join("artwork");
+    let tmp = dir.join(format!("poster-{}", auth::token()?));
+    let destination = dir.join(format!("{id}.jpg"));
+    let save = app.tasks.spawn(async move {
+        let _slot = slot;
+        let result = async {
+            tokio::fs::create_dir_all(&dir).await?;
+            tokio::fs::write(&tmp, bytes).await?;
+            tokio::fs::rename(&tmp, destination).await
+        }
+        .await;
+        if let Err(error) = &result {
+            // Logged here: the caller may already have gone.
+            tracing::warn!(%error, id, "artwork save failed");
+            let _ = tokio::fs::remove_file(&tmp).await;
+        }
+        result
+    });
+    save.await
+        .map_err(|_| Error::new(500, "artwork worker failed"))?
+        .map_err(|_| Error::new(500, "artwork could not be saved"))
 }
 pub async fn capabilities(
     State(app): State<Arc<App>>,
